@@ -3,7 +3,7 @@
 
 #include <common.cuh>
 #include <memory.h>
-
+#include <random>
 
 template<class T> 
 class DMatrix {
@@ -14,6 +14,7 @@ class DMatrix {
     T* _host_data;
     T* _dev_data;
     bool _on_device;
+	
 public:
     DMatrix(ld, fd, cublasStatus_t handle = 0) {
         _ld = ld;
@@ -28,8 +29,8 @@ public:
         }
     }
     
-    int nrows(bool t) { return T(t) ? fd:ld; }
-    int ncols(bool t) { return T(t) ? ld:fd; }
+    int nrows(bool t) { return T(t) ? fd():ld(); }
+    int ncols(bool t) { return T(t) ? ld():fd(); }
     int nelem() { return _nelem; }
     bool T(bool t) { return _T^t; }
     void setT() { _T = !_T; }
@@ -40,12 +41,45 @@ public:
     T* dev_data() { return dev_data; }
     bool on_device() { return _on_device; }
 
+	void init(int p, T a = 0.0, T b = 0.0) { 
+		if (p&DMatrixInit::Zero) memset(_host_data, 0, _size);
+		if (p&DMatrixInit::Uniform) {
+			std::default_random_engine gen;
+			std::uniform_real_distribution<T> dist(a, b);
+			for (int i = 0; i < _nelem; i++) _host_data[i] = dist(gen);
+		}
+		if (p&DMatrixInit::Normal) {
+			std::default_random_engine gen;
+			std::normal_distribution<T> dist(a, b);
+			for (int i = 0; i < _nelem; i++) _host_data[i] = dist(gen);
+		}
+		if (p&DMatrixInit::ColSparse) {
+			for (int col = 0; col < _fd; col++) {
+				
+				for (int i = 0; i < SPARSE_DEGREE; i++) {
+					_host_data
+				}
+			}
+		}
+	}
+	
     void host2dev() {
         CUBLAS_CALL(cublasSetMatrix(_ld, _fd, sizeof(T), _host_data, _ld, _dev_data, _ld)); 
     }
 
     void dev2host() {
         CUBLAS_CALL(cublasGetMatrix(_ld, _fd, sizeof(T), _dev_data, _ld, _host_data, _ld));
+    }
+
+    T norm2(int nelem = 0) {
+        if (nelem == 0) nelem = _nelem;
+        T res = 0.0;
+        if (_on_device) {
+            CUBLAS_CALL(cublasXnrm2(_handle, nelem, _dev_data, 1, res));
+        }else {
+            for (int i = 0; i < nelem; i++) res += _host_data[i]*_host_data[i];
+        }
+        return res;
     }
 
     void add(DMatrix<T>* x, const T alpha, int nelem = 0) {

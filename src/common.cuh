@@ -5,7 +5,7 @@
 #include <algorithm>
 
 const int BLOCK_SIZE = 256;
-
+const int SPARSE_DEGREE = 15;
 
 
 #define CUDA_CALL(x) do { if((x) != cudaSuccess) { \                                                                
@@ -18,7 +18,27 @@ const int BLOCK_SIZE = 256;
                             printf("Error at %s:%d\n",__FILE__,__LINE__);\     
                             exit(EXIT_FAILURE);}} while(0)                       
 
+enum DMatrixInit {
+	Zero = 1,
+	Uniform = 2,
+	Normal = 4,
+	ColSparse = 1+8,
+	RowSparse = 1 + 16,
+	Weight = 1+32,
+};
+							
+							
+cublasStatus_t  cublasXnrm2(cublasHandle_t handle, int n,
+                            const float           *x, int incx, float  *result)
+{
+    return cublasSnrm2(handle, n, x, incx, result);
+}
 
+cublasStatus_t  cublasXnrm2(cublasHandle_t handle, int n,
+                            const double          *x, int incx, double *result)
+{
+    return cublasDnrm2(handle, n, x, incx, result);
+}
 static inline cublasStatus_t cublasXaxpy(cublasHandle_t handle, int n,
                                         const float           *alpha,
                                         const float           *x, int incx,

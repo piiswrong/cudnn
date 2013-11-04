@@ -1,17 +1,16 @@
 #ifndef DHYPERPARAMS_CUH
 #define DHYPERPARAMS_CUH
 
-template<class T>
 class DHyperParams {
 public:
-    T learning_rate;
-    T momentum;
+    float learning_rate;
+    float momentum;
     bool weight_decay;
-    T decay_rate;
+    float decay_rate;
     bool idrop_out;
-    T idrop_rate
+    float idrop_rate
     bool hdrop_out;
-    T hdrop_rate;
+    float hdrop_rate;
     int batch_size;
 
     DHyperParams() {

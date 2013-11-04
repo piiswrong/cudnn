@@ -38,6 +38,9 @@ public:
         _act = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
     }
 
+    T* delta() { return _delta; }
+    T* act() { return _act; }
+
     void fprop(DMatrix<T>* dev_data) {
         _drv->update(*dev_data, *_weight);
         neuron.fprop(_act, _drv);
