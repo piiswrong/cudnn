@@ -112,9 +112,10 @@ public:
                 CUDA_CALL(cudaPeekAtLastError());
             }
         }else{
-            T* dest_data = dest->host_data();
+            T* x_data = x->host_data();
+            T* y_data = y->host_data();
             for(int i = 0; i < _nelem; i++) {
-                dest_data[i] = op(_host_data[i]);
+                _dev_data[i] = op(_dev_data[i], x_data[i], y_data[i]);
             }
         }
     }

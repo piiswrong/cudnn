@@ -21,7 +21,10 @@ class DNeuron {
 
 public:
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
-        drv->apply(
+        act->applyBinary(ForwardOp(), drv, _act.nelem() - _act.ld()); 
+    }
+    virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
+        delta->applyTenary(BackwardOp(), drv, act);
     }
 }
 
