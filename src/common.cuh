@@ -1,6 +1,13 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include <cublas_v2.h>
+#include <algorithm>
+
+const int BLOCK_SIZE = 256;
+
+
+
 #define CUDA_CALL(x) do { if((x) != cudaSuccess) { \                                                                
                             printf("Error at %s:%d\n",__FILE__,__LINE__);\     
                             exit(EXIT_FAILURE);}} while(0)                     
@@ -10,6 +17,23 @@
 #define CURAND_CALL(x) do { if((x) != CURAND_STATUS_SUCCESS) { \               
                             printf("Error at %s:%d\n",__FILE__,__LINE__);\     
                             exit(EXIT_FAILURE);}} while(0)                       
+
+
+static inline cublasStatus_t cublasXaxpy(cublasHandle_t handle, int n,
+                                        const float           *alpha,
+                                        const float           *x, int incx,
+                                        float                 *y, int incy) 
+{
+    return cublasSaxpy(handle, n, alpha, x, incx, y, incy);
+}
+
+static inline cublasStatus_t cublasXaxpy(cublasHandle_t handle, int n,
+                                        const double          *alpha,
+                                        const double          *x, int incx,
+                                        double                *y, int incy)
+{
+    return cublasDaxpy(handle, n, alpha, x, incx, y, incy);
+}
 
 static inline cublasStatus_t cublasXgemm(cublasHandle_t handle,
                                         cublasOperation_t transa, cublasOperation_t transb, int m, int n, int k,
