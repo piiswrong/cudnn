@@ -8,8 +8,9 @@
 template<class T> 
 class DMatrix {
     cublasStatus_t _handle;
-    int _ld, int _fd;
-    int _nelem, _size;
+    bool _is_view;
+
+    int _ld, _fd, _nelem, _size;
     bool _T;
     T* _host_data;
     T* _dev_data;
@@ -17,28 +18,53 @@ class DMatrix {
 	
 public:
     DMatrix(ld, fd, cublasStatus_t handle = 0) {
+        _is_view = false;
         _ld = ld;
         _fd = fd;
+        _T = false;
         _nelem = _ld*_fd;
         _size = _nelem*sizeof(T);
         _host_data = (T*)malloc(_size);
-        if (handle) { 
+        _handle = handle;
+        if (_handle) { 
             _on_device = true;
-            _handle = handle;
             CUDA_CALL(cudaMalloc((void**)&_dev_data, _size));
         }
+    }
+
+    DMatrix(DMatrix<T>* x, int offset, int length) {
+        _is_view = true;
+        _ld = x->_ld;
+        _fd = length;
+        _T = x->_T;
+        _nelem = _ld*length;
+        _size = _nelem*sizeof(T);
+        _host_data = x->_host_data + _ld*offset;
+        _handle = x->handle;
+        if (_handle) {
+            _on_device = true;
+            _dev_data = x->_dev_data + _ld*offset;
+        }
+    }
+
+    ~DMatrix() {
+        if (!_is_view) {
+            free(_host_data);
+            CUDA_CALL(cudaFree(_dev_data));
+        }   
     }
     
     int nrows(bool t) { return T(t) ? fd():ld(); }
     int ncols(bool t) { return T(t) ? ld():fd(); }
     int nelem() { return _nelem; }
+    int size() { return _size; }
     bool T(bool t) { return _T^t; }
     void setT() { _T = !_T; }
     cublasOperation_t Tchar(bool t) { return _T^t ? CUBLAS_OP_T : CUBLAS_OP_N; }
     int ld() { return _ld; }
     int fd() { return _fd; }
-    T* host_data() { return host_data; }
-    T* dev_data() { return dev_data; }
+    T* host_data() { return _host_data; }
+    T* dev_data() { return _dev_data; }
     bool on_device() { return _on_device; }
 
 	void init(int p, T a = 0.0, T b = 0.0) { 
@@ -55,12 +81,37 @@ public:
 		}
 		if (p&DMatrixInit::ColSparse) {
 			for (int col = 0; col < _fd; col++) {
-				
-				for (int i = 0; i < SPARSE_DEGREE; i++) {
-					_host_data
-				}
+                int n1 = SPARSE_DEGREE, n2 = _ld - SPARSE_DEGREE;
+                for (int row = 0; row < _ld; row++) {
+                    r = rand()%(n1+n2);
+                    if (r<n1) {
+                        n1--;
+                    }else {
+                        n2--;
+                        _host_data[col*_ld + row] = 0.0;
+                    }
+                }
 			}
 		}
+        if (p&DMatrixInit::RowSparse) {
+			for (int row = 0; row < _ld; row++) {
+                int n1 = SPARSE_DEGREE, n2 = _fd - SPARSE_DEGREE;
+                for (int col = 0; col < _fd; col++) {
+                    r = rand()%(n1+n2);
+                    if (r<n1) {
+                        n1--;
+                    }else {
+                        n2--;
+                        _host_data[col*_ld + row] = 0.9;
+                    }
+                }
+			}
+		}
+        if (p&DMatrixInit::Weight) {
+            for (int i = _nelem - _ld; i < _nelem; i++) _host_data[i] = 0.0;
+            _host_data[_nelem-1] = 1.0;
+        }
+        if (_on_device) host2dev();
 	}
 	
     void host2dev() {

@@ -33,7 +33,9 @@ public:
         _bp_hyper_params = bp_hyper_params;
         
         _momentun = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
+        _momentun->init(DMatrixInit::Zero);
         _weight = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
+        _weight->init(DMatrixInit::Weight|DMatrixInit::Normal, 0.0, 1/sqrt((T)_weight
         _drv = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _act = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
     }

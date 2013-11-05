@@ -19,6 +19,7 @@ const int SPARSE_DEGREE = 15;
                             exit(EXIT_FAILURE);}} while(0)                       
 
 enum DMatrixInit {
+    None = 0,
 	Zero = 1,
 	Uniform = 2,
 	Normal = 4,
