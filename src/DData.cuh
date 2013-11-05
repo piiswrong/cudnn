@@ -19,6 +19,7 @@ class DData {
     DMatrix<T> **_y_buffs;
     volatile bool *_ready;
     int _index;
+    pthread_t _thread;
     pthread_cond_t _cond;
     pthread_mutex_t _mutex;
 
@@ -55,6 +56,10 @@ public:
     
     int x_dim() { return _x_dim; }
     int y_dim() { return _y_dim; }
+
+    void start() {
+        pthread_create(&_thread, NULL, DData<T>::generateDataHelper, (void*)this);
+    }
 
     static void *generateDataHelper(void *this) {
         ((DData<T>*)this)->generateData();

@@ -44,13 +44,13 @@ public:
     }
 
     T trainOnBatch(DMatrix<T>* x, DMatrix<T>* y) {
-        fprop(x, _num_layers, _layers);
+        fprop(x, _num_layers, _layers, _bp_hyper_params.hdrop_rate);
         return bprop(x, y, _num_layers, _layers);
     }
 
-    void fprop(DMatrix<T>* x, int num_layers, DLayer<T>* layers) {
-        layers[0]->fprop(x);
-        for (int i = 1; i < num_layers; i++) layers[i]->fprop(layers[i-1]->act());
+    void fprop(DMatrix<T>* x, int num_layers, DLayer<T>* layers, float drop_rate = 0.0) {
+        layers[0]->fprop(x, drop_rate);
+        for (int i = 1; i < num_layers; i++) layers[i]->fprop(layers[i-1]->act(), (i == num_layers - 1) ? 0.0 : drop_rate);
     }
 
     T bprop(DMatrix<T>* x, DMatrix<T>* y, int num_layers, DLayer<T>** layers) {
@@ -63,6 +63,10 @@ public:
         }
         layers[0]->bprop(d, x, _bp_hyper_params->learning_rate, _bp_hyper_params->momentum);
         return loss;
+    }
+    
+    void fineTune(DData<T>* data) {
+        data->start();
     }
 
 };
