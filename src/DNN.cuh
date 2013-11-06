@@ -48,14 +48,14 @@ public:
         return bprop(x, y, _num_layers, _layers);
     }
 
-    void fprop(DMatrix<T>* x, int num_layers, DLayer<T>* layers, float drop_rate = 0.0) {
+    virtual void fprop(DMatrix<T>* x, int num_layers, DLayer<T>** layers, float drop_rate = 0.0) {
         layers[0]->fprop(x, drop_rate);
         for (int i = 1; i < num_layers; i++) layers[i]->fprop(layers[i-1]->act(), (i == num_layers - 1) ? 0.0 : drop_rate);
     }
 
-    T bprop(DMatrix<T>* x, DMatrix<T>* y, int num_layers, DLayer<T>** layers) {
+    virtual T bprop(DMatrix<T>* x, DMatrix<T>* y, int num_layers, DLayer<T>** layers) {
         _delta->applyTenary(OpSub(), layers[num_layers-1]->act, y, _delta->nelem() - _delta->ld()); //TODO:Support other loss.
-        T loss = _delta.norm2(_delta->nelem() - _delta->ld())/(_delta->nelem() - _delta->ld());
+        T loss = _delta.norm2(_delta->nelem() - _delta->ld())/_delta->ld();
         DMatrix<T>* d = _delta;
         for (int i = num_layers-1; i > 0; i--) {
             layers[i]->bprop(d, layers[i-1]->act(), _bp_hyper_params->learning_rate, _bp_hyper_params->momentum);
@@ -65,8 +65,34 @@ public:
         return loss;
     }
     
-    void fineTune(DData<T>* data) {
+    void fineTune(DData<T>* data, int total_epochs) {
         data->start();
+        int iperEpoch = data->instancesPerEpoch();
+        DMatrix<T> *x, *y;
+        int nEpoch = 0;
+        int nInstance = 0;
+        T error = 0.0;
+        int lastCheck = 0;
+        while ( nEpoch < total_epochs ) {
+            data->getData(x, y, _bp_hyper_params.batch_size);
+            cudaThreadSynchronize();
+            error += trainOnBatch(x, y);
+            nInstance += _pt_hyper_params.batch_size;
+            while (nEpoch*iperEpoch < nInstance) {
+                nEpoch++;
+                _bp_hyper_params.learning_rate *= _bp_hyper_params.learning_rate_decay;
+                _bp_hyper_params.momentum += _bp_hyper_params.step_momentum;
+                if (_bp_hyper_params.momentum > _bp_hyper_params.max_momentum)
+                    _bp_hyper_params.momentum = _bp_hyper_params.max_momentum;
+            }
+            lastCheck += _bp_hyper_params.batch_size;
+            if (lastCheck >= _bp_hyper_params.check_interval) {
+                printf("\nEpoch: %d\nInstance: %d\nError: %f\n", nEpoch, nInstance%nEpoch, error);
+                lastCheck = 0;
+                error = 0.0;
+            }
+        }
+        
     }
 
 };

@@ -50,6 +50,10 @@ public:
 
     T* delta() { return _delta; }
     T* act() { return _act; }
+    
+    void clearMomentum() {
+        _momentun.init(DMatrixInit::Zero);
+    }
 
     void fprop(DMatrix<T>* dev_data, float drop_rate = 0.0) {
         _drv->update(*dev_data, *_weight);
@@ -63,7 +67,7 @@ public:
     
     T bprob(DMatrix<T>* delta, DMatrix<T>* pre_act, T rate, T mom) {
         neuron.bprop(delta, _drv, _act);
-        _momentun.update(pre_act, true, delta, false, rate/delta.nrows(), mom);
+        _momentun.update(pre_act, true, delta, false, (1.0-mom)*rate/delta.nrows(), mom);
         _delta.update(delta, false, _weight, true, 1.0, 0.0);
         _weight.add(_momentun, 1.0, _weight->nelem() - _weight->ld());
     }

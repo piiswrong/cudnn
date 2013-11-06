@@ -17,6 +17,15 @@ class DMatrix {
     bool _on_device;
 	
 public:
+    enum Init {
+        None = 0,
+        Zero = 1,
+        Uniform = 2,
+        Normal = 4,
+        ColSparse = 1+8,
+        RowSparse = 1 + 16,
+        Weight = 1+32,
+    };
     DMatrix(ld, fd, cublasStatus_t handle = 0) {
         _is_view = false;
         _ld = ld;
@@ -68,18 +77,18 @@ public:
     bool on_device() { return _on_device; }
 
 	void init(int p, T a = 0.0, T b = 0.0) { 
-		if (p&DMatrixInit::Zero) memset(_host_data, 0, _size);
-		if (p&DMatrixInit::Uniform) {
+		if (p&DMatrix<T>::Init::Zero) memset(_host_data, 0, _size);
+		if (p&DMatrix<T>::Init::Uniform) {
 			std::default_random_engine gen;
 			std::uniform_real_distribution<T> dist(a, b);
 			for (int i = 0; i < _nelem; i++) _host_data[i] = dist(gen);
 		}
-		if (p&DMatrixInit::Normal) {
+		if (p&DMatrix<T>::Init::Normal) {
 			std::default_random_engine gen;
 			std::normal_distribution<T> dist(a, b);
 			for (int i = 0; i < _nelem; i++) _host_data[i] = dist(gen);
 		}
-		if (p&DMatrixInit::ColSparse) {
+		if (p&DMatrix<T>::Init::ColSparse) {
 			for (int col = 0; col < _fd; col++) {
                 int n1 = SPARSE_DEGREE, n2 = _ld - SPARSE_DEGREE;
                 for (int row = 0; row < _ld; row++) {
@@ -93,7 +102,7 @@ public:
                 }
 			}
 		}
-        if (p&DMatrixInit::RowSparse) {
+        if (p&DMatrix<T>::Init::RowSparse) {
 			for (int row = 0; row < _ld; row++) {
                 int n1 = SPARSE_DEGREE, n2 = _fd - SPARSE_DEGREE;
                 for (int col = 0; col < _fd; col++) {
@@ -107,7 +116,7 @@ public:
                 }
 			}
 		}
-        if (p&DMatrixInit::Weight) {
+        if (p&DMatrix<T>::Init::Weight) {
             for (int i = _nelem - _ld; i < _nelem; i++) _host_data[i] = 0.0;
             _host_data[_nelem-1] = 1.0;
         }

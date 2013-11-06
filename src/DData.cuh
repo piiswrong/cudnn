@@ -18,12 +18,24 @@ class DData {
     DMatrix<T> **_x_buffs;
     DMatrix<T> **_y_buffs;
     volatile bool *_ready;
-    int _index;
+    int _buff_index;
+    int _buff_offset;
     pthread_t _thread;
     pthread_cond_t _cond;
     pthread_mutex_t _mutex;
 
+    void moveOn() {
+        pthread_mutex_lock[&_mutex];
+        _ready[_index++] = false;
+        pthread_cond_signal(&_cond);
+        pthread_mutex_unlock(&_mutex);
+    }
 public:
+    enum Splitting {
+        Training = 1,
+        Validation = 2,
+        Testing = 4
+    };
     DData(int num_buffs, int data_dim, int buff_dim, bool permute, cublasStatus_t handle = 0) {
         _num_buffs = num_buffs;
         _permute = permute;
@@ -54,6 +66,22 @@ public:
         pthread_cond_init(&_cond);
     }
     
+    ~DData() {
+        pthread_cancel(_thread);
+        if (_on_device) {
+            del _perm_seq;
+        }
+        del _ready;
+        for (int i = 0; i < _num_buffs; i++) {
+            del _x_buffs[i];
+            del _y_buffs[i];
+        }
+        del _x_buffs;
+        del _y_buffs;
+        pthread_mutex_destroy(&_mutex);
+        pthread_cond_destroy(&_cond);
+    }
+
     int x_dim() { return _x_dim; }
     int y_dim() { return _y_dim; }
 
@@ -87,6 +115,8 @@ public:
                 memcpy(x, _x_buffs[c]->host_data(), _x_buffs[c]->size()); 
                 memcpy(y, _y_buffs[c]->host_data(), _y_buffs[c]->size());
             }
+            del x;
+            del y;
             if (_on_device) {
                 _x_buffs[c]->host2dev();
                 _y_buffs[c]->host2dev();
@@ -98,25 +128,36 @@ public:
         }
     }
 
-    virtual void fetch(T *&x, T *&y) = 0;
+    virtual bool fetch(T *&x, T *&y) = 0;
+    virtual int instancesPerEpoch() = 0;
     
-    void getData(DMatrix<T> *&x, DMatrix<T> *&y) {
+    bool getData(DMatrix<T> *&x, DMatrix<T> *&y, int batch_size) {
+        if (batch_size > _buff_dim) return false;
+
         pthread_mutex_lock(&_mutex);
         while (!_ready[_index]) pthread_cond_wait(&_cond, &_mutex);
         pthread_mutex_unlock(&_mutex);
-        x = _x_buffs[_index];
-        y = _y_buffs[_index];
+        
+        if (batch_size > _buff_dim - _buff_offset) {
+            moveOn();
+            return getData(x, y, batch_size);
+        }else {
+            x = new DMatrix<T>(_x_buffs[_index], _buff_offset, batch_size);
+            y = new DMatrix<T>(_y_buffs[_index], _buff_offset, batch_size);
+            _buff_offset += batch_size;
+            return true;
+        }
     }
 
-    void moveOn() {
-        pthread_mutex_lock[&_mutex];
-        _ready[_index++] = false;
-        pthread_cond_signal(&_cond);
-        pthread_mutex_unlock(&_mutex);
-    }
 
 };
 
+template<class T>
+class DMnistData : DData<T> {
+    
+public:
+    DMnistData(char *path, 
 
+};
 
 #endif //DDATA_CUH

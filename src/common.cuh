@@ -18,16 +18,7 @@ const int SPARSE_DEGREE = 15;
                             printf("Error at %s:%d\n",__FILE__,__LINE__);\     
                             exit(EXIT_FAILURE);}} while(0)                       
 
-enum DMatrixInit {
-    None = 0,
-	Zero = 1,
-	Uniform = 2,
-	Normal = 4,
-	ColSparse = 1+8,
-	RowSparse = 1 + 16,
-	Weight = 1+32,
-};
-							
+						
 							
 cublasStatus_t  cublasXnrm2(cublasHandle_t handle, int n,
                             const float           *x, int incx, float  *result)
