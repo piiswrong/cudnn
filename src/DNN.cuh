@@ -7,7 +7,7 @@
 #include <DHyperParams.cuh>
 
 
-template<class T>
+template<class Tx, class Ty>
 class DNN {
     bool _on_device;
     cublasStatus_t _handle;
@@ -43,19 +43,21 @@ public:
         _delta = new DMatrix<T>(_bp_hyper_params->batch_size, layer_dims[_num_layers-1], _handle);
     }
 
+    cublasStatus_t handle() { return _handle; }
+
     T trainOnBatch(DMatrix<T>* x, DMatrix<T>* y) {
         fprop(x, _num_layers, _layers, _bp_hyper_params.hdrop_rate);
         return bprop(x, y, _num_layers, _layers);
     }
 
     virtual void fprop(DMatrix<T>* x, int num_layers, DLayer<T>** layers, float drop_rate = 0.0) {
-        layers[0]->fprop(x, drop_rate);
+        layers[0]->fprop(x, (0 == num_layers - 1) ? 0.0 : drop_rate);
         for (int i = 1; i < num_layers; i++) layers[i]->fprop(layers[i-1]->act(), (i == num_layers - 1) ? 0.0 : drop_rate);
     }
 
     virtual T bprop(DMatrix<T>* x, DMatrix<T>* y, int num_layers, DLayer<T>** layers) {
-        _delta->applyTenary(OpSub(), layers[num_layers-1]->act, y, _delta->nelem() - _delta->ld()); //TODO:Support other loss.
-        T loss = _delta.norm2(_delta->nelem() - _delta->ld())/_delta->ld();
+        //_delta->applyTenary(OpSub(), layers[num_layers-1]->act, y, _delta->nelem() - _delta->ld()); //TODO:Support other loss.
+        T loss = neurons[0].initDelta(_delta, layers[num_layers-1]->act(), y);
         DMatrix<T>* d = _delta;
         for (int i = num_layers-1; i > 0; i--) {
             layers[i]->bprop(d, layers[i-1]->act(), _bp_hyper_params->learning_rate, _bp_hyper_params->momentum);

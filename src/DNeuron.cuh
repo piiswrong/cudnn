@@ -8,16 +8,23 @@ template<class T>
 class DNeuron {
     class ForwardOp {
     public:
-        __host__ __device__ T operator() (T act, T drv) {
+        __host__ __device__ inline T operator() (T act, T drv) {
             return drv;
         }
     }
     class BackwardOp {
     public:
-        __host__ __device__ T operator() (T delta, T drv, T act) {
+        __host__ __device__ inline T operator() (T delta, T drv, T act) {
             return delta*1.0;
         }
     }
+    class DeltaOp{
+    public:
+        __host__ __device__ inline T operator() (T x, T y, T z) {
+            return y - z;
+        }
+    };
+
 
 public:
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
@@ -25,6 +32,10 @@ public:
     }
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
         delta->applyTenary(BackwardOp(), drv, act);
+    }
+    virtual T initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        delta->applyTenary(DeltaOp(), act, y);
+        return delta.norm2(delta->nelem() - delta->ld())/delta->ld();
     }
 }
 

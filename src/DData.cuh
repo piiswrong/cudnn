@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <DMatrix.cuh>
 #include <pthread.h>
+#include <cstring>
 
 template<class T>
 class DData {
@@ -31,15 +32,16 @@ class DData {
         pthread_mutex_unlock(&_mutex);
     }
 public:
-    enum Splitting {
-        Training = 1,
-        Validation = 2,
-        Testing = 4
+    enum Split {
+        Train = 1,
+        Validate = 2,
+        Test = 4
     };
-    DData(int num_buffs, int data_dim, int buff_dim, bool permute, cublasStatus_t handle = 0) {
+    DData(int num_buffs, int x_dim, y_dim, int buff_dim, bool permute, cublasStatus_t handle = 0) {
         _num_buffs = num_buffs;
         _permute = permute;
-        _data_dim = data_dim;
+        _x_dim = x_dim;
+        _y_dim = y_dim;
         _buff_dim = buff_dim;
         _handle = handle;
         if (_handle) {
@@ -94,7 +96,8 @@ public:
     }
 
     void generateData() {
-        T *x, *y;
+        Tx *x;
+        Ty *y;
         for (int c = 0; ; c = (c+1)%_num_buffs) {
             pthread_mutex_lock(&_mutex);
             while (_ready[c]) {
@@ -154,9 +157,63 @@ public:
 
 template<class T>
 class DMnistData : DData<T> {
-    
+    int _split;
+    FILE *_xfile;
+    FILE *_yfile;
+    int _offset;
+    int _soffset;
+    int _eoffset;
+
+    char *_tx, *_ty;
 public:
-    DMnistData(char *path, 
+    DMnistData(string path, int split, cublasStatus_t handle = 0) : DData(2, 28*28, 10, 10000, true, handle) {
+        _split = split;
+		if (path[path.length()-1] != '/') path.append("/");
+        if (split&(Split::Train|Split::Validate)) {
+            _xfile = fopen(strFile+"train-images-idx3-ubyte", "r");
+			_yfile = fopen(strFile+"train-labels-idx1-ubyte", "r");
+			_soffset = 0;
+			_eoffset = 60000;
+			if (!(split&Split::Train)) _soffset = 50000;
+			if (!(split&Split::Validate)) _eoffset = 50000;
+        }else {
+			_xfile = fopen(strFile+"t10k-images-idx3-ubyte", "r");
+			fseek(_xfile, 16, SEEK_SET);
+			_yfile = fopen(strFile+"t10k-labels-idx1-ubyte", "r");
+			fseek(_yfile, 8, SEEK_SET);
+			_soffset = 0;
+			_eoffset = 10000;
+		}
+		_offset = 0;
+		fseek(_xfile, 16+_soffset*_x_dim, SEEK_SET);
+		fseek(_yfile, 8+_soffset, SEEK_SET);
+
+        _tx = new char[_x_dim*_buff_dim];
+        _ty = new char[_buff_dim];
+    }
+	virtual int instancesPerEpoch () { return _eoffset - _soffset; }
+	virtual bool fetch(T *&x ,T *&y) {
+		x = new T[_x_dim*_buff_dim];
+        y = new T[_y_dim*_buff_dim];
+        int need = _buff_dim;
+        do {
+            int available = (need < _eoffset - _soffset) ? need:(_eoffset - _soffset);
+            fread(_tx, sizeof(char), available*_x_dim, _xfile);
+            fread(_ty, sizeof(char), available, _yfile);
+            need -= available;
+            _offset += available;
+            if (_offset == _eoffset) {
+		        fseek(_xfile, 16, SEEK_SET);
+		        fseek(_yfile, 8, SEEK_SET);
+                _offset = 0;
+            }
+        }while (need);
+
+        for (int i = 0; i < _buff_dim*_x_dim; i++) x[i] = (T)_tx[i]/256.0;
+        memset(y, 0, sizeof(T)*_y_dim*_buff_dim);
+        for (int i = 0; i < _buff_dim; i++) y[i*_y_dim + _ty[i]] = 1.0;
+        return true;
+	}
 
 };
 
