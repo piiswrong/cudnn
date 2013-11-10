@@ -71,6 +71,16 @@ public:
         _delta.update(delta, false, _weight, true, 1.0, 0.0);
         _weight.add(_momentun, 1.0, _weight->nelem() - _weight->ld());
     }
+
+    void scaleWeight(float scale) {
+        _weight->dev2host();
+        T* data = _weight->host_data();
+        int ld = _weight->ld(), fd = _weight->fd();
+        for (int i = 0; i < fd - 1; i++)
+            for (int j = 0; j < ld - 1; j++) 
+                data[i*fd + j] *= scale;
+        _weight->host2dev();
+    }
 };
 
 

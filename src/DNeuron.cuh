@@ -63,6 +63,20 @@ public:
     }
 }
 
+template<class T>
+class DSoftmaxNeuron : DNeuron<T> {
+public:
+    virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
+    }
+    virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
+        return;
+    }
+    virtual T initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        delta->applyTenary(DeltaOp(), act, y);
+        return delta.norm2(delta->nelem() - delta->ld())/delta->ld();
+    }
+}
+
 
 
 #define //DNEURON_CUH

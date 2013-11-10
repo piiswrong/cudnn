@@ -4,6 +4,7 @@
 #include <cublas_v2.h>
 #include <algorithm>
 
+const int WARP_SIZE = 32;
 const int BLOCK_SIZE = 256;
 const int SPARSE_DEGREE = 15;
 
