@@ -9,10 +9,10 @@
 
 template<class T>
 class DNeuron {
-protected:
     bool _on_device;
     cublasHandle_t _handle;
     T _loss;
+public:
     class ForwardOp {
     public:
         __host__ __device__ inline T operator() (T act, T drv) {
@@ -32,8 +32,6 @@ protected:
         }
     };
 
-
-public:
     DNeuron(cublasHandle_t handle) {
         _handle = handle;
         if (_handle != 0)
@@ -60,6 +58,7 @@ public:
 
 template<class T>
 class DReLUNeuron : public DNeuron<T> {
+public:
     class ForwardOp {
     public:
         __host__ __device__ T operator() (T act, T drv) {
@@ -73,7 +72,6 @@ class DReLUNeuron : public DNeuron<T> {
         }
     };
 
-public:
     DReLUNeuron(cublasHandle_t handle) : DNeuron<T>(handle) {}
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
         act->applyBinary(ForwardOp(), drv, act->nelem() - act->ld()); 
@@ -103,9 +101,6 @@ public:
     }
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
         return;
-    }
-    virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        delta->applyTenary(DNeuron<T>::DeltaOp(), act, y, delta->nelem() - delta->ld());
     }
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
         act->applyBinary(OpLog<T>(), act, act->nelem() - act->ld());

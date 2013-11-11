@@ -55,7 +55,7 @@ public:
     DNeuron<T> *neuron() { return _neuron; }
     
     void clearMomentum() {
-        _momentun.init(DMatrix<T>::Zero);
+        _momentun->init(DMatrix<T>::Zero);
     }
 
     void fprop(DMatrix<T>* dev_data, float drop_rate = 0.0) {

@@ -2,8 +2,9 @@
 #define KERNELS_CUH
 
 #include <common.cuh>
+#include <cuda.h>
+#include <curand.h>
 #include <curand_kernel.h>
-
 
 template<class T, class Op, bool isMulti>
 __global__ void kApplyBinaryOp(Op op, T* dest, const T* x, int nelem) {
@@ -21,10 +22,7 @@ __global__ void kApplyTenaryOp(Op op, T* dest, const T* x, const T* y, int nelem
     }
 }
 
-__global__ void kSetupCurand(curandState *state, int nelem, unsigned int seed) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < nelem) curand_init(seed, i, 0, &state[i]);
-}
+__global__ void kSetupCurand(curandState *state, int nelem, unsigned int seed);
 
 template<class T, bool isMulti>
 __global__ void kDropout(T *dest, curandState *state, int nelem, float rate) { 

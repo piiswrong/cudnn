@@ -2,6 +2,8 @@
 #define DMATRIX_CUH
 
 #include <common.cuh>
+#include <kernels.cuh>
+#include <DRand.h>
 
 template<class T> 
 class DMatrix {
@@ -76,26 +78,22 @@ public:
     bool on_device() { return _on_device; }
     cublasHandle_t handle() { return _handle; }
 
-    void init(int p, T a = 0.0, T b = 0.0); 
-/*
 	void init(int p, T a = 0.0, T b = 0.0) { 
 		if (p&DMatrix<T>::Zero) memset(_host_data, 0, _size);
         if (p&DMatrix<T>::One) for (int i = 0; i < _nelem; i++) _host_data[i] = (T)1;
 		if (p&DMatrix<T>::Uniform) {
-			std::default_random_engine gen;
-			std::uniform_real_distribution<T> dist(a, b);
-			for (int i = 0; i < _nelem; i++) _host_data[i] = dist(gen);
+            DRand dist(a, b);
+			for (int i = 0; i < _nelem; i++) _host_data[i] = dist.uniform();
 		}
 		if (p&DMatrix<T>::Normal) {
-			std::default_random_engine gen;
-			std::normal_distribution<T> dist(a, b);
-			for (int i = 0; i < _nelem; i++) _host_data[i] = dist(gen);
+            DRand dist(a, b);
+			for (int i = 0; i < _nelem; i++) _host_data[i] = dist.normal();
 		}
 		if (p&DMatrix<T>::ColSparse) {
 			for (int col = 0; col < _fd; col++) {
                 int n1 = SPARSE_DEGREE, n2 = _ld - SPARSE_DEGREE;
                 for (int row = 0; row < _ld; row++) {
-                    r = rand()%(n1+n2);
+                    int r = rand()%(n1+n2);
                     if (r<n1) {
                         n1--;
                     }else {
@@ -109,7 +107,7 @@ public:
 			for (int row = 0; row < _ld; row++) {
                 int n1 = SPARSE_DEGREE, n2 = _fd - SPARSE_DEGREE;
                 for (int col = 0; col < _fd; col++) {
-                    r = rand()%(n1+n2);
+                    int r = rand()%(n1+n2);
                     if (r<n1) {
                         n1--;
                     }else {
@@ -125,7 +123,6 @@ public:
         }
         if (_on_device) host2dev();
 	}
-*/	
     
     void host2dev() {
         CUBLAS_CALL(cublasSetVector(_ld*_fd, sizeof(T), _host_data, 1, _dev_data, 1)); 
@@ -192,11 +189,6 @@ public:
     }
 
     template<class Op>
-    void applyBinary(Op op, DMatrix<T>* x, int nelem = 0);
-    template<class Op>
-    void applyTenary(Op op, DMatrix<T>* x, DMatrix<T>* y, int nelem = 0); 
-/*
-    template<class Op>
     void applyBinary(Op op, DMatrix<T>* x, int nelem = 0) {
         if (nelem == 0) nelem = _nelem;
         if (_on_device) {
@@ -242,7 +234,6 @@ public:
             }
         }
     }
-*/
 };
 
 

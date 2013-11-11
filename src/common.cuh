@@ -26,60 +26,37 @@ const int SPARSE_DEGREE = 15;
                             exit(EXIT_FAILURE);}} while(0)
 
 cublasStatus_t  cublasXasum(cublasHandle_t handle, int n,
-                            const float           *x, int incx, float  *result)
-{
-    return cublasSasum(handle, n, x, incx, result);
-}
+                            const float           *x, int incx, float  *result);
 
 cublasStatus_t  cublasXasum(cublasHandle_t handle, int n,
-                            const double          *x, int incx, double *result)
-{
-    return cublasDasum(handle, n, x, incx, result);
-}					
-							
-cublasStatus_t  cublasXnrm2(cublasHandle_t handle, int n,
-                            const float           *x, int incx, float  *result)
-{
-    return cublasSnrm2(handle, n, x, incx, result);
-}
+                            const double          *x, int incx, double *result);							
 
 cublasStatus_t  cublasXnrm2(cublasHandle_t handle, int n,
-                            const double          *x, int incx, double *result)
-{
-    return cublasDnrm2(handle, n, x, incx, result);
-}
-static inline cublasStatus_t cublasXaxpy(cublasHandle_t handle, int n,
+                            const float           *x, int incx, float  *result);
+
+cublasStatus_t  cublasXnrm2(cublasHandle_t handle, int n,
+                            const double          *x, int incx, double *result);
+
+cublasStatus_t cublasXaxpy(cublasHandle_t handle, int n,
                                         const float           *alpha,
                                         const float           *x, int incx,
-                                        float                 *y, int incy) 
-{
-    return cublasSaxpy(handle, n, alpha, x, incx, y, incy);
-}
+                                        float                 *y, int incy);
 
-static inline cublasStatus_t cublasXaxpy(cublasHandle_t handle, int n,
+cublasStatus_t cublasXaxpy(cublasHandle_t handle, int n,
                                         const double          *alpha,
                                         const double          *x, int incx,
-                                        double                *y, int incy)
-{
-    return cublasDaxpy(handle, n, alpha, x, incx, y, incy);
-}
+                                        double                *y, int incy);
 
-static inline cublasStatus_t cublasXgemm(cublasHandle_t handle,
+cublasStatus_t cublasXgemm(cublasHandle_t handle,
                                         cublasOperation_t transa, cublasOperation_t transb, int m, int n, int k,
                                         const float *alpha, float *A, int lda,
                                         float *B, int ldb, const float *beta,
-                                        float *C, int ldc)
-{
-    return cublasSgemm(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
-}
+                                        float *C, int ldc);
 
-static inline cublasStatus_t cublasXgemm(cublasHandle_t handle,
+cublasStatus_t cublasXgemm(cublasHandle_t handle,
                                         cublasOperation_t transa, cublasOperation_t transb, int m, int n, int k,
                                         const double *alpha, double *A, int lda,
                                         double *B, int ldb, const double *beta,
-                                        double *C, int ldc)
-{
-    return cublasDgemm(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
-}
+                                        double *C, int ldc);
 
 #endif //COMMON_H
