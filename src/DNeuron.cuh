@@ -9,6 +9,7 @@
 
 template<class T>
 class DNeuron {
+protected:
     bool _on_device;
     cublasHandle_t _handle;
     T _loss;
@@ -83,6 +84,7 @@ public:
 
 template<class T>
 class DSoftmaxNeuron : public DNeuron<T> {
+protected:
     cudaStream_t _stream;
 public:
     DSoftmaxNeuron(cublasHandle_t handle) : DNeuron<T>(handle) {
@@ -95,6 +97,9 @@ public:
             dim3 grid((drv->ld()-1)/WARP_SIZE+1, 1, 1);
             dim3 block(WARP_SIZE, 32, 1);
             kSoftmaxAct<T,32><<<grid, block>>>(act->dev_data(), drv->dev_data(), act->ld(), act->fd()-1);
+#ifdef DEBUG_BUILD
+            act->dev2host();
+#endif
         }else {
             exit(-1);
         }
@@ -103,7 +108,7 @@ public:
         return;
     }
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        act->applyBinary(OpLog<T>(), act, act->nelem() - act->ld());
+        act->applyTenary(OpWeightedLog<T>(), act, y, act->nelem() - act->ld());
         DNeuron<T>::_loss = act->norm1(act->nelem() - act->ld())/act->ld();
     }
     virtual T getLoss() {

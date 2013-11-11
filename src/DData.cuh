@@ -92,7 +92,7 @@ public:
     int x_dim() { return _x_dim; }
     int y_dim() { return _y_dim; }
 
-    void start() {
+    virtual void start() {
         pthread_create(&_thread, NULL, DData<T>::generateDataHelper, (void*)this);
     }
 
@@ -140,7 +140,7 @@ public:
     virtual bool fetch(T *&x, T *&y) = 0;
     virtual int instancesPerEpoch() = 0;
     
-    bool getData(DMatrix<T> *&x, DMatrix<T> *&y, int batch_size) {
+    virtual bool getData(DMatrix<T> *&x, DMatrix<T> *&y, int batch_size) {
         if (batch_size > _buff_dim) return false;
 
         pthread_mutex_lock(&_mutex);
@@ -222,6 +222,29 @@ public:
         return true;
 	}
 
+};
+
+template<class T>
+class DDummyData : public DData<T> {
+    int _n;
+public:
+    DDummyData(int n, cublasHandle_t handle) : DData<T>(1, n, n, 1, false, handle) {
+        _n = n;
+    }
+    virtual bool fetch(T *&x, T *&y) { return false; }  
+    virtual void start() {}
+    virtual int instancesPerEpoch() { return 256; }
+    virtual bool getData(DMatrix<T> *&x, DMatrix<T>*&y, int batch_size) {
+        x = y = new DMatrix<T>(batch_size, _n, DData<T>::_handle);
+        x->init(DMatrix<T>::Zero);
+        T *data = x->host_data();
+        for (int i = 0; i < batch_size; i++) {
+            data[i*_n + _n - 1] = 1.0;
+            data[i*_n + i%(_n-1)] = 1.0;
+        }
+        x->host2dev();
+        return true;
+    }
 };
 
 #endif //DDATA_CUH

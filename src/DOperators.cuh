@@ -5,6 +5,15 @@
 #include <math_functions.h>
 
 template<class T>
+class OpWeightedLog{
+public:
+    __host__ __device__ T operator() (T x, T y, T z) {
+        return log(y)*z;
+    }
+};
+
+
+template<class T>
 class OpLog{
 public:
     __host__ __device__ T operator() (T x, T y) {

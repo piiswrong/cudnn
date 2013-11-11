@@ -13,12 +13,12 @@ class DNN {
     bool _on_device;
     cublasHandle_t _handle;
     int _num_layers;
-    int *layer_dims;
+    int *_layer_dims;
     DHyperParams _pt_hyper_params;
     DHyperParams _bp_hyper_params;
     DLayer<T>** _layers;
     DMatrix<T>* _delta;
-
+    curandState *_state;
 
 public:
     DNN(int num_layers, int *layer_dims, DNeuron<T> **neurons, 
@@ -31,6 +31,7 @@ public:
             _on_device = false;
         }
         _num_layers = num_layers;
+        _layer_dims = layer_dims;
         _pt_hyper_params = pt_hyper_params;
         _bp_hyper_params = bp_hyper_params;
 
@@ -40,18 +41,36 @@ public:
                                     &_pt_hyper_params, &_bp_hyper_params, _handle);
         }
         _delta = new DMatrix<T>(_bp_hyper_params.batch_size, layer_dims[_num_layers-1], _handle);
+        if (_on_device) {
+            int nstate = (_layer_dims[0]+1)*_bp_hyper_params.batch_size;
+            CUDA_CALL(cudaMalloc((void**)&_state, nstate*sizeof(curandState)));
+            dim3 grid((nstate-1)/BLOCK_SIZE+1);
+            dim3 block(BLOCK_SIZE);
+            kSetupCurand<<<grid, block>>>(_state, nstate, time(0));
+        }
     }
 
     cublasHandle_t handle() { return _handle; }
 
     T trainOnBatch(DMatrix<T>* x, DMatrix<T>* y) {
-        fprop(x, _num_layers, _layers, _bp_hyper_params.hdrop_rate);
+        fprop(x, _num_layers, _layers, _bp_hyper_params.idrop_out, _bp_hyper_params.hdrop_out,
+                _bp_hyper_params.idrop_rate, _bp_hyper_params.hdrop_rate);
         return bprop(x, y, _num_layers, _layers);
     }
 
-    virtual void fprop(DMatrix<T>* x, int num_layers, DLayer<T>** layers, float drop_rate = 0.0) {
-        layers[0]->fprop(x, (0 == num_layers - 1) ? 0.0 : drop_rate);
-        for (int i = 1; i < num_layers; i++) layers[i]->fprop(layers[i-1]->act(), (i == num_layers - 1) ? 0.0 : drop_rate);
+    virtual void fprop(DMatrix<T>* x, int num_layers, DLayer<T>** layers, bool idrop_out = false,
+                        bool hdrop_out = false, float idrop_rate = 0.0, float hdrop_rate = 0.0) {
+        if (idrop_out) {
+            dim3 grid((x->nelem() - x->ld() - 1)/BLOCK_SIZE+1, 1, 1);
+            dim3 block(BLOCK_SIZE, 1, 1);
+            if ((x->nelem() - x->ld())%BLOCK_SIZE == 0)
+                kDropout<T, true><<<grid, block>>>(x->dev_data(), _state, x->nelem() - x->ld(), idrop_rate);
+            else
+                kDropout<T, false><<<grid, block>>>(x->dev_data(), _state, x->nelem() - x->ld(), idrop_rate);
+        }
+        layers[0]->fprop(x, num_layers > 1 && hdrop_out, hdrop_rate);
+        for (int i = 1; i < num_layers; i++) 
+            layers[i]->fprop(layers[i-1]->act(), i < num_layers - 1 && hdrop_out, hdrop_rate);
     }
 
     virtual T bprop(DMatrix<T>* x, DMatrix<T>* y, int num_layers, DLayer<T>** layers) {

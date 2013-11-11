@@ -5,6 +5,7 @@
 #include <cuda.h>
 #include <curand.h>
 #include <curand_kernel.h>
+//#include <cuPrintf.cu>
 
 template<class T, class Op, bool isMulti>
 __global__ void kApplyBinaryOp(Op op, T* dest, const T* x, int nelem) {
@@ -37,42 +38,45 @@ __global__ void kDropout(T *dest, curandState *state, int nelem, float rate) {
 template<class T, int num_thrd>
 __global__ void kSoftmaxAct(T *act, T *drv, int ld, int fd) {
     __shared__ T smem[WARP_SIZE*num_thrd];
-    int i = blockDim.x*WARP_SIZE + threadIdx.x;
-    const int blockSize = WARP_SIZE*num_thrd;
+    int i = blockIdx.x*WARP_SIZE + threadIdx.x;
+    int j = threadIdx.y*ld + i;
+    const int blockSize = ld*num_thrd;
 
+    int n = ld*fd;
     if (i < ld) {
         T mySum = 0;
-        int n = ld*fd;
-        while (i < n) {
-            mySum += exp(drv[i]);
-            i += blockSize;
+        while (j < n) {
+            mySum += exp(drv[j]);
+            j += blockSize;
         }
-        int j = threadIdx.y;
+        j = threadIdx.y;
         i = j*WARP_SIZE + threadIdx.x;
         smem[i] = mySum;
         __syncthreads();
         if (num_thrd >= 32) 
             if (j < 16)
-                smem[i] = mySum = mySum + smem[i+16];
+                smem[i] = mySum = mySum + smem[i+16*WARP_SIZE];
         __syncthreads();
         if (num_thrd >= 16)
             if (j < 8)
-                smem[i] = mySum = mySum + smem[i+8];
+                smem[i] = mySum = mySum + smem[i+8*WARP_SIZE];
         __syncthreads();
         if (num_thrd >= 8)
             if (j < 4)
-                smem[i] = mySum = mySum + smem[i+4];
+                smem[i] = mySum = mySum + smem[i+4*WARP_SIZE];
         __syncthreads();
         if (num_thrd >= 4)
             if (j < 2)
-                smem[i] = mySum = mySum + smem[i+2];
+                smem[i] = mySum = mySum + smem[i+2*WARP_SIZE];
         __syncthreads();
         mySum = smem[threadIdx.x] + smem[threadIdx.x+WARP_SIZE];
-        i = blockDim.x*WARP_SIZE + threadIdx.x;
-        while (j < fd) {
-            act[i] = exp(drv[i])/mySum;
+        i = blockIdx.x*WARP_SIZE + threadIdx.x;
+        j = threadIdx.y*ld + i;
+        while (j < n) {
+            act[j] = exp(drv[j])/mySum;
             j += blockSize;
         }
+       // cuPrintf("%dx%d: %f, %f\n", i, threadIdx.y, mySum, act[j-blockSize]); 
     }
 }
 #endif //KERNELS_CUH

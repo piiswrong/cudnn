@@ -42,6 +42,7 @@ public:
         _drv = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _act = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _act->init(DMatrix<T>::One);
+        _delta = new DMatrix<T>(bp_hyper_params->batch_size, _input_dim+1, _handle);
         if (_on_device) {
             CUDA_CALL(cudaMalloc((void**)&_state, _act->nelem()*sizeof(curandState)));
             dim3 grid((_act->nelem()-1)/BLOCK_SIZE+1);
@@ -58,12 +59,12 @@ public:
         _momentun->init(DMatrix<T>::Zero);
     }
 
-    void fprop(DMatrix<T>* dev_data, float drop_rate = 0.0) {
+    void fprop(DMatrix<T>* dev_data, bool drop_out, float drop_rate = 0.0) {
         _drv->update(dev_data, false, _weight, false);
         _neuron->fprop(_act, _drv);
-        if (drop_rate > 0.0) {
-            dim3 grid((_act->nelem()-_act->ld()-1)/BLOCK_SIZE+1);
-            dim3 block(BLOCK_SIZE);
+        if (drop_out) {
+            dim3 grid((_act->nelem()-_act->ld()-1)/BLOCK_SIZE+1, 1, 1);
+            dim3 block(BLOCK_SIZE, 1, 1);
             if ((_act->nelem()-_act->ld())%BLOCK_SIZE == 0)
                 kDropout<T, true><<<grid, block>>>(_act->dev_data(), _state, _act->nelem() - _act->ld(), drop_rate);
             else

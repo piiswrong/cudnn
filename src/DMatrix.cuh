@@ -183,6 +183,9 @@ public:
                                 B->nrows(Tb), A->ncols(Ta), &alpha, 
                                 A->dev_data(), A->ld(), B->dev_data(), B->ld(),
                                 &beta, _dev_data, ld()));
+#ifdef DEBUG_BUILD
+            dev2host();
+#endif
         }else{
             exit(-1);
         }
@@ -203,6 +206,9 @@ public:
                 kApplyBinaryOp<T, Op, false><<<grid, block>>>(op, _dev_data, x->dev_data(), nelem);
                 CUDA_CALL(cudaPeekAtLastError());
             }
+#ifdef DEBUG_BUILD
+            dev2host();
+#endif
         }else{
             T* x_data = x->host_data();
             for(int i = 0; i < _nelem; i++) {
@@ -226,6 +232,9 @@ public:
                 kApplyTenaryOp<T, Op, false><<<grid, block>>>(op, _dev_data, x->dev_data(), y->dev_data(), nelem);
                 CUDA_CALL(cudaPeekAtLastError());
             }
+#ifdef DEBUG_BUILD
+            dev2host();
+#endif
         }else{
             T* x_data = x->host_data();
             T* y_data = y->host_data();
