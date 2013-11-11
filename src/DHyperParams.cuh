@@ -4,13 +4,14 @@
 class DHyperParams {
 public:
     float learning_rate;
+    float learning_rate_decay;
     float momentum;
     float max_momentum;
     float step_momentum;
     bool weight_decay;
     float decay_rate;
     bool idrop_out;
-    float idrop_rate
+    float idrop_rate;
     bool hdrop_out;
     float hdrop_rate;
     int batch_size;
@@ -31,6 +32,6 @@ public:
         batch_size = 128;
         check_interval = (1<<16);
     }
-}
+};
 
 #endif //DHYPERPARAMS_CUH

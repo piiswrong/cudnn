@@ -1,0 +1,1 @@
+nvcc -I. --compiler-options "-std=c++0x" -c DMatrix.cc

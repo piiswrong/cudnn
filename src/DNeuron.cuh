@@ -2,22 +2,29 @@
 #define DNEURON_CUH
 
 #include <common.cuh>
+#include <math_functions.h>
 #include <DMatrix.cuh>
+#include <DOperators.cuh>
+#include <kernels.cuh>
 
 template<class T>
 class DNeuron {
+protected:
+    bool _on_device;
+    cublasHandle_t _handle;
+    T _loss;
     class ForwardOp {
     public:
         __host__ __device__ inline T operator() (T act, T drv) {
             return drv;
         }
-    }
+    };
     class BackwardOp {
     public:
         __host__ __device__ inline T operator() (T delta, T drv, T act) {
             return delta*1.0;
         }
-    }
+    };
     class DeltaOp{
     public:
         __host__ __device__ inline T operator() (T x, T y, T z) {
@@ -27,56 +34,89 @@ class DNeuron {
 
 
 public:
+    DNeuron(cublasHandle_t handle) {
+        _handle = handle;
+        if (_handle != 0)
+            _on_device = true;
+        else
+            _on_device = false;
+    }
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
-        act->applyBinary(ForwardOp(), drv, _act.nelem() - _act.ld()); 
+        act->applyBinary(ForwardOp(), drv, act->nelem() - act->ld()); 
     }
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
         delta->applyTenary(BackwardOp(), drv, act);
     }
-    virtual T initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        delta->applyTenary(DeltaOp(), act, y);
-        return delta.norm2(delta->nelem() - delta->ld())/delta->ld();
+    virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        delta->applyTenary(DeltaOp(), act, y, delta->nelem() - delta->ld());
     }
-}
+    virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        _loss = delta->norm2(delta->nelem() - delta->ld())/(T)delta->ld();
+    }
+    virtual T getLoss() {
+        return _loss;
+    }
+};
 
 template<class T>
-class DReLUNeuron : DNeuron<T> {
+class DReLUNeuron : public DNeuron<T> {
     class ForwardOp {
     public:
         __host__ __device__ T operator() (T act, T drv) {
             return drv*(drv > (T)0.0);
         }
-    }
+    };
     class BackwardOp {
     public:
         __host__ __device__ T operator() (T delta, T drv, T act) {
             return delta*(drv > (T)0.0);
         }
-    }
+    };
 
 public:
+    DReLUNeuron(cublasHandle_t handle) : DNeuron<T>(handle) {}
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
-        act->applyBinary(ForwardOp(), drv, _act.nelem() - _act.ld()); 
+        act->applyBinary(ForwardOp(), drv, act->nelem() - act->ld()); 
     }
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
         delta->applyTenary(BackwardOp(), drv, act);
     }
-}
+};
 
 template<class T>
-class DSoftmaxNeuron : DNeuron<T> {
+class DSoftmaxNeuron : public DNeuron<T> {
+    cudaStream_t _stream;
 public:
+    DSoftmaxNeuron(cublasHandle_t handle) : DNeuron<T>(handle) {
+        if (DNeuron<T>::_on_device) {
+            CUDA_CALL(cudaStreamCreate(&_stream));
+        }
+    }
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
+        if (DNeuron<T>::_on_device) {
+            dim3 grid((drv->ld()-1)/WARP_SIZE+1, 1, 1);
+            dim3 block(WARP_SIZE, 32, 1);
+            kSoftmaxAct<T,32><<<grid, block>>>(act->dev_data(), drv->dev_data(), act->ld(), act->fd()-1);
+        }else {
+            exit(-1);
+        }
     }
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
         return;
     }
-    virtual T initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        delta->applyTenary(DeltaOp(), act, y);
-        return delta.norm2(delta->nelem() - delta->ld())/delta->ld();
+    virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        delta->applyTenary(DNeuron<T>::DeltaOp(), act, y, delta->nelem() - delta->ld());
     }
-}
+    virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        act->applyBinary(OpLog<T>(), act, act->nelem() - act->ld());
+        DNeuron<T>::_loss = act->norm1(act->nelem() - act->ld())/act->ld();
+    }
+    virtual T getLoss() {
+        //cudaStreamSynchronize(_stream);
+        return DNeuron<T>::_loss;
+    }
+};
 
 
 
-#define //DNEURON_CUH
+#endif //DNEURON_CUH

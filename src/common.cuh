@@ -2,24 +2,40 @@
 #define COMMON_H
 
 #include <cublas_v2.h>
+#include <curand.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
 #include <algorithm>
+
 
 const int WARP_SIZE = 32;
 const int BLOCK_SIZE = 256;
 const int SPARSE_DEGREE = 15;
 
 
-#define CUDA_CALL(x) do { if((x) != cudaSuccess) { \                                                                
-                            printf("Error at %s:%d\n",__FILE__,__LINE__);\     
-                            exit(EXIT_FAILURE);}} while(0)                     
-#define CUBLAS_CALL(x) do { if((x) != CUBLAS_STATUS_SUCCESS) { \                                                                
-                            printf("Error at %s:%d\n",__FILE__,__LINE__);\     
-                            exit(EXIT_FAILURE);}} while(0)                     
-#define CURAND_CALL(x) do { if((x) != CURAND_STATUS_SUCCESS) { \               
-                            printf("Error at %s:%d\n",__FILE__,__LINE__);\     
-                            exit(EXIT_FAILURE);}} while(0)                       
+#define CUDA_CALL(x) do { if((x) != cudaSuccess) { \
+                            printf("Error at %s:%d\n",__FILE__,__LINE__);\
+                            exit(EXIT_FAILURE);}} while(0)
+#define CUBLAS_CALL(x) do { if((x) != CUBLAS_STATUS_SUCCESS) { \
+                            printf("Error at %s:%d\n",__FILE__,__LINE__);\
+                            exit(EXIT_FAILURE);}} while(0)
+#define CURAND_CALL(x) do { if((x) != CURAND_STATUS_SUCCESS) { \
+                            printf("Error at %s:%d\n",__FILE__,__LINE__);\
+                            exit(EXIT_FAILURE);}} while(0)
 
-						
+cublasStatus_t  cublasXasum(cublasHandle_t handle, int n,
+                            const float           *x, int incx, float  *result)
+{
+    return cublasSasum(handle, n, x, incx, result);
+}
+
+cublasStatus_t  cublasXasum(cublasHandle_t handle, int n,
+                            const double          *x, int incx, double *result)
+{
+    return cublasDasum(handle, n, x, incx, result);
+}					
 							
 cublasStatus_t  cublasXnrm2(cublasHandle_t handle, int n,
                             const float           *x, int incx, float  *result)
