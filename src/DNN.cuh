@@ -40,7 +40,8 @@ public:
             _layers[i] = new DLayer<T>(layer_dims[i], layer_dims[i+1], neurons[i],
                                     &_pt_hyper_params, &_bp_hyper_params, _handle);
         }
-        _delta = new DMatrix<T>(_bp_hyper_params.batch_size, layer_dims[_num_layers-1], _handle);
+        _delta = new DMatrix<T>(_bp_hyper_params.batch_size, layer_dims[_num_layers-1]+1, _handle);
+        _delta->init(DMatrix<T>::Zero);
         if (_on_device) {
             int nstate = (_layer_dims[0]+1)*_bp_hyper_params.batch_size;
             CUDA_CALL(cudaMalloc((void**)&_state, nstate*sizeof(curandState)));
@@ -76,13 +77,13 @@ public:
     virtual T bprop(DMatrix<T>* x, DMatrix<T>* y, int num_layers, DLayer<T>** layers) {
         //_delta->applyTenary(OpSub(), layers[num_layers-1]->act, y, _delta->nelem() - _delta->ld()); //TODO:Support other loss.
         layers[num_layers-1]->neuron()->initDelta(_delta, layers[num_layers-1]->act(), y);
-        layers[num_layers-1]->neuron()->computeLoss(_delta, layers[num_layers-1]->act(), y);
         DMatrix<T>* d = _delta;
         for (int i = num_layers-1; i > 0; i--) {
             layers[i]->bprop(d, layers[i-1]->act(), _bp_hyper_params.learning_rate, _bp_hyper_params.momentum);
             d = layers[i]->delta();
         }
         layers[0]->bprop(d, x, _bp_hyper_params.learning_rate, _bp_hyper_params.momentum);
+        layers[num_layers-1]->neuron()->computeLoss(_delta, layers[num_layers-1]->act(), y);
         return layers[num_layers-1]->neuron()->getLoss();
     }
     
@@ -90,16 +91,16 @@ public:
         data->start();
         int iperEpoch = data->instancesPerEpoch();
         DMatrix<T> *x, *y;
-        int nEpoch = 0;
+        int nEpoch = 1;
         int nInstance = 0;
         T error = 0.0;
         int lastCheck = 0;
-        while ( nEpoch < total_epochs ) {
+        while ( nEpoch <= total_epochs ) {
             data->getData(x, y, _bp_hyper_params.batch_size);
             cudaThreadSynchronize();
             error += trainOnBatch(x, y);
             nInstance += _pt_hyper_params.batch_size;
-            while (nEpoch*iperEpoch < nInstance) {
+            while (nEpoch*iperEpoch <= nInstance) {
                 nEpoch++;
                 _bp_hyper_params.learning_rate *= _bp_hyper_params.learning_rate_decay;
                 _bp_hyper_params.momentum += _bp_hyper_params.step_momentum;
@@ -108,7 +109,64 @@ public:
             }
             lastCheck += _bp_hyper_params.batch_size;
             if (lastCheck >= _bp_hyper_params.check_interval) {
-                printf("\nEpoch: %d\nInstance: %d\nError: %f\n", nEpoch, nInstance%nEpoch, error);
+#ifndef NDEBUG
+/*                for (int i = 0; i < _num_layers; i++) {
+                    DMatrix<T> *m = x;//_layers[i]->delta();
+                    m->dev2host();
+                    for (int r = 0; r < m->ld(); r++) {
+                        for (int c = 0; c < m->fd(); c++) {
+                            printf("%+1.3f ", (float)m->host_data()[r+c*m->ld()]);
+                        }
+                        printf("\n");
+                    }
+                    printf("\n");
+                }
+                for (int i = 0; i < _num_layers; i++) {
+                    DMatrix<T> *m = _delta;//_layers[i]->delta();
+                    m->dev2host();
+                    for (int r = 0; r < m->ld(); r++) {
+                        for (int c = 0; c < m->fd(); c++) {
+                            printf("%+1.3f ", (float)m->host_data()[r+c*m->ld()]);
+                        }
+                        printf("\n");
+                    }
+                    printf("\n");
+                }
+                for (int i = 0; i < _num_layers; i++) {
+                    DMatrix<T> *m = _layers[i]->drv();
+                    m->dev2host();
+                    for (int r = 0; r < m->ld(); r++) {
+                        for (int c = 0; c < m->fd(); c++) {
+                            printf("%+1.3f ", (float)m->host_data()[r+c*m->ld()]);
+                        }
+                        printf("\n");
+                    }
+                    printf("\n");
+                }
+                for (int i = 0; i < _num_layers; i++) {
+                    DMatrix<T> *m = _layers[i]->act();
+                    m->dev2host();
+                    for (int r = 0; r < m->ld(); r++) {
+                        for (int c = 0; c < m->fd(); c++) {
+                            printf("%+1.3f ", (float)m->host_data()[r+c*m->ld()]);
+                        }
+                        printf("\n");
+                    }
+                    printf("\n");
+                }
+                for (int i = 0; i < _num_layers; i++) {
+                    DMatrix<T> *m = _layers[i]->weight();
+                    m->dev2host();
+                    for (int r = 0; r < m->ld(); r++) {
+                        for (int c = 0; c < m->fd(); c++) {
+                            printf("%+1.3f ", (float)m->host_data()[r+c*m->ld()]);
+                        }
+                        printf("\n");
+                    }
+                    printf("\n");
+                }*/
+#endif
+                printf("\nEpoch: %d\nInstance: %d\nError: %f\n", nEpoch, nInstance%iperEpoch, error);
                 lastCheck = 0;
                 error = 0.0;
             }

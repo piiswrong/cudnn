@@ -30,7 +30,7 @@ public:
         hdrop_out = false;
         hdrop_rate = 0.5;
         batch_size = 128;
-        check_interval = (1<<16);
+        check_interval = 128;
     }
 };
 

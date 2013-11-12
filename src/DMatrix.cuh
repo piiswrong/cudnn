@@ -1,6 +1,7 @@
 #ifndef DMATRIX_CUH
 #define DMATRIX_CUH
 
+
 #include <common.cuh>
 #include <kernels.cuh>
 #include <DRand.h>
@@ -70,7 +71,7 @@ public:
     int size() { return _size; }
     bool getT(bool t) { return _T^t; }
     void setT() { _T = !_T; }
-    cublasOperation_t Tchar(bool t) { return _T^t ? CUBLAS_OP_T : CUBLAS_OP_N; }
+    cublasOperation_t Tchar(bool t) { return getT(t) ? CUBLAS_OP_T : CUBLAS_OP_N; }
     int ld() { return _ld; }
     int fd() { return _fd; }
     T* host_data() { return _host_data; }
@@ -180,10 +181,10 @@ public:
                Ta = !Ta; Tb = !Tb;
             }
             CUBLAS_CALL(cublasXgemm(_handle, A->Tchar(Ta), B->Tchar(Tb), A->nrows(Ta), 
-                                B->nrows(Tb), A->ncols(Ta), &alpha, 
+                                B->ncols(Tb), A->ncols(Ta), &alpha, 
                                 A->dev_data(), A->ld(), B->dev_data(), B->ld(),
                                 &beta, _dev_data, ld()));
-#ifdef DEBUG_BUILD
+#ifndef NDEBUG
             dev2host();
 #endif
         }else{
@@ -206,7 +207,7 @@ public:
                 kApplyBinaryOp<T, Op, false><<<grid, block>>>(op, _dev_data, x->dev_data(), nelem);
                 CUDA_CALL(cudaPeekAtLastError());
             }
-#ifdef DEBUG_BUILD
+#ifndef NDEBUG
             dev2host();
 #endif
         }else{
@@ -232,7 +233,7 @@ public:
                 kApplyTenaryOp<T, Op, false><<<grid, block>>>(op, _dev_data, x->dev_data(), y->dev_data(), nelem);
                 CUDA_CALL(cudaPeekAtLastError());
             }
-#ifdef DEBUG_BUILD
+#ifndef NDEBUG
             dev2host();
 #endif
         }else{

@@ -69,7 +69,7 @@ public:
     class BackwardOp {
     public:
         __host__ __device__ T operator() (T delta, T drv, T act) {
-            return delta*(drv > (T)0.0);
+            return delta*(act > (T)0.0);
         }
     };
 
@@ -97,7 +97,7 @@ public:
             dim3 grid((drv->ld()-1)/WARP_SIZE+1, 1, 1);
             dim3 block(WARP_SIZE, 32, 1);
             kSoftmaxAct<T,32><<<grid, block>>>(act->dev_data(), drv->dev_data(), act->ld(), act->fd()-1);
-#ifdef DEBUG_BUILD
+#ifndef NDEBUG
             act->dev2host();
 #endif
         }else {

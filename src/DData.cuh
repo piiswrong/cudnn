@@ -239,8 +239,10 @@ public:
         x->init(DMatrix<T>::Zero);
         T *data = x->host_data();
         for (int i = 0; i < batch_size; i++) {
-            data[i*_n + _n - 1] = 1.0;
-            data[i*_n + i%(_n-1)] = 1.0;
+            //data[i*_n + _n - 1] = 1.0;
+            //data[i*_n + i%(_n-1)] = 1.0;
+            data[i+(i%(_n-1))*batch_size] = 1.0;
+            data[i+(_n-1)*batch_size] = 1.0;
         }
         x->host2dev();
         return true;

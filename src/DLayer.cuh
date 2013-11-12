@@ -40,9 +40,11 @@ public:
         _weight = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
         _weight->init(DMatrix<T>::Weight|DMatrix<T>::Normal, 0.0, 1/sqrt((T)_weight->ld()));
         _drv = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
+        _drv->init(DMatrix<T>::Zero);
         _act = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _act->init(DMatrix<T>::One);
         _delta = new DMatrix<T>(bp_hyper_params->batch_size, _input_dim+1, _handle);
+        _delta->init(DMatrix<T>::Zero);
         if (_on_device) {
             CUDA_CALL(cudaMalloc((void**)&_state, _act->nelem()*sizeof(curandState)));
             dim3 grid((_act->nelem()-1)/BLOCK_SIZE+1);
@@ -52,8 +54,11 @@ public:
     }
 
     DMatrix<T> *delta() { return _delta; }
+    DMatrix<T> *drv() { return _drv; }
     DMatrix<T> *act() { return _act; }
+    DMatrix<T> *weight() { return _weight; }
     DNeuron<T> *neuron() { return _neuron; }
+
     
     void clearMomentum() {
         _momentun->init(DMatrix<T>::Zero);
@@ -75,7 +80,7 @@ public:
     
     void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, T rate, T mom) {
         _neuron->bprop(delta, _drv, _act);
-        _momentun->update(pre_act, true, delta, false, (1.0-mom)*rate/delta->nrows(), mom);
+        _momentun->update(pre_act, true, delta, false, -(1.0-mom)*rate/delta->nrows(), mom);
         _delta->update(delta, false, _weight, true, 1.0, 0.0);
         _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());
     }
