@@ -25,14 +25,17 @@ protected:
     int _buff_index;
     int _buff_offset;
     pthread_t _thread;
-    pthread_cond_t _cond;
+    pthread_cond_t _cond_get;
+    pthread_cond_t _cond_gen;
     pthread_mutex_t _mutex;
 
     void moveOn() {
         pthread_mutex_lock(&_mutex);
-        _ready[_buff_index++] = false;
-        pthread_cond_signal(&_cond);
+        _ready[_buff_index]= false;
+        _buff_index = (_buff_index + 1)%_num_buffs;
+        _buff_offset = 0;
         pthread_mutex_unlock(&_mutex);
+        pthread_cond_signal(&_cond_gen);
     }
 public:
     enum Split {
@@ -59,6 +62,7 @@ public:
         }
 
         _buff_index = 0;
+        _buff_offset = 0;
         _ready = new bool[_num_buffs];
         _x_buffs = new DMatrix<T>*[_num_buffs];
         _y_buffs = new DMatrix<T>*[_num_buffs];
@@ -70,7 +74,8 @@ public:
             _ready[i] = false;
         }
         pthread_mutex_init(&_mutex, NULL);
-        pthread_cond_init(&_cond, NULL);
+        pthread_cond_init(&_cond_get, NULL);
+        pthread_cond_init(&_cond_gen, NULL);
     }
     
     ~DData() {
@@ -86,7 +91,8 @@ public:
         delete _x_buffs;
         delete _y_buffs;
         pthread_mutex_destroy(&_mutex);
-        pthread_cond_destroy(&_cond);
+        pthread_cond_destroy(&_cond_gen);
+        pthread_cond_destroy(&_cond_get);
     }
 
     int x_dim() { return _x_dim; }
@@ -102,12 +108,12 @@ public:
     }
 
     void generateData() {
-        T *x;
-        T *y;
+        T *x=0;
+        T *y=0;
         for (int c = 0; ; c = (c+1)%_num_buffs) {
             pthread_mutex_lock(&_mutex);
             while (_ready[c]) {
-                pthread_cond_wait(&_cond, &_mutex);
+                pthread_cond_wait(&_cond_gen, &_mutex);
             }
             pthread_mutex_unlock(&_mutex);
             fetch(x, y);
@@ -117,12 +123,12 @@ public:
                     std::swap(_perm_seq[i], _perm_seq[j+i]);
                 }
                 for (int i = 0; i < _buff_dim; i++) {
-                    memcpy(x+_x_dim*i, _x_buffs[c]->host_data() + _x_dim*_perm_seq[i], sizeof(T)*_x_dim);
-                    memcpy(y+_y_dim*i, _y_buffs[c]->host_data() + _y_dim*_perm_seq[i], sizeof(T)*_y_dim);
+                    memcpy(_x_buffs[c]->host_data() + _x_dim*_perm_seq[i], x+_x_dim*i, sizeof(T)*_x_dim);
+                    memcpy(_y_buffs[c]->host_data() + _y_dim*_perm_seq[i], y+_y_dim*i, sizeof(T)*_y_dim);
                 }
             }else {
-                memcpy(x, _x_buffs[c]->host_data(), _x_buffs[c]->size()); 
-                memcpy(y, _y_buffs[c]->host_data(), _y_buffs[c]->size());
+                memcpy(_x_buffs[c]->host_data(), x, _x_buffs[c]->size()); 
+                memcpy(_y_buffs[c]->host_data(), y, _y_buffs[c]->size());
             }
             delete x;
             delete y;
@@ -132,8 +138,8 @@ public:
             }
             pthread_mutex_lock(&_mutex);
             _ready[c] = true;
-            pthread_cond_signal(&_cond);
             pthread_mutex_unlock(&_mutex);
+            pthread_cond_signal(&_cond_get);
         }
     }
 
@@ -144,7 +150,9 @@ public:
         if (batch_size > _buff_dim) return false;
 
         pthread_mutex_lock(&_mutex);
-        while (!_ready[_buff_index]) pthread_cond_wait(&_cond, &_mutex);
+        while (!_ready[_buff_index]) {
+            pthread_cond_wait(&_cond_get, &_mutex);
+        }
         pthread_mutex_unlock(&_mutex);
         
         if (batch_size > _buff_dim - _buff_offset) {
@@ -153,6 +161,8 @@ public:
         }else {
             x = new DMatrix<T>(_x_buffs[_buff_index], _buff_offset, batch_size);
             y = new DMatrix<T>(_y_buffs[_buff_index], _buff_offset, batch_size);
+            x->setT();
+            x->setT();
             cudaStreamSynchronize(_streams[_buff_index]);
             _buff_offset += batch_size;
             return true;
@@ -173,7 +183,7 @@ class DMnistData : public DData<T> {
 
     char *_tx, *_ty;
 public:
-    DMnistData(std::string path, int split, cublasHandle_t handle = 0) : DData<T>(2, 28*28, 10, 10000, true, handle) {
+    DMnistData(std::string path, int split, int batch_size, cublasHandle_t handle = 0) : DData<T>(2, 28*28+1, 10, batch_size, false, handle) {
         _split = split;
 		if (path[path.length()-1] != '/') path.append("/");
         if (split&(DData<T>::Train|DData<T>::Validate)) {
@@ -215,10 +225,24 @@ public:
                 _offset = 0;
             }
         }while (need);
-
-        for (int i = 0; i < DData<T>::_buff_dim*DData<T>::_x_dim; i++) x[i] = (T)_tx[i]/256.0;
+        
+        int ld = DData<T>::_x_dim, fd = DData<T>::_buff_dim;
+        for (int i = 0; i < fd; i++) {
+            for (int j = 0; j < ld-1; j++) {
+                x[i*ld+j] = _tx[i*(ld-1)+j]/256.0;
+            }
+            x[i*ld+ld-1] = 1;
+        }
         memset(y, 0, sizeof(T)*DData<T>::_y_dim*DData<T>::_buff_dim);
         for (int i = 0; i < DData<T>::_buff_dim; i++) y[i*DData<T>::_y_dim + _ty[i]] = 1.0;
+#ifndef NDEBUG
+        /*for (int i = 0; i < 10; i++) {
+            for (int j = 0; j < DData<T>::_y_dim; j++)
+                printf("%f ", y[i*DData<T>::_y_dim+j]);
+            printf("\n");
+        }
+        printf("\n");*/
+#endif
         return true;
 	}
 

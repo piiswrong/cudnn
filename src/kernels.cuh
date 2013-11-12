@@ -7,13 +7,12 @@
 #include <curand_kernel.h>
 //#include <cuPrintf.cu>
 
-template<class T, class Op, bool isMulti>
-__global__ void kApplyBinaryOp(Op op, T* dest, const T* x, int nelem) {
-    const uint i= blockIdx.x * blockDim.x + threadIdx.x;
-    if (isMulti || i < nelem) {
-        dest[i] = op(dest[i], x[i]);
-    }
+
+template<class T, class Op, bool even_m, bool even_n, bool y_trans>
+__global__ void kApplyBinaryOp(Op op, T* x, const T* y, int m, int n, int ldx, int ldy) {
+    if (y_trans) 
 }
+
 
 template<class T, class Op, bool isMulti>
 __global__ void kApplyTenaryOp(Op op, T* dest, const T* x, const T* y, int nelem) {

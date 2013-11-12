@@ -40,7 +40,7 @@ public:
             _layers[i] = new DLayer<T>(layer_dims[i], layer_dims[i+1], neurons[i],
                                     &_pt_hyper_params, &_bp_hyper_params, _handle);
         }
-        _delta = new DMatrix<T>(_bp_hyper_params.batch_size, layer_dims[_num_layers-1]+1, _handle);
+        _delta = new DMatrix<T>(_bp_hyper_params.batch_size, layer_dims[_num_layers]+1, _handle);
         _delta->init(DMatrix<T>::Zero);
         if (_on_device) {
             int nstate = (_layer_dims[0]+1)*_bp_hyper_params.batch_size;
@@ -83,13 +83,13 @@ public:
             d = layers[i]->delta();
         }
         layers[0]->bprop(d, x, _bp_hyper_params.learning_rate, _bp_hyper_params.momentum);
-        layers[num_layers-1]->neuron()->computeLoss(_delta, layers[num_layers-1]->act(), y);
+//        layers[num_layers-1]->neuron()->computeLoss(_delta, layers[num_layers-1]->act(), y);
         return layers[num_layers-1]->neuron()->getLoss();
     }
     
     void fineTune(DData<T>* data, int total_epochs) {
         data->start();
-        int iperEpoch = data->instancesPerEpoch();
+        int iperEpoch = 1280;//data->instancesPerEpoch();
         DMatrix<T> *x, *y;
         int nEpoch = 1;
         int nInstance = 0;
@@ -97,6 +97,7 @@ public:
         int lastCheck = 0;
         while ( nEpoch <= total_epochs ) {
             data->getData(x, y, _bp_hyper_params.batch_size);
+            //printf("%d:%d\n", nEpoch, nInstance);
             cudaThreadSynchronize();
             error += trainOnBatch(x, y);
             nInstance += _pt_hyper_params.batch_size;
@@ -120,19 +121,29 @@ public:
                         printf("\n");
                     }
                     printf("\n");
-                }
-                for (int i = 0; i < _num_layers; i++) {
-                    DMatrix<T> *m = _delta;//_layers[i]->delta();
-                    m->dev2host();
-                    for (int r = 0; r < m->ld(); r++) {
-                        for (int c = 0; c < m->fd(); c++) {
-                            printf("%+1.3f ", (float)m->host_data()[r+c*m->ld()]);
-                        }
-                        printf("\n");
+                }*/
+                DMatrix<T> *m = y;//_layers[i]->delta();
+                m->dev2host();
+                for (int r = 0; r < 10; r++) {
+                    for (int c = 0; c < 10; c++) {
+                        printf("%+1.3f ", (float)m->host_data()[r*10+c]);
                     }
                     printf("\n");
                 }
-                for (int i = 0; i < _num_layers; i++) {
+                printf("\n");
+                
+
+                m = _delta;//_layers[i]->delta();
+                m->dev2host();
+                for (int r = 0; r < 10; r++) {
+                    for (int c = 0; c < m->fd(); c++) {
+                        printf("%+1.3f ", (float)m->host_data()[r+c*m->ld()]);
+                    }
+                    printf("\n");
+                }
+                printf("\n");
+                
+              /*  for (int i = 0; i < _num_layers; i++) {
                     DMatrix<T> *m = _layers[i]->drv();
                     m->dev2host();
                     for (int r = 0; r < m->ld(); r++) {

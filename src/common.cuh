@@ -13,6 +13,8 @@
 const int WARP_SIZE = 2;
 const int BLOCK_SIZE = 256;
 const int SPARSE_DEGREE = 15;
+const int TILE_DIM = 32;
+const int BLOCK_ROWS = 8;
 
 
 #define CUDA_CALL(x) do { if((x) != cudaSuccess) { \
