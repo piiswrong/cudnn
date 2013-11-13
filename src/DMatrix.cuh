@@ -193,24 +193,30 @@ public:
     }
 
     template<class Op>
-    void applyBinary(Op op, DMatrix<T>* x, int nelem = 0) {
+    void applyBinary(Op op, DMatrix<T>* y, int m, int n) {
         if (nelem == 0) nelem = _nelem;
         if (_on_device) {
-            if (nelem%BLOCK_SIZE == 0) {
-                dim3 grid(nelem/BLOCK_SIZE, 1, 1);
-                dim3 block(BLOCK_SIZE, 1, 1);
-                kApplyBinaryOp<T, Op, true><<<grid, block>>>(op, _dev_data, x->dev_data(), nelem);
-                CUDA_CALL(cudaPeekAtLastError());
-            }else {
-                dim3 grid(nelem/BLOCK_SIZE + 1, 1, 1);
-                dim3 block(BLOCK_SIZE, 1, 1);
-                kApplyBinaryOp<T, Op, false><<<grid, block>>>(op, _dev_data, x->dev_data(), nelem);
-                CUDA_CALL(cudaPeekAtLastError());
+            bool y_trans = y->getT(_T);
+            int ldx = ld(), ldy = y->ld();
+            bool even_m = !(m%TILE_DIM), even_n = !(n%TILE_DIM);
+            dim3 grid(m/TILE_DIM+!even_m, n/TILE_DIM+!even_n, 1);
+            dim3 block(TILE_DIM, BLOCK_ROWS, 1);
+            int word = (even_m<<2)|(even_n<<1)|y_trans;
+            switch(word) {
+            case 0: kApplyBinaryOp<T, Op, false, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
+            case 1: kApplyBinaryOp<T, Op, false, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
+            case 2: kApplyBinaryOp<T, Op, false, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
+            case 3: kApplyBinaryOp<T, Op, false, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
+            case 4: kApplyBinaryOp<T, Op, true, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
+            case 5: kApplyBinaryOp<T, Op, true, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
+            case 6: kApplyBinaryOp<T, Op, true, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
+            case 7: kApplyBinaryOp<T, Op, true, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
             }
 #ifndef NDEBUG
             dev2host();
 #endif
         }else{
+            exit(-1);
             T* x_data = x->host_data();
             for(int i = 0; i < _nelem; i++) {
                 _host_data[i] = op(_host_data[i], x_data[i]);
@@ -219,28 +225,42 @@ public:
     }
 
     template<class Op>
-    void applyTenary(Op op, DMatrix<T>* x, DMatrix<T>* y, int nelem = 0) {
+    void applyTenary(Op op, DMatrix<T>* y, DMatrix<T>* z, int m, int n) {
         if (nelem == 0) nelem = _nelem;
         if (_on_device) {
-            if (nelem%BLOCK_SIZE == 0) {
-                dim3 grid(nelem/BLOCK_SIZE, 1, 1);
-                dim3 block(BLOCK_SIZE, 1, 1);
-                kApplyTenaryOp<T, Op, true><<<grid, block>>>(op, _dev_data, x->dev_data(), y->dev_data(), nelem);
-                CUDA_CALL(cudaPeekAtLastError());
-            }else {
-                dim3 grid(nelem/BLOCK_SIZE + 1, 1 ,1);
-                dim3 block(BLOCK_SIZE, 1, 1);
-                kApplyTenaryOp<T, Op, false><<<grid, block>>>(op, _dev_data, x->dev_data(), y->dev_data(), nelem);
-                CUDA_CALL(cudaPeekAtLastError());
+            bool y_trans = y->getT(_T), z_trans = z->getT(_T);
+            int ldx = ld(), ldy = y->ld(), ldz = z->ld();
+            bool even_m = !(m%TILE_DIM), even_n = !(n%TILE_DIM);
+            dim3 grid(m/TILE_DIM+!even_m, n/TILE_DIM+!even_n, 1);
+            dim3 block(TILE_DIM, BLOCK_ROWS, 1);
+            int word = (even_m<<3)|(even_n<<2)|(y_trans<<1)|(z_trans);
+            switch(word) {
+            case 0: kApplyTenaryOp<T, Op, false, false, false, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 1: kApplyTenaryOp<T, Op, false, false, false, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 2: kApplyTenaryOp<T, Op, false, false, true, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 3: kApplyTenaryOp<T, Op, false, false, true, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 4: kApplyTenaryOp<T, Op, false, true, false, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 5: kApplyTenaryOp<T, Op, false, true, false, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 6: kApplyTenaryOp<T, Op, false, true, true, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 7: kApplyTenaryOp<T, Op, false, true, true, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 8: kApplyTenaryOp<T, Op, true, false, false, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 9: kApplyTenaryOp<T, Op, true, false, false, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 10: kApplyTenaryOp<T, Op, true, false, true, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 11: kApplyTenaryOp<T, Op, true, false, true, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 12: kApplyTenaryOp<T, Op, true, true, false, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 13: kApplyTenaryOp<T, Op, true, true, false, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 14: kApplyTenaryOp<T, Op, true, true, true, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 15: kApplyTenaryOp<T, Op, true, true, true, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
             }
 #ifndef NDEBUG
             dev2host();
 #endif
         }else{
-            T* x_data = x->host_data();
+            exit(-1);
             T* y_data = y->host_data();
+            T* z_data = z->host_data();
             for(int i = 0; i < _nelem; i++) {
-                _dev_data[i] = op(_dev_data[i], x_data[i], y_data[i]);
+                _dev_data[i] = op(_dev_data[i], y_data[i], z_data[i]);
             }
         }
     }
