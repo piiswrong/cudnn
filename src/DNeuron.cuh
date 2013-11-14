@@ -69,7 +69,7 @@ public:
     class BackwardOp {
     public:
         __host__ __device__ T operator() (T delta, T drv, T act) {
-            return delta*(act > (T)0.0);
+            return delta*(drv > (T)0.0);
         }
     };
 

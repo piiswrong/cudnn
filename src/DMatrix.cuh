@@ -17,6 +17,17 @@ class DMatrix {
     T* _dev_data;
     bool _on_device;
 	
+    enum _Init {
+        _None = 0,
+        _Zero = 1,
+        _Uniform = 2,
+        _Normal = 4,
+        _ColSparse = 8,
+        _RowSparse = 16,
+        _Weight = 32,
+        _One = 64
+    };
+
 public:
     enum Init {
         None = 0,
@@ -80,17 +91,19 @@ public:
     cublasHandle_t handle() { return _handle; }
 
 	void init(int p, T a = 0.0, T b = 0.0) { 
-		if (p&DMatrix<T>::Zero) memset(_host_data, 0, _size);
-        if (p&DMatrix<T>::One) for (int i = 0; i < _nelem; i++) _host_data[i] = (T)1;
-		if (p&DMatrix<T>::Uniform) {
+		if (p&_Zero) memset(_host_data, 0, _size);
+        if (p&_One) for (int i = 0; i < _nelem; i++) _host_data[i] = (T)1;
+		if (p&_Uniform) {
             DRand dist(a, b);
-			for (int i = 0; i < _nelem; i++) _host_data[i] = dist.uniform();
+			for (int i = 0; i < _nelem; i++) 
+                _host_data[i] = dist.uniform();
 		}
-		if (p&DMatrix<T>::Normal) {
+		if (p&_Normal) {
             DRand dist(a, b);
-			for (int i = 0; i < _nelem; i++) _host_data[i] = dist.normal();
+			for (int i = 0; i < _nelem; i++) 
+                _host_data[i] = dist.normal();
 		}
-		if (p&DMatrix<T>::ColSparse) {
+		if (p&_ColSparse) {
 			for (int col = 0; col < _fd; col++) {
                 int n1 = SPARSE_DEGREE, n2 = _ld - SPARSE_DEGREE;
                 for (int row = 0; row < _ld; row++) {
@@ -104,7 +117,7 @@ public:
                 }
 			}
 		}
-        if (p&DMatrix<T>::RowSparse) {
+        if (p&_RowSparse) {
 			for (int row = 0; row < _ld; row++) {
                 int n1 = SPARSE_DEGREE, n2 = _fd - SPARSE_DEGREE;
                 for (int col = 0; col < _fd; col++) {
@@ -113,12 +126,12 @@ public:
                         n1--;
                     }else {
                         n2--;
-                        _host_data[col*_ld + row] = 0.9;
+                        _host_data[col*_ld + row] = 0.0;
                     }
                 }
 			}
 		}
-        if (p&DMatrix<T>::Weight) {
+        if (p&_Weight) {
             for (int i = _nelem - _ld; i < _nelem; i++) _host_data[i] = 0.0;
             _host_data[_nelem-1] = 1.0;
         }

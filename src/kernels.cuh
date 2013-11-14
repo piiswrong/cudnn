@@ -114,36 +114,78 @@ __global__ void kSoftmaxAct(T *act, T *drv, int ld, int fd) {
 
     int n = ld*fd;
     if (i < ld) {
-        T mySum = 0;
+        T myMax = -1e37;
         while (j < n) {
-            mySum += exp(drv[j]);
+            if (myMax < drv[j]) myMax = drv[j];
             j += blockSize;
         }
         j = threadIdx.y;
         i = j*WARP_SIZE + threadIdx.x;
+        smem[i] = myMax;
+        __syncthreads();
+        if (num_thrd >= 32) {
+            if (j < 16)
+                if (myMax < smem[i+16*WARP_SIZE])
+                    smem[i] = myMax = smem[i+16*WARP_SIZE];
+             __syncthreads();
+        }
+        if (num_thrd >= 16) {
+            if (j < 8)
+                if (myMax < smem[i+8*WARP_SIZE])
+                    smem[i] = myMax = smem[i+8*WARP_SIZE];
+            __syncthreads();
+        }
+        if (num_thrd >= 8) {
+            if (j < 4)
+                if (myMax < smem[i+4*WARP_SIZE])
+                    smem[i] = myMax = smem[i+4*WARP_SIZE];
+            __syncthreads();
+        }
+        if (num_thrd >= 4) {
+            if (j < 2)
+                if (myMax < smem[i+2*WARP_SIZE])
+                    smem[i] = myMax = smem[i+2*WARP_SIZE];
+            __syncthreads();
+        }
+        myMax = smem[threadIdx.x] > smem[threadIdx.x+WARP_SIZE] ? smem[threadIdx.x] : smem[threadIdx.x+WARP_SIZE];
+
+        i = blockIdx.x*WARP_SIZE + threadIdx.x;
+        j = threadIdx.y*ld + i;
+        T mySum = 0;
+        while (j < n) {
+            mySum += exp(drv[j]-myMax);
+            j += blockSize;
+        }
+        j = threadIdx.y;
+        i = j*WARP_SIZE + threadIdx.x;
+        __syncthreads();
         smem[i] = mySum;
         __syncthreads();
-        if (num_thrd >= 32) 
+        if (num_thrd >= 32) {
             if (j < 16)
                 smem[i] = mySum = mySum + smem[i+16*WARP_SIZE];
-        __syncthreads();
-        if (num_thrd >= 16)
+            __syncthreads();
+        }
+        if (num_thrd >= 16) {
             if (j < 8)
                 smem[i] = mySum = mySum + smem[i+8*WARP_SIZE];
-        __syncthreads();
-        if (num_thrd >= 8)
+            __syncthreads();
+        }
+        if (num_thrd >= 8) {
             if (j < 4)
                 smem[i] = mySum = mySum + smem[i+4*WARP_SIZE];
-        __syncthreads();
-        if (num_thrd >= 4)
+            __syncthreads();
+        }
+        if (num_thrd >= 4) {
             if (j < 2)
                 smem[i] = mySum = mySum + smem[i+2*WARP_SIZE];
-        __syncthreads();
+            __syncthreads();
+        }
         mySum = smem[threadIdx.x] + smem[threadIdx.x+WARP_SIZE];
         i = blockIdx.x*WARP_SIZE + threadIdx.x;
         j = threadIdx.y*ld + i;
         while (j < n) {
-            act[j] = exp(drv[j])/mySum;
+            act[j] = exp(drv[j]-myMax)/mySum;
             j += blockSize;
         }
        // cuPrintf("%dx%d: %f, %f\n", i, threadIdx.y, mySum, act[j-blockSize]); 

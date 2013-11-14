@@ -38,7 +38,7 @@ public:
         _momentun = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
         _momentun->init(DMatrix<T>::Zero);
         _weight = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
-        _weight->init(DMatrix<T>::Weight|DMatrix<T>::Uniform|DMatrix<T>::ColSparse, -1/sqrt((T)_weight->ld()), 1/sqrt((T)_weight->ld()));
+        _weight->init(DMatrix<T>::Weight|DMatrix<T>::Uniform, -1.0/sqrt((T)_weight->ld()), 1.0/sqrt((T)_weight->ld()));
         _drv = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _drv->init(DMatrix<T>::Zero);
         _act = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);

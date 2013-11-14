@@ -183,7 +183,7 @@ class DMnistData : public DData<T> {
 
     char *_tx, *_ty;
 public:
-    DMnistData(std::string path, int split, int batch_size, cublasHandle_t handle = 0) : DData<T>(2, 28*28+1, 10, batch_size, false, handle) {
+    DMnistData(std::string path, int split, int batch_size, cublasHandle_t handle = 0) : DData<T>(2, 28*28+1, 10, batch_size, true, handle) {
         _split = split;
 		if (path[path.length()-1] != '/') path.append("/");
         if (split&(DData<T>::Train|DData<T>::Validate)) {

@@ -81,7 +81,7 @@ public:
     
     void fineTune(DData<T>* data, int total_epochs) {
         data->start();
-        int iperEpoch = 100;//data->instancesPerEpoch();
+        int iperEpoch = data->instancesPerEpoch();
         DMatrix<T> *x, *y;
         int nEpoch = 1;
         int nInstance = 0;
