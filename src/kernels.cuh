@@ -7,7 +7,6 @@
 #include <curand_kernel.h>
 //#include <cuPrintf.cu>
 
-template<class T> class DMatrix<T>;
 
 template<class T, class Op, bool even_m, bool even_n, bool y_trans>
 __global__ void kApplyBinaryOp(Op op, T* x, const T* y, int m, int n, int ldx, int ldy) {
@@ -45,13 +44,13 @@ __global__ void kApplyTenaryOp(Op op, T* x, const T* y, const T* z, int m, int n
         j = blockIdx.x * TILE_DIM + threadIdx.y;
         if (even_n || i < n) 
             for (int k = 0; (even_m || j < m) && k < TILE_DIM; k += BLOCK_ROWS, j += BLOCK_ROWS) 
-                tile[threadIdx.y + k][threadIdx.x] = z[i+j*ldy];
+                tile_z[threadIdx.y + k][threadIdx.x] = z[i+j*ldz];
     }else {
         i = blockIdx.x * TILE_DIM + threadIdx.x;
         j = blockIdx.y * TILE_DIM + threadIdx.y;
         if (even_m || i < m) 
             for (int k = 0; (even_n || j < n) && k < TILE_DIM; k += BLOCK_ROWS, j += BLOCK_ROWS) 
-                tile[threadIdx.x][threadIdx.y + k] = z[i+j*ldy];
+                tile_z[threadIdx.x][threadIdx.y + k] = z[i+j*ldz];
     }
     
     if (y_trans) {
@@ -59,13 +58,13 @@ __global__ void kApplyTenaryOp(Op op, T* x, const T* y, const T* z, int m, int n
         j = blockIdx.x * TILE_DIM + threadIdx.y;
         if (even_n || i < n) 
             for (int k = 0; (even_m || j < m) && k < TILE_DIM; k += BLOCK_ROWS, j += BLOCK_ROWS) 
-                tile[threadIdx.y + k][threadIdx.x] = y[i+j*ldy];
+                tile_y[threadIdx.y + k][threadIdx.x] = y[i+j*ldy];
     }else {
         i = blockIdx.x * TILE_DIM + threadIdx.x;
         j = blockIdx.y * TILE_DIM + threadIdx.y;
         if (even_m || i < m) 
             for (int k = 0; (even_n || j < n) && k < TILE_DIM; k += BLOCK_ROWS, j += BLOCK_ROWS) 
-                tile[threadIdx.x][threadIdx.y + k] = y[i+j*ldy];
+                tile_y[threadIdx.x][threadIdx.y + k] = y[i+j*ldy];
     }
 
     i = blockIdx.x * TILE_DIM + threadIdx.x;
@@ -84,12 +83,27 @@ __global__ void kDropout(T *dest, curandState *state, float rate, int m, int n, 
     int j = blockIdx.y * TILE_DIM + threadIdx.y;
     if (even_m || i < m) {
         curandState localState = state[i+j*m];
-        for (int k = 0; (even_n || j < n) && k < TILE_DIM; k += BLOCK_ROWS) {
+        for (int k = 0; (even_n || j + k < n) && k < TILE_DIM; k += BLOCK_ROWS) {
             dest[i+(j+k)*ld] *= curand_uniform(&localState) > rate;
         }
         state[i+j*m] = localState;
     }
 }
+
+template<class T> 
+void hDropout(T *x, curandState *state, float rate, bool trans, int m, int n, int ld) {
+    if (trans) std::swap(m, n);
+    bool even_m = !(m%TILE_DIM), even_n = !(n%TILE_DIM);
+    dim3 grid(m/TILE_DIM+!even_m, n/TILE_DIM+!even_n, 1);
+    dim3 block(TILE_DIM, BLOCK_ROWS, 1);
+    switch((even_m<<1)|even_n) {
+    case 0: kDropout<T, false, false><<<grid, block>>>(x, state, rate, m, n, ld);break;
+    case 1: kDropout<T, false, true><<<grid, block>>>(x, state, rate, m, n, ld);break;
+    case 2: kDropout<T, true, false><<<grid, block>>>(x, state, rate, m, n, ld);break;
+    case 3: kDropout<T, true, true><<<grid, block>>>(x, state, rate, m, n, ld);break;
+    }
+}
+
 
 template<class T, int num_thrd>
 __global__ void kSoftmaxAct(T *act, T *drv, int ld, int fd) {

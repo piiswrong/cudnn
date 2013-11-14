@@ -38,7 +38,7 @@ public:
         _momentun = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
         _momentun->init(DMatrix<T>::Zero);
         _weight = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
-        _weight->init(DMatrix<T>::Weight|DMatrix<T>::Normal, 0.0, 1/sqrt((T)_weight->ld()));
+        _weight->init(DMatrix<T>::Weight|DMatrix<T>::Uniform|DMatrix<T>::ColSparse, -1/sqrt((T)_weight->ld()), 1/sqrt((T)_weight->ld()));
         _drv = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _drv->init(DMatrix<T>::Zero);
         _act = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
@@ -64,18 +64,11 @@ public:
         _momentun->init(DMatrix<T>::Zero);
     }
 
-    void fprop(DMatrix<T>* dev_data, bool drop_out, float drop_rate = 0.0) {
+    void fprop(DMatrix<T>* dev_data, bool drop_out = false, float drop_rate = 0.0) {
         _drv->update(dev_data, false, _weight, false);
         _neuron->fprop(_act, _drv);
-        if (drop_out) {
-            dim3 grid((_act->nelem()-_act->ld()-1)/BLOCK_SIZE+1, 1, 1);
-            dim3 block(BLOCK_SIZE, 1, 1);
-            if ((_act->nelem()-_act->ld())%BLOCK_SIZE == 0)
-                kDropout<T, true><<<grid, block>>>(_act->dev_data(), _state, _act->nelem() - _act->ld(), drop_rate);
-            else
-                kDropout<T, false><<<grid, block>>>(_act->dev_data(), _state, _act->nelem() - _act->ld(), drop_rate);
-
-        }
+        if (drop_out) 
+            hDropout(_act->dev_data(), _state, drop_rate, _act->getT(), _act->nrows(), _act->ncols() - 1, _act->ld());
     }
     
     void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, T rate, T mom) {

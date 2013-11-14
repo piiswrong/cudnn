@@ -61,21 +61,13 @@ public:
 
     virtual void fprop(DMatrix<T>* x, int num_layers, DLayer<T>** layers, bool idrop_out = false,
                         bool hdrop_out = false, float idrop_rate = 0.0, float hdrop_rate = 0.0) {
-        if (idrop_out) {
-            dim3 grid((x->nelem() - x->ld() - 1)/BLOCK_SIZE+1, 1, 1);
-            dim3 block(BLOCK_SIZE, 1, 1);
-            if ((x->nelem() - x->ld())%BLOCK_SIZE == 0)
-                kDropout<T, true><<<grid, block>>>(x->dev_data(), _state, x->nelem() - x->ld(), idrop_rate);
-            else
-                kDropout<T, false><<<grid, block>>>(x->dev_data(), _state, x->nelem() - x->ld(), idrop_rate);
-        }
+        if (idrop_out) hDropout(x->dev_data(), _state, idrop_rate, x->getT(), x->nrows(), x->ncols() - 1, x->ld());
         layers[0]->fprop(x, num_layers > 1 && hdrop_out, hdrop_rate);
         for (int i = 1; i < num_layers; i++) 
             layers[i]->fprop(layers[i-1]->act(), i < num_layers - 1 && hdrop_out, hdrop_rate);
     }
 
     virtual T bprop(DMatrix<T>* x, DMatrix<T>* y, int num_layers, DLayer<T>** layers) {
-        //_delta->applyTenary(OpSub(), layers[num_layers-1]->act, y, _delta->nelem() - _delta->ld()); //TODO:Support other loss.
         layers[num_layers-1]->neuron()->initDelta(_delta, layers[num_layers-1]->act(), y);
         DMatrix<T>* d = _delta;
         for (int i = num_layers-1; i > 0; i--) {
@@ -83,24 +75,26 @@ public:
             d = layers[i]->delta();
         }
         layers[0]->bprop(d, x, _bp_hyper_params.learning_rate, _bp_hyper_params.momentum);
-//        layers[num_layers-1]->neuron()->computeLoss(_delta, layers[num_layers-1]->act(), y);
+        layers[num_layers-1]->neuron()->computeLoss(_delta, layers[num_layers-1]->act(), y);
         return layers[num_layers-1]->neuron()->getLoss();
     }
     
     void fineTune(DData<T>* data, int total_epochs) {
         data->start();
-        int iperEpoch = 1280;//data->instancesPerEpoch();
+        int iperEpoch = 100;//data->instancesPerEpoch();
         DMatrix<T> *x, *y;
         int nEpoch = 1;
         int nInstance = 0;
         T error = 0.0;
         int lastCheck = 0;
+        
+        cudaThreadSynchronize();
         while ( nEpoch <= total_epochs ) {
             data->getData(x, y, _bp_hyper_params.batch_size);
-            //printf("%d:%d\n", nEpoch, nInstance);
-            cudaThreadSynchronize();
             error += trainOnBatch(x, y);
-            nInstance += _pt_hyper_params.batch_size;
+            cudaThreadSynchronize();
+            delete x, y;
+            nInstance += _bp_hyper_params.batch_size;
             while (nEpoch*iperEpoch <= nInstance) {
                 nEpoch++;
                 _bp_hyper_params.learning_rate *= _bp_hyper_params.learning_rate_decay;
@@ -125,8 +119,8 @@ public:
                 DMatrix<T> *m = y;//_layers[i]->delta();
                 m->dev2host();
                 for (int r = 0; r < 10; r++) {
-                    for (int c = 0; c < 10; c++) {
-                        printf("%+1.3f ", (float)m->host_data()[r*10+c]);
+                    for (int c = 0; c < m->ncols(); c++) {
+                        printf("%d ", (int)m->host_data()[r*10+c]);
                     }
                     printf("\n");
                 }
@@ -177,7 +171,7 @@ public:
                     printf("\n");
                 }*/
 #endif
-                printf("\nEpoch: %d\nInstance: %d\nError: %f\n", nEpoch, nInstance%iperEpoch, error);
+                printf("\nEpoch: %d\nInstance: %d\nError: %f\n", nEpoch, nInstance%iperEpoch, error/lastCheck);
                 lastCheck = 0;
                 error = 0.0;
             }

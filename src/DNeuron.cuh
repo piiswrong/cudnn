@@ -41,16 +41,16 @@ public:
             _on_device = false;
     }
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
-        act->applyBinary(ForwardOp(), drv, act->nelem() - act->ld()); 
+        act->applyBinary(ForwardOp(), drv, act->nrows(), act->ncols() - 1);
     }
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
-        delta->applyTenary(BackwardOp(), drv, act);
+        delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols());
     }
     virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        delta->applyTenary(DeltaOp(), act, y, delta->nelem() - delta->ld());
+        delta->applyTenary(DeltaOp(), act, y, delta->nrows(), delta->ncols() - 1);
     }
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        _loss = delta->norm2(delta->nelem() - delta->ld())/(T)delta->ld();
+        _loss = delta->norm2(delta->nelem() - delta->ld());
     }
     virtual T getLoss() {
         return _loss;
@@ -75,10 +75,10 @@ public:
 
     DReLUNeuron(cublasHandle_t handle) : DNeuron<T>(handle) {}
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
-        act->applyBinary(ForwardOp(), drv, act->nelem() - act->ld()); 
+        act->applyBinary(ForwardOp(), drv, act->nrows(), act->ncols() - 1);
     }
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
-        delta->applyTenary(BackwardOp(), drv, act);
+        delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols());
     }
 };
 
@@ -94,7 +94,7 @@ public:
     }
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
         if (DNeuron<T>::_on_device) {
-            dim3 grid((drv->ld()-1)/WARP_SIZE+1, 1, 1);
+            dim3 grid((act->ld()-1)/WARP_SIZE+1, 1, 1);
             dim3 block(WARP_SIZE, 32, 1);
             kSoftmaxAct<T,32><<<grid, block>>>(act->dev_data(), drv->dev_data(), act->ld(), act->fd()-1);
 #ifndef NDEBUG
@@ -108,8 +108,8 @@ public:
         return;
     }
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        act->applyTenary(OpWeightedLog<T>(), act, y, act->nelem() - act->ld());
-        DNeuron<T>::_loss = act->norm1(act->nelem() - act->ld())/act->ld();
+        act->applyTenary(OpWeightedLog<T>(), act, y, act->nrows(), act->ncols());
+        DNeuron<T>::_loss = act->norm1(act->nelem() - act->ld());
     }
     virtual T getLoss() {
         //cudaStreamSynchronize(_stream);

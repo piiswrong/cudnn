@@ -69,7 +69,7 @@ public:
     int ncols(bool t = false) { return getT(t) ? ld():fd(); }
     int nelem() { return _nelem; }
     int size() { return _size; }
-    bool getT(bool t) { return _T^t; }
+    bool getT(bool t = false) { return _T^t; }
     void setT() { _T = !_T; }
     cublasOperation_t Tchar(bool t) { return getT(t) ? CUBLAS_OP_T : CUBLAS_OP_N; }
     int ld() { return _ld; }
@@ -167,6 +167,9 @@ public:
     void add(DMatrix<T>* x, const T alpha, int nelem = 0) {
         if (nelem == 0) nelem = _nelem;
         cublasXaxpy(_handle, nelem, &alpha, x->dev_data(), 1, dev_data(), 1);
+#ifndef NDEBUG
+            dev2host();
+#endif
     }
 
     void update(DMatrix<T>* A, bool Ta, DMatrix<T>* B, bool Tb) {
@@ -194,9 +197,9 @@ public:
 
     template<class Op>
     void applyBinary(Op op, DMatrix<T>* y, int m, int n) {
-        if (nelem == 0) nelem = _nelem;
         if (_on_device) {
-            bool y_trans = y->getT(_T);
+            if (getT()) std::swap(m, n);
+            bool y_trans = y->getT(getT());
             int ldx = ld(), ldy = y->ld();
             bool even_m = !(m%TILE_DIM), even_n = !(n%TILE_DIM);
             dim3 grid(m/TILE_DIM+!even_m, n/TILE_DIM+!even_n, 1);
@@ -217,17 +220,17 @@ public:
 #endif
         }else{
             exit(-1);
-            T* x_data = x->host_data();
+            T* y_data = y->host_data();
             for(int i = 0; i < _nelem; i++) {
-                _host_data[i] = op(_host_data[i], x_data[i]);
+                _host_data[i] = op(_host_data[i], y_data[i]);
             }
         }
     }
 
     template<class Op>
     void applyTenary(Op op, DMatrix<T>* y, DMatrix<T>* z, int m, int n) {
-        if (nelem == 0) nelem = _nelem;
         if (_on_device) {
+            if (getT()) std::swap(m, n);
             bool y_trans = y->getT(_T), z_trans = z->getT(_T);
             int ldx = ld(), ldy = y->ld(), ldz = z->ld();
             bool even_m = !(m%TILE_DIM), even_n = !(n%TILE_DIM);
@@ -235,22 +238,22 @@ public:
             dim3 block(TILE_DIM, BLOCK_ROWS, 1);
             int word = (even_m<<3)|(even_n<<2)|(y_trans<<1)|(z_trans);
             switch(word) {
-            case 0: kApplyTenaryOp<T, Op, false, false, false, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 1: kApplyTenaryOp<T, Op, false, false, false, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 2: kApplyTenaryOp<T, Op, false, false, true, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 3: kApplyTenaryOp<T, Op, false, false, true, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 4: kApplyTenaryOp<T, Op, false, true, false, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 5: kApplyTenaryOp<T, Op, false, true, false, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 6: kApplyTenaryOp<T, Op, false, true, true, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 7: kApplyTenaryOp<T, Op, false, true, true, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 8: kApplyTenaryOp<T, Op, true, false, false, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 9: kApplyTenaryOp<T, Op, true, false, false, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 10: kApplyTenaryOp<T, Op, true, false, true, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 11: kApplyTenaryOp<T, Op, true, false, true, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 12: kApplyTenaryOp<T, Op, true, true, false, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 13: kApplyTenaryOp<T, Op, true, true, false, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 14: kApplyTenaryOp<T, Op, true, true, true, false><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 15: kApplyTenaryOp<T, Op, true, true, true, true><<<grid, block>>>(op, dev_data(), y->dev_data, z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 0: kApplyTenaryOp<T, Op, false, false, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 1: kApplyTenaryOp<T, Op, false, false, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 2: kApplyTenaryOp<T, Op, false, false, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 3: kApplyTenaryOp<T, Op, false, false, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 4: kApplyTenaryOp<T, Op, false, true, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 5: kApplyTenaryOp<T, Op, false, true, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 6: kApplyTenaryOp<T, Op, false, true, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 7: kApplyTenaryOp<T, Op, false, true, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 8: kApplyTenaryOp<T, Op, true, false, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 9: kApplyTenaryOp<T, Op, true, false, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 10: kApplyTenaryOp<T, Op, true, false, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 11: kApplyTenaryOp<T, Op, true, false, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 12: kApplyTenaryOp<T, Op, true, true, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 13: kApplyTenaryOp<T, Op, true, true, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 14: kApplyTenaryOp<T, Op, true, true, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 15: kApplyTenaryOp<T, Op, true, true, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
             }
 #ifndef NDEBUG
             dev2host();

@@ -235,14 +235,6 @@ public:
         }
         memset(y, 0, sizeof(T)*DData<T>::_y_dim*DData<T>::_buff_dim);
         for (int i = 0; i < DData<T>::_buff_dim; i++) y[i*DData<T>::_y_dim + _ty[i]] = 1.0;
-#ifndef NDEBUG
-        /*for (int i = 0; i < 10; i++) {
-            for (int j = 0; j < DData<T>::_y_dim; j++)
-                printf("%f ", y[i*DData<T>::_y_dim+j]);
-            printf("\n");
-        }
-        printf("\n");*/
-#endif
         return true;
 	}
 
@@ -263,8 +255,6 @@ public:
         x->init(DMatrix<T>::Zero);
         T *data = x->host_data();
         for (int i = 0; i < batch_size; i++) {
-            //data[i*_n + _n - 1] = 1.0;
-            //data[i*_n + i%(_n-1)] = 1.0;
             data[i+(i%(_n-1))*batch_size] = 1.0;
             data[i+(_n-1)*batch_size] = 1.0;
         }
