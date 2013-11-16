@@ -4,6 +4,7 @@
 #include <time.h>
 #include <common.cuh>
 #include <DHyperParams.cuh>
+#include <DOperators.cuh>
 #include <DNeuron.cuh>
 #include <kernels.cuh>
 
@@ -71,11 +72,20 @@ public:
             hDropout(_act->dev_data(), _state, drop_rate, _act->getT(), _act->nrows(), _act->ncols() - 1, _act->ld());
     }
     
-    void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, T rate, T mom) {
+    void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, float rate, float mom, bool decay = false, float decay_rate = 0) {
+        assert(!_weight->getT());
         _neuron->bprop(delta, _drv, _act);
         _momentun->update(pre_act, true, delta, false, -(1.0-mom)*rate/delta->nrows(), mom);
         _delta->update(delta, false, _weight, true, 1.0, 0.0);
-        _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());
+        if (decay) {
+            int ld = _weight->ld();
+            int fd = _weight->fd(); 
+            dim3 grid((ld-1)/TILE_DIM+1, (fd-1)/TILE_DIM+1, 1);
+            dim3 block(TILE_DIM, BLOCK_ROWS, 1);
+            kWeightUpdate<T><<<grid, block>>>(_weight->dev_data(), _momentun->dev_data(), (1.0-decay_rate), ld, fd);
+        }else {
+            _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());
+        }
     }
 
     void scaleWeight(float scale) {
@@ -84,7 +94,7 @@ public:
         int ld = _weight->ld(), fd = _weight->fd();
         for (int i = 0; i < fd - 1; i++)
             for (int j = 0; j < ld - 1; j++) 
-                data[i*fd + j] *= scale;
+                data[i*ld + j] *= scale;
         _weight->host2dev();
     }
 };

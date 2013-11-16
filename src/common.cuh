@@ -8,7 +8,7 @@
 #include <cstring>
 #include <string>
 #include <algorithm>
-
+#include <assert.h>
 
 const int WARP_SIZE = 32;
 const int BLOCK_SIZE = 256;

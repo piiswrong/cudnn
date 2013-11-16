@@ -5,7 +5,6 @@
 #include <cuda.h>
 #include <curand.h>
 #include <curand_kernel.h>
-//#include <cuPrintf.cu>
 
 
 template<class T, class Op, bool even_m, bool even_n, bool y_trans>
@@ -106,8 +105,9 @@ void hDropout(T *x, curandState *state, float rate, bool trans, int m, int n, in
 
 
 template<class T, int num_thrd>
-__global__ void kSoftmaxAct(T *act, T *drv, int ld, int fd) {
+__global__ void kSoftmaxAct(T *act, T *drv, int *res, int ld, int fd) {
     __shared__ T smem[WARP_SIZE*num_thrd];
+    __shared__ int mark[WARP_SIZE*num_thrd];
     int i = blockIdx.x*WARP_SIZE + threadIdx.x;
     int j = threadIdx.y*ld + i;
     const int blockSize = ld*num_thrd;
@@ -115,41 +115,63 @@ __global__ void kSoftmaxAct(T *act, T *drv, int ld, int fd) {
     int n = ld*fd;
     if (i < ld) {
         T myMax = -1e37;
+        int myMark;
+        int k = threadIdx.y;
         while (j < n) {
-            if (myMax < drv[j]) myMax = drv[j];
+            if (myMax < drv[j]) {
+                myMax = drv[j];
+                myMark = k;
+            }
+            k += num_thrd;
             j += blockSize;
         }
         j = threadIdx.y;
         i = j*WARP_SIZE + threadIdx.x;
         smem[i] = myMax;
+        mark[i] = myMark;
         __syncthreads();
         if (num_thrd >= 32) {
             if (j < 16)
-                if (myMax < smem[i+16*WARP_SIZE])
+                if (myMax < smem[i+16*WARP_SIZE]) {
                     smem[i] = myMax = smem[i+16*WARP_SIZE];
+                    mark[i] = myMark = mark[i+16*WARP_SIZE];
+                }
              __syncthreads();
         }
         if (num_thrd >= 16) {
             if (j < 8)
-                if (myMax < smem[i+8*WARP_SIZE])
+                if (myMax < smem[i+8*WARP_SIZE]) {
                     smem[i] = myMax = smem[i+8*WARP_SIZE];
+                    mark[i] = myMark = mark[i+8*WARP_SIZE];
+                }
             __syncthreads();
         }
         if (num_thrd >= 8) {
             if (j < 4)
-                if (myMax < smem[i+4*WARP_SIZE])
+                if (myMax < smem[i+4*WARP_SIZE]) {
                     smem[i] = myMax = smem[i+4*WARP_SIZE];
+                    mark[i] = myMark = mark[i+4*WARP_SIZE];
+                }
             __syncthreads();
         }
         if (num_thrd >= 4) {
             if (j < 2)
-                if (myMax < smem[i+2*WARP_SIZE])
+                if (myMax < smem[i+2*WARP_SIZE]) {
                     smem[i] = myMax = smem[i+2*WARP_SIZE];
+                    mark[i] = myMark = mark[i+2*WARP_SIZE];
+                }
             __syncthreads();
         }
-        myMax = smem[threadIdx.x] > smem[threadIdx.x+WARP_SIZE] ? smem[threadIdx.x] : smem[threadIdx.x+WARP_SIZE];
+        if ( smem[threadIdx.x] > smem[threadIdx.x+WARP_SIZE] ) {
+            myMax = smem[threadIdx.x];
+            myMark = mark[threadIdx.x];
+        }else {
+            myMax = smem[threadIdx.x+WARP_SIZE];
+            myMark = mark[threadIdx.x+WARP_SIZE];
+        }
 
         i = blockIdx.x*WARP_SIZE + threadIdx.x;
+        if (threadIdx.y == 0) res[i] = myMark;
         j = threadIdx.y*ld + i;
         T mySum = 0;
         while (j < n) {
@@ -191,4 +213,29 @@ __global__ void kSoftmaxAct(T *act, T *drv, int ld, int fd) {
        // cuPrintf("%dx%d: %f, %f\n", i, threadIdx.y, mySum, act[j-blockSize]); 
     }
 }
+
+template<class T>
+__global__ void kWeightUpdate(T* x, T* y, T decay_rate, int ld, int fd) {
+    int i = blockIdx.x*TILE_DIM + threadIdx.x;
+    int j = blockIdx.y*TILE_DIM + threadIdx.y;
+
+    if (i < ld - 1) {
+        if (blockIdx.y < blockDim.y - 1) {
+            for (int k = 0; k < TILE_DIM; k += BLOCK_ROWS)
+                x[i+(j+k)*ld] = x[i+(j+k)*ld]*decay_rate + y[i+(j+k)*ld];
+        }else {
+            for (int k = 0; j < fd - 1 && k < TILE_DIM; k += BLOCK_ROWS, j += BLOCK_ROWS) //TODO:change to k++
+                x[i+j*ld] = x[i+j*ld]*decay_rate + y[i+j*ld];
+        }
+    }else if (i == ld - 1) {
+        if (blockIdx.y < blockDim.y - 1) {
+            for (int k = 0; k < TILE_DIM; k += BLOCK_ROWS)
+                x[i+(j+k)*ld] = x[i+(j+k)*ld] + y[i+(j+k)*ld];
+        }else {
+            for (int k = 0; j < fd - 1 && k < TILE_DIM; k += BLOCK_ROWS, j += BLOCK_ROWS) 
+                x[i+j*ld] = x[i+j*ld] + y[i+j*ld];
+        }
+    }
+}
+
 #endif //KERNELS_CUH

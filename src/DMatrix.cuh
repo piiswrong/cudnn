@@ -89,6 +89,10 @@ public:
     T* dev_data() { return _dev_data; }
     bool on_device() { return _on_device; }
     cublasHandle_t handle() { return _handle; }
+    T getElem(int i, int j) {
+        if (getT()) std::swap(i, j);
+        return _host_data[i+j*ld()];
+    }
 
 	void init(int p, T a = 0.0, T b = 0.0) { 
 		if (p&_Zero) memset(_host_data, 0, _size);

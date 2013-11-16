@@ -86,17 +86,20 @@ template<class T>
 class DSoftmaxNeuron : public DNeuron<T> {
 protected:
     cudaStream_t _stream;
+    DMatrix<int> *res;
+    DMatrix<T> *_y;
 public:
-    DSoftmaxNeuron(cublasHandle_t handle) : DNeuron<T>(handle) {
+    DSoftmaxNeuron(int batch_size, cublasHandle_t handle) : DNeuron<T>(handle) {
         if (DNeuron<T>::_on_device) {
             CUDA_CALL(cudaStreamCreate(&_stream));
         }
+        res = new DMatrix<int>(batch_size, 1, handle);
     }
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
         if (DNeuron<T>::_on_device) {
             dim3 grid((act->ld()-1)/WARP_SIZE+1, 1, 1);
             dim3 block(WARP_SIZE, 32, 1);
-            kSoftmaxAct<T,32><<<grid, block>>>(act->dev_data(), drv->dev_data(), act->ld(), act->fd()-1);
+            kSoftmaxAct<T,32><<<grid, block>>>(act->dev_data(), drv->dev_data(), res->dev_data(), act->ld(), act->fd()-1);
 #ifndef NDEBUG
             act->dev2host();
 #endif
@@ -108,12 +111,16 @@ public:
         return;
     }
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        act->applyTenary(OpWeightedLog<T>(), act, y, act->nrows(), act->ncols());
-        DNeuron<T>::_loss = act->norm1(act->nelem() - act->ld());
+        res->dev2hostAsync(_stream);
+        _y = y;
+        //act->applyTenary(OpWeighted<T>(), act, y, act->nrows(), act->ncols());
+        //DNeuron<T>::_loss = act->norm1(act->nelem() - act->ld());
     }
     virtual T getLoss() {
-        //cudaStreamSynchronize(_stream);
-        return DNeuron<T>::_loss;
+        cudaStreamSynchronize(_stream);
+        T loss = 0;
+        for (int i = 0; i < _y->nrows(); i++) loss += _y->getElem(i, res->getElem(i, 0));
+        return loss;
     }
 };
 

@@ -22,11 +22,11 @@ public:
         learning_rate_decay = 0.998;
         momentum = 0.5;
         max_momentum = 0.90;
-        step_momentum = 0.01;
-        weight_decay = true;
+        step_momentum = 0.40;
+        weight_decay = false;
         decay_rate = 1e-6;
-        idrop_out = false;
-        idrop_rate = 0.5;
+        idrop_out = true;
+        idrop_rate = 0.2;
         hdrop_out = true;
         hdrop_rate = 0.5;
         batch_size = 128;
