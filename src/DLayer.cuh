@@ -97,6 +97,9 @@ public:
                 data[i*ld + j] *= scale;
         _weight->host2dev();
     }
+
+    void save(FILE *fout) {
+    }
 };
 
 

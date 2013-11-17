@@ -56,7 +56,6 @@ public:
     cublasHandle_t handle() { return _handle; }
 
     void save(FILE *fout) {
-        
 
     }
 

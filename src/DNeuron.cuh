@@ -124,6 +124,50 @@ public:
     }
 };
 
+template<class T>
+class DOddrootNeuron : public DNeuron<T> {
+protected:
+    class ForwardOp {
+    public:
+        __host__ __device__ float operator() (float act, float drv) {
+            const unsigned int ebits = 8;
+            const unsigned int fbits = 23;
+            const unsigned int bias = (1 << (ebits-1))-1;
+            const unsigned int mask = (1<<31)-1;
 
+            float x = drv;
+            int& i = (int&) x; 
+            i = (((i&mask) - (bias << fbits)) / n + (bias << fbits))|(i&~mask);
+
+            x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
+            x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
+            x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
+            x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
+            x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
+
+            return x;
+        }
+        __host__ __device__ T operator() (T act, T drv) {
+            return 0;
+        }
+
+    };
+
+    class BackwardOp {
+    public:
+        __host__ __device__ T operator() (float delta, float drv, float act) {
+            return 1.0/(3.0*act*act+1.0);
+        }
+    };
+public:
+    DOddrootNeuron(cublasHandle_t handle) : DNeuron<T>(handle) {}
+    virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
+        act->applyBinary(ForwardOp(), drv, act->nrows(), act->ncols() - 1);
+    }
+    virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
+        delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols());
+    }
+
+};
 
 #endif //DNEURON_CUH
