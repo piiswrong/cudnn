@@ -137,7 +137,7 @@ protected:
 
             float x = drv;
             int& i = (int&) x; 
-            i = (((i&mask) - (bias << fbits)) / n + (bias << fbits))|(i&~mask);
+            i = (((i&mask) - (bias << fbits)) / 3 + (bias << fbits))|(i&~mask);
 
             x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
             x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
