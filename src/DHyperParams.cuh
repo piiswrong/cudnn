@@ -14,6 +14,7 @@ public:
     float idrop_rate;
     bool hdrop_out;
     float hdrop_rate;
+    bool sparseInit;
     int batch_size;
     int check_interval;
 
@@ -30,6 +31,7 @@ public:
         hdrop_out = true;
         hdrop_rate = 0.5;
         batch_size = 128;
+        sparseInit = false;
         check_interval = 10000;
     }
 };

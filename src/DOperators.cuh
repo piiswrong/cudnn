@@ -5,6 +5,14 @@
 #include <math_functions.h>
 
 template<class T>
+class OpMul{
+public:
+    __host__ __device__ T operator() (T x, T y) {
+        return x*y;
+    }
+};
+
+template<class T>
 class OpScale{
     const T _scale;
 public:

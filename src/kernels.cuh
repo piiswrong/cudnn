@@ -76,30 +76,40 @@ __global__ void kApplyTenaryOp(Op op, T* x, const T* y, const T* z, int m, int n
 
 __global__ void kSetupCurand(curandState *state, int nelem, unsigned int seed);
 
-template<class T, bool even_m, bool even_n>
-__global__ void kDropout(T *dest, curandState *state, float rate, int m, int n, int ld) { 
+template<class T, bool even_m, bool even_n, bool save>
+__global__ void kDropout(T *dest, T *mask, curandState *state, float rate, int m, int n, int ld) { 
     int i = blockIdx.x * TILE_DIM + threadIdx.x;
     int j = blockIdx.y * TILE_DIM + threadIdx.y;
     if (even_m || i < m) {
         curandState localState = state[i+j*m];
         for (int k = 0; (even_n || j + k < n) && k < TILE_DIM; k += BLOCK_ROWS) {
-            dest[i+(j+k)*ld] *= curand_uniform(&localState) > rate;
+            if (save) {
+                float t = curand_uniform(&localState) > rate;
+                dest[i+(j+k)*ld] *= t;
+                mask[i+(j+k)*ld] = t;
+            }else {
+                dest[i+(j+k)*ld] *= curand_uniform(&localState) > rate;
+            }
         }
         state[i+j*m] = localState;
     }
 }
 
 template<class T> 
-void hDropout(T *x, curandState *state, float rate, bool trans, int m, int n, int ld) {
+void hDropout(T *x, T *mask, curandState *state, float rate, bool trans, int m, int n, int ld) {
     if (trans) std::swap(m, n);
-    bool even_m = !(m%TILE_DIM), even_n = !(n%TILE_DIM);
+    bool even_m = !(m%TILE_DIM), even_n = !(n%TILE_DIM), save = (mask!=NULL);
     dim3 grid(m/TILE_DIM+!even_m, n/TILE_DIM+!even_n, 1);
     dim3 block(TILE_DIM, BLOCK_ROWS, 1);
-    switch((even_m<<1)|even_n) {
-    case 0: kDropout<T, false, false><<<grid, block>>>(x, state, rate, m, n, ld);break;
-    case 1: kDropout<T, false, true><<<grid, block>>>(x, state, rate, m, n, ld);break;
-    case 2: kDropout<T, true, false><<<grid, block>>>(x, state, rate, m, n, ld);break;
-    case 3: kDropout<T, true, true><<<grid, block>>>(x, state, rate, m, n, ld);break;
+    switch((save<<2)|(even_m<<1)|even_n) {
+    case 0: kDropout<T, false, false, false><<<grid, block>>>(x, mask, state, rate, m, n, ld);break;
+    case 1: kDropout<T, false, true, false><<<grid, block>>>(x, mask, state, rate, m, n, ld);break;
+    case 2: kDropout<T, true, false, false><<<grid, block>>>(x, mask, state, rate, m, n, ld);break;
+    case 3: kDropout<T, true, true, false><<<grid, block>>>(x, mask, state, rate, m, n, ld);break;
+    case 4: kDropout<T, false, false, true><<<grid, block>>>(x, mask, state, rate, m, n, ld);break;
+    case 5: kDropout<T, false, true, true><<<grid, block>>>(x, mask, state, rate, m, n, ld);break;
+    case 6: kDropout<T, true, false, true><<<grid, block>>>(x, mask, state, rate, m, n, ld);break;
+    case 7: kDropout<T, true, true, true><<<grid, block>>>(x, mask, state, rate, m, n, ld);break;
     }
 }
 
@@ -115,7 +125,7 @@ __global__ void kSoftmaxAct(T *act, T *drv, int *res, int ld, int fd) {
     int n = ld*fd;
     if (i < ld) {
         T myMax = -1e37;
-        int myMark;
+        int myMark = 0;
         int k = threadIdx.y;
         while (j < n) {
             if (myMax < drv[j]) {

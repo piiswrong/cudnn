@@ -6,6 +6,7 @@
 #include <DMatrix.cuh>
 #include <DOperators.cuh>
 #include <kernels.cuh>
+#include <stdio.h>
 
 template<class T>
 class DNeuron {
@@ -40,6 +41,7 @@ public:
         else
             _on_device = false;
     }
+    virtual bool easyDropout() { return true; }
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
         act->applyBinary(ForwardOp(), drv, act->nrows(), act->ncols() - 1);
     }
@@ -126,27 +128,10 @@ public:
 
 template<class T>
 class DOddrootNeuron : public DNeuron<T> {
-protected:
+public:
     class ForwardOp {
     public:
-        __host__ __device__ float operator() (float act, float drv) {
-            const unsigned int ebits = 8;
-            const unsigned int fbits = 23;
-            const unsigned int bias = (1 << (ebits-1))-1;
-            const unsigned int mask = (1<<31)-1;
-
-            float x = drv;
-            int& i = (int&) x; 
-            i = (((i&mask) - (bias << fbits)) / 3 + (bias << fbits))|(i&~mask);
-
-            x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
-            x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
-            x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
-            x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
-            x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
-
-            return x;
-        }
+        
         __host__ __device__ T operator() (T act, T drv) {
             return 0;
         }
@@ -156,11 +141,12 @@ protected:
     class BackwardOp {
     public:
         __host__ __device__ T operator() (float delta, float drv, float act) {
-            return 1.0/(3.0*act*act+1.0);
+            return delta/(3.0*act*act+1.0);
         }
     };
-public:
+
     DOddrootNeuron(cublasHandle_t handle) : DNeuron<T>(handle) {}
+    virtual bool easyDropout() { return false; }
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
         act->applyBinary(ForwardOp(), drv, act->nrows(), act->ncols() - 1);
     }
@@ -169,5 +155,32 @@ public:
     }
 
 };
+
+template<>
+__host__ __device__ float DOddrootNeuron<float>::ForwardOp::operator() (float act, float drv) {
+/*    const unsigned int ebits = 8;
+    const unsigned int fbits = 23;
+    const unsigned int bias = (1 << (ebits-1))-1;
+    const unsigned int mask = (1<<31)-1;
+
+    float x = drv;
+    int& i = (int&) x; 
+    i = (((i&mask) - (bias << fbits)) / 3 + (bias << fbits))|(i&~mask);
+
+    x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
+    x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
+    x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
+    x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
+    x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
+    return x;
+*/
+    float x = drv, x0 = 0;
+    do {
+        x0 = x;
+        x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
+    }while (abs((x-x0)/x)>1e-6);
+    return x;
+
+}
 
 #endif //DNEURON_CUH

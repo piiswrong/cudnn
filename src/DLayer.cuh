@@ -19,11 +19,11 @@ class DLayer {
     DHyperParams* _pt_hyper_params;
     DHyperParams* _bp_hyper_params;
 
-    DMatrix<T> *_momentun, *_weight, *_drv, *_act, *_delta;
+    DMatrix<T> *_momentun, *_weight, *_drv, *_act, *_delta, *_mask;
     curandState *_state;
 public:
     DLayer(int input_dim, int output_dim, DNeuron<T> *neuron, 
-           DHyperParams* pt_hyper_params, DHyperParams* bp_hyper_params, cublasHandle_t handle = 0) {
+           DHyperParams* pt_hyper_params, DHyperParams* bp_hyper_params, cublasHandle_t handle) {
         _handle = handle;
         if (_handle) {
             _on_device = true;
@@ -39,13 +39,19 @@ public:
         _momentun = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
         _momentun->init(DMatrix<T>::Zero);
         _weight = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
-        _weight->init(DMatrix<T>::Weight|DMatrix<T>::Uniform, -1.0/sqrt((T)_weight->ld()), 1.0/sqrt((T)_weight->ld()));
+        if (_bp_hyper_params->sparseInit) {
+            _weight->init(DMatrix<T>::Weight|DMatrix<T>::Uniform|DMatrix<T>::ColSparse, -1.0/sqrt((T)_weight->ld()), 1.0/sqrt((T)_weight->ld()));
+        }else {
+            _weight->init(DMatrix<T>::Weight|DMatrix<T>::Uniform, -1.0/sqrt((T)_weight->ld()), 1.0/sqrt((T)_weight->ld()));
+        }
         _drv = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _drv->init(DMatrix<T>::Zero);
         _act = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _act->init(DMatrix<T>::One);
         _delta = new DMatrix<T>(bp_hyper_params->batch_size, _input_dim+1, _handle);
         _delta->init(DMatrix<T>::Zero);
+        _mask = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
+        _mask->init(DMatrix<T>::Zero);
         if (_on_device) {
             CUDA_CALL(cudaMalloc((void**)&_state, _act->nelem()*sizeof(curandState)));
             dim3 grid((_act->nelem()-1)/BLOCK_SIZE+1);
@@ -65,18 +71,21 @@ public:
         _momentun->init(DMatrix<T>::Zero);
     }
 
-    void fprop(DMatrix<T>* dev_data, bool drop_out = false, float drop_rate = 0.0) {
+    void fprop(DMatrix<T>* dev_data, bool drop_out, float drop_rate) {
         _drv->update(dev_data, false, _weight, false);
         _neuron->fprop(_act, _drv);
         if (drop_out) 
-            hDropout(_act->dev_data(), _state, drop_rate, _act->getT(), _act->nrows(), _act->ncols() - 1, _act->ld());
+            hDropout(_act->dev_data(), _neuron->easyDropout()?NULL:_mask->dev_data(), _state, drop_rate, _act->getT(), _act->nrows(), _act->ncols() - 1, _act->ld());
     }
     
-    void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, float rate, float mom, bool decay = false, float decay_rate = 0) {
+    void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, float rate, float mom, bool drop_out, bool decay, float decay_rate) {
         assert(!_weight->getT());
         _neuron->bprop(delta, _drv, _act);
-        _momentun->update(pre_act, true, delta, false, -(1.0-mom)*rate/delta->nrows(), mom);
+        if (drop_out && !_neuron->easyDropout()) 
+            _delta->applyBinary(OpMul<T>(), _mask, _delta->nrows(), _delta->ncols()-1);
+
         _delta->update(delta, false, _weight, true, 1.0, 0.0);
+        _momentun->update(pre_act, true, delta, false, -(1.0-mom)*rate/delta->nrows(), mom);
         if (decay) {
             int ld = _weight->ld();
             int fd = _weight->fd(); 
@@ -87,6 +96,7 @@ public:
             _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());
         }
     }
+
 
     void scaleWeight(float scale) {
         _weight->dev2host();

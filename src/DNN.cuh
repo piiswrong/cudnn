@@ -67,7 +67,7 @@ public:
 
     void fprop(DMatrix<T>* x, int num_layers, DLayer<T>** layers, bool idrop_out = false,
                         bool hdrop_out = false, float idrop_rate = 0.0, float hdrop_rate = 0.0) {
-        if (idrop_out) hDropout(x->dev_data(), _state, idrop_rate, x->getT(), x->nrows(), x->ncols() - 1, x->ld());
+        if (idrop_out) hDropout<T>(x->dev_data(), NULL, _state, idrop_rate, x->getT(), x->nrows(), x->ncols() - 1, x->ld());
         layers[0]->fprop(x, num_layers > 1 && hdrop_out, hdrop_rate);
         for (int i = 1; i < num_layers; i++) 
             layers[i]->fprop(layers[i-1]->act(), i < num_layers - 1 && hdrop_out, hdrop_rate);
@@ -78,11 +78,11 @@ public:
         DMatrix<T>* d = _delta;
         for (int i = num_layers-1; i > 0; i--) {
             layers[i]->bprop(d, layers[i-1]->act(), _bp_hyper_params.learning_rate, _bp_hyper_params.momentum,
-                            _bp_hyper_params.weight_decay, _bp_hyper_params.decay_rate);
+                            _bp_hyper_params.hdrop_out, _bp_hyper_params.weight_decay, _bp_hyper_params.decay_rate);
             d = layers[i]->delta();
         }
         layers[0]->bprop(d, x, _bp_hyper_params.learning_rate, _bp_hyper_params.momentum,
-                            _bp_hyper_params.weight_decay, _bp_hyper_params.decay_rate);
+                            _bp_hyper_params.hdrop_out, _bp_hyper_params.weight_decay, _bp_hyper_params.decay_rate);
         layers[num_layers-1]->neuron()->computeLoss(_delta, layers[num_layers-1]->act(), y);
         return layers[num_layers-1]->neuron()->getLoss();
     }
