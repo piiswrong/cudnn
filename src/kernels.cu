@@ -1,3 +1,5 @@
+#ifndef DISABLE_GPU
+
 #include <kernels.cuh>
 #include <common.cuh>
 #include <curand.h>
@@ -8,3 +10,4 @@ __global__ void kSetupCurand(curandState *state, int nelem, unsigned int seed) {
     if (i < nelem) curand_init(seed, i, 0, &state[i]);
 }
 
+#endif

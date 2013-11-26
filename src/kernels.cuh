@@ -1,5 +1,6 @@
 #ifndef KERNELS_CUH
 #define KERNELS_CUH
+#ifndef DISABLE_GPU
 
 #include <common.cuh>
 #include <cuda.h>
@@ -248,4 +249,24 @@ __global__ void kWeightUpdate(T* x, T* y, T decay_rate, int ld, int fd) {
     }
 }
 
+#else
+template<class T> 
+void hDropout(T *x, T *mask, curandState *state, float rate, bool trans, int m, int n, int ld) {
+    int thresh = rate*RAND_MAX;
+    if (mask != NULL) {
+        for (int j = 0; j < n; j++) {
+            for (int i = 0; i < m; i++) {
+                mask[i+m*j] = rand() > thresh;
+                x->getElem(i,j) *= mask[i+m*j];
+            }
+        }
+    }else {
+        for (int j = 0; j < n; j++) {
+            for (int i = 0; i < m; i++) {
+                x->getElem(i,j) *= rand() > thresh;
+            }
+        }
+    }
+}
+#endif //DISABLE_GPU
 #endif //KERNELS_CUH

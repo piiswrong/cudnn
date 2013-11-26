@@ -52,12 +52,14 @@ public:
         _delta->init(DMatrix<T>::Zero);
         _mask = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _mask->init(DMatrix<T>::Zero);
+#ifndef DISABLE_GPU
         if (_on_device) {
             CUDA_CALL(cudaMalloc((void**)&_state, _act->nelem()*sizeof(curandState)));
             dim3 grid((_act->nelem()-1)/BLOCK_SIZE+1);
             dim3 block(BLOCK_SIZE);
             kSetupCurand<<<grid, block>>>(_state, _act->nelem(), time(0));
         }
+#endif
     }
 
     DMatrix<T> *delta() { return _delta; }
@@ -87,11 +89,26 @@ public:
         _delta->update(delta, false, _weight, true, 1.0, 0.0);
         _momentun->update(pre_act, true, delta, false, -(1.0-mom)*rate/delta->nrows(), mom);
         if (decay) {
-            int ld = _weight->ld();
-            int fd = _weight->fd(); 
-            dim3 grid((ld-1)/TILE_DIM+1, (fd-1)/TILE_DIM+1, 1);
-            dim3 block(TILE_DIM, BLOCK_ROWS, 1);
-            kWeightUpdate<T><<<grid, block>>>(_weight->dev_data(), _momentun->dev_data(), (1.0-decay_rate), ld, fd);
+#ifndef DISABLE_GPU
+            if (_on_device) {
+                int ld = _weight->ld();
+                int fd = _weight->fd(); 
+                dim3 grid((ld-1)/TILE_DIM+1, (fd-1)/TILE_DIM+1, 1);
+                dim3 block(TILE_DIM, BLOCK_ROWS, 1);
+                kWeightUpdate<T><<<grid, block>>>(_weight->dev_data(), _momentun->dev_data(), (1.0-decay_rate), ld, fd);
+            }else 
+#endif
+            {
+                int m = _weight->nrows(), n = _weight->ncols();
+                T factor = 1.0-decay_rate;
+                for (int j = 0; j < n - 1; j++) {
+                    for (int i = 0; i < m - 1; i++) {
+                        _weight->getElem(i,j) = _weight->getElem(i,j)*factor + _momentun->getElem(i,j);
+                    }
+                }
+                for (int i = 0; i < n - 1; i++)
+                    _weight->getElem(m-1,j) = _weight->getElem(m-1,j)*factor + _momentun->getElem(m-1,j);
+            }
         }else {
             _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());
         }

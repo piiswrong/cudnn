@@ -44,6 +44,7 @@ public:
         }
         _delta = new DMatrix<T>(_bp_hyper_params.batch_size, layer_dims[_num_layers]+1, _handle);
         _delta->init(DMatrix<T>::Zero);
+#ifndef DISABLE_GPU
         if (_on_device) {
             int nstate = (_layer_dims[0]+1)*_bp_hyper_params.batch_size;
             CUDA_CALL(cudaMalloc((void**)&_state, nstate*sizeof(curandState)));
@@ -51,6 +52,7 @@ public:
             dim3 block(BLOCK_SIZE);
             kSetupCurand<<<grid, block>>>(_state, nstate, time(0));
         }
+#endif
     }
 
     cublasHandle_t handle() { return _handle; }
@@ -87,7 +89,8 @@ public:
         return layers[num_layers-1]->neuron()->getLoss();
     }
 
-    T test(DData<T>* data) {
+    void scaleWeight(bool scaled_weight) {
+        if (scaled_weight == _scaled_weight) return;
         if (!_scaled_weight) {
             if (_bp_hyper_params.idrop_out)
                 _layers[0]->scaleWeight(1-_bp_hyper_params.idrop_rate);
@@ -95,7 +98,17 @@ public:
                 for (int i = 1; i < _num_layers; i++)
                     _layers[i]->scaleWeight(1-_bp_hyper_params.hdrop_rate);
             _scaled_weight = true;
+        }else {
+            if (_bp_hyper_params.idrop_out)
+                _layers[0]->scaleWeight(1.0/(1-_bp_hyper_params.idrop_rate));
+            if (_bp_hyper_params.hdrop_out)
+                for (int i = 1; i < _num_layers; i++)
+                    _layers[i]->scaleWeight(1.0/(1-_bp_hyper_params.hdrop_rate));
+            _scaled_weight = false;
         }
+    }
+    T test(DData<T>* data) {
+        scaleWeight(true);
         data->start();
         int iperEpoch = data->instancesPerEpoch();
         DMatrix<T> *x, *y;
@@ -114,14 +127,7 @@ public:
     }
 
     void fineTune(DData<T>* data, int total_epochs) {
-        if (_scaled_weight) {
-            if (_bp_hyper_params.idrop_out)
-                _layers[0]->scaleWeight(1.0/(1-_bp_hyper_params.idrop_rate));
-            if (_bp_hyper_params.hdrop_out)
-                for (int i = 1; i < _num_layers; i++)
-                    _layers[i]->scaleWeight(1.0/(1-_bp_hyper_params.hdrop_rate));
-            _scaled_weight = false;
-        }
+        scaleWeight(false);
         data->start();
         int iperEpoch = data->instancesPerEpoch();
         DMatrix<T> *x, *y;

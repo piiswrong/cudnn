@@ -3,8 +3,9 @@
 
 
 #include <common.cuh>
-#include <kernels.cuh>
 #include <DRand.h>
+#include <kernels.cuh>
+
 
 template<class T> 
 class DMatrix {
@@ -40,6 +41,7 @@ public:
         One = 64
     };
     DMatrix(int ld, int fd, cublasHandle_t handle = 0) {
+        _on_device = false;
         _is_view = false;
         _ld = ld;
         _fd = fd;
@@ -55,6 +57,7 @@ public:
     }
 
     DMatrix(DMatrix<T>* x, int offset, int length) {
+        _on_device = false;
         _is_view = true;
         _ld = x->_ld;
         _fd = length;
@@ -72,7 +75,9 @@ public:
     ~DMatrix() {
         if (!_is_view) {
             free(_host_data);
-            CUDA_CALL(cudaFree(_dev_data));
+            if (_on_device) {
+                CUDA_CALL(cudaFree(_dev_data));
+            }
         }   
     }
     
@@ -82,14 +87,17 @@ public:
     int size() { return _size; }
     bool getT(bool t = false) { return _T^t; }
     void setT() { _T = !_T; }
+#ifndef DISABLE_GPU
     cublasOperation_t Tchar(bool t) { return getT(t) ? CUBLAS_OP_T : CUBLAS_OP_N; }
+#endif
+    CBLAS_TRANSPOSE hTchar(bool t) { return getT(t) ? CblasTrans : CblasNoTrans; }
     int ld() { return _ld; }
     int fd() { return _fd; }
     T* host_data() { return _host_data; }
     T* dev_data() { return _dev_data; }
     bool on_device() { return _on_device; }
     cublasHandle_t handle() { return _handle; }
-    T getElem(int i, int j) {
+    T& getElem(int i, int j) {
         if (getT()) std::swap(i, j);
         return _host_data[i+j*ld()];
     }
@@ -139,23 +147,27 @@ public:
             for (int i = _nelem - _ld; i < _nelem; i++) _host_data[i] = 0.0;
             _host_data[_nelem-1] = 1.0;
         }
-        if (_on_device) host2dev();
+        host2dev();
 	}
     
     void host2dev() {
-        CUBLAS_CALL(cublasSetVector(_ld*_fd, sizeof(T), _host_data, 1, _dev_data, 1)); 
+        if (_on_device)
+            CUBLAS_CALL(cublasSetVector(_ld*_fd, sizeof(T), _host_data, 1, _dev_data, 1)); 
     }
 
     void dev2host() {
-        CUBLAS_CALL(cublasGetVector(_ld*_fd, sizeof(T), _dev_data, 1, _host_data, 1));
+        if (_on_device)
+            CUBLAS_CALL(cublasGetVector(_ld*_fd, sizeof(T), _dev_data, 1, _host_data, 1));
     }
 
     void host2devAsync(cudaStream_t stream) {
-        CUBLAS_CALL(cublasSetVectorAsync(_ld*_fd, sizeof(T), _host_data, 1, _dev_data, 1, stream)); 
+        if (_on_device) 
+            CUBLAS_CALL(cublasSetVectorAsync(_ld*_fd, sizeof(T), _host_data, 1, _dev_data, 1, stream)); 
     }
 
     void dev2hostAsync(cudaStream_t stream) {
-        CUBLAS_CALL(cublasGetVectorAsync(_ld*_fd, sizeof(T), _dev_data, 1, _host_data, 1, stream));
+        if (_on_device) 
+            CUBLAS_CALL(cublasGetVectorAsync(_ld*_fd, sizeof(T), _dev_data, 1, _host_data, 1, stream));
     }
 
     T norm1(int nelem = 0) {
@@ -164,7 +176,7 @@ public:
         if (_on_device) {
             CUBLAS_CALL(cublasXasum(_handle, nelem, _dev_data, 1, &res));
         }else {
-            for (int i = 0; i < nelem; i++) res += abs(_host_data[i]);
+            res = cblas_asum(nelem, host_data(), 1);
         }
         return res;
     }
@@ -176,16 +188,20 @@ public:
         if (_on_device) {
             CUBLAS_CALL(cublasXnrm2(_handle, nelem, _dev_data, 1, &res));
         }else {
-            for (int i = 0; i < nelem; i++) res += _host_data[i]*_host_data[i];
+            res = cblas_nrm2(nelem, host_data(), 1);
         }
         return res;
     }
 
     void add(DMatrix<T>* x, const T alpha, int nelem = 0) {
         if (nelem == 0) nelem = _nelem;
-        cublasXaxpy(_handle, nelem, &alpha, x->dev_data(), 1, dev_data(), 1);
+        if (_on_device) {
+            CUBLAS_CALL(cublasXaxpy(_handle, nelem, &alpha, x->dev_data(), 1, dev_data(), 1));
+        }else {
+            cblas_Xaxpy(nelem, alpha, x->host_data(), 1, host_data(), 1);
+        }
 #ifndef NDEBUG
-            dev2host();
+        dev2host();
 #endif
     }
 
@@ -194,12 +210,12 @@ public:
     }
 
     void update(DMatrix<T>* A, bool Ta, DMatrix<T>* B, bool Tb, const T alpha, const T beta) {
+        if (_T) {
+            std::swap(A, B);
+            std::swap(Ta, Tb);
+            Ta = !Ta; Tb = !Tb;
+        }
         if (_on_device) {
-            if (_T) {
-               std::swap(A, B);
-               std::swap(Ta, Tb);
-               Ta = !Ta; Tb = !Tb;
-            }
             CUBLAS_CALL(cublasXgemm(_handle, A->Tchar(Ta), B->Tchar(Tb), A->nrows(Ta), 
                                 B->ncols(Tb), A->ncols(Ta), &alpha, 
                                 A->dev_data(), A->ld(), B->dev_data(), B->ld(),
@@ -208,12 +224,16 @@ public:
             dev2host();
 #endif
         }else{
-            exit(-1);
+            cblas_gemm(CblasColMajor, A->hTchar(Ta), B->hTchar(Tb), A->nrows(Ta),
+                        B->ncols(Tb), A->ncols(Ta), alpha,
+                        A->host_data(), A->ld(), B->host_data(), B->ld(),
+                        beta, host_data(), ld());
         }
     }
 
     template<class Op>
     void applyBinary(Op op, DMatrix<T>* y, int m, int n) {
+#ifndef DISABLE_GPU
         if (_on_device) {
             if (getT()) std::swap(m, n);
             bool y_trans = y->getT(getT());
@@ -235,17 +255,20 @@ public:
 #ifndef NDEBUG
             dev2host();
 #endif
-        }else{
-            exit(-1);
-            T* y_data = y->host_data();
-            for(int i = 0; i < _nelem; i++) {
-                _host_data[i] = op(_host_data[i], y_data[i]);
+        }else
+#endif
+        {
+            for (int j = 0; j < n; j++) {
+                for (int i = 0; i < m; i++) {
+                    getElem(i,j) = op(getElem(i,j), y->getElem(i,j));               
+                }
             }
         }
     }
 
     template<class Op>
     void applyTenary(Op op, DMatrix<T>* y, DMatrix<T>* z, int m, int n) {
+#ifndef DISABLE_GPU
         if (_on_device) {
             if (getT()) std::swap(m, n);
             bool y_trans = y->getT(_T), z_trans = z->getT(_T);
@@ -275,12 +298,13 @@ public:
 #ifndef NDEBUG
             dev2host();
 #endif
-        }else{
-            exit(-1);
-            T* y_data = y->host_data();
-            T* z_data = z->host_data();
-            for(int i = 0; i < _nelem; i++) {
-                _dev_data[i] = op(_dev_data[i], y_data[i], z_data[i]);
+        }else
+#endif
+        {
+            for (int j = 0; j < n; j++) {
+                for (int i = 0; i < m; i++) {
+                    getElem(i,j) = op(getElem(i,j), y->getElem(i,j), getElem(i,j));               
+                }
             }
         }
     }
