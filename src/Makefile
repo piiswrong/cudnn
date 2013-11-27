@@ -1,19 +1,29 @@
-flags = -O3  --use_fast_math -DNDEBUG
+#FLAGS = -O3 -DNDEBUG --use_fast_math 
+FLAGS = -O3 -DNDEBUG -DDISABLE_GPU
+#C11 = --compiler-options "-std=c++0x"
+C11 = -std=c++0x
+#CC = nvcc
+CC = gcc -x c++ 
+LIBS = #-lcudart -lcublas
+LIBS += -L/usr/nikola/pkgs/intel/.2011.2.137/mkl/lib
+INCLUDE = -I.
+INCLUDE += -I/usr/nikola/pkgs/intel/.2011.2.137/mkl/include
+
 main: common.o kernels.o main.o DRand.o
-	nvcc $(flags) -l cudart -l cublas common.o kernels.o DRand.o main.o -o main
+	$(CC) $(FLAGS) $(LIBS) common.o kernels.o DRand.o main.o -o main
 	rm main.o
 
 common.o: common.cuh common.cu 
-	nvcc $(flags) -I. -c common.cu
+	$(CC) $(FLAGS) $(INCLUDE) -c common.cu
 
 kernels.o: kernels.cuh kernels.cu
-	nvcc $(flags) -I. -c kernels.cu
+	$(CC) $(FLAGS) $(INCLUDE) -c kernels.cu
 
 DRand.o: DRand.h DRand.cc
-	nvcc $(flags) -I. --compiler-options "-std=c++0x" -c DRand.cc
+	$(CC) $(FLAGS) $(INCLUDE) $(C11) -c DRand.cc
 
 main.o: main.cu
-	nvcc $(flags) -I. -c main.cu
+	$(CC) $(FLAGS) $(INCLUDE) -c main.cu
 
 
 clean:

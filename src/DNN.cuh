@@ -113,14 +113,14 @@ public:
         int iperEpoch = data->instancesPerEpoch();
         DMatrix<T> *x, *y;
         T loss = 0.0;
-        cudaThreadSynchronize();
+        CUDA_CALL(cudaThreadSynchronize());
         while (true) {
             bool more = data->getData(x, y, _bp_hyper_params.batch_size);
             fprop(x, _num_layers, _layers);
             _layers[_num_layers-1]->neuron()->initDelta(_delta, _layers[_num_layers-1]->act(), y);
             _layers[_num_layers-1]->neuron()->computeLoss(_delta, _layers[_num_layers-1]->act(), y);
             loss += _layers[_num_layers-1]->neuron()->getLoss();
-            cudaThreadSynchronize();
+            CUDA_CALL(cudaThreadSynchronize());
             if (!more) break;
         }
         return loss/iperEpoch;
@@ -136,11 +136,11 @@ public:
         T error = 0.0;
         int lastCheck = 0;
         
-        cudaThreadSynchronize();
+        CUDA_CALL(cudaThreadSynchronize());
         while ( nEpoch <= total_epochs ) {
             data->getData(x, y, _bp_hyper_params.batch_size);
             error += trainOnBatch(x, y);
-            cudaThreadSynchronize();
+            CUDA_CALL(cudaThreadSynchronize());
             delete x, y;
             nInstance += _bp_hyper_params.batch_size;
             while (nEpoch*iperEpoch <= nInstance) {

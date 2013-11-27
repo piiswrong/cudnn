@@ -10,13 +10,16 @@
 
 #include <mkl.h>
 
+const int SPARSE_DEGREE = 15;
 #ifndef DISABLE_GPU
 
 #include <cublas_v2.h>
 #include <curand.h>
+#include <math_functions.h>
+
+#define HOSTDEVICE __host__ __device__
 const int WARP_SIZE = 32;
 const int BLOCK_SIZE = 256;
-const int SPARSE_DEGREE = 15;
 const int TILE_DIM = 32;
 const int BLOCK_ROWS = 8;
 
@@ -67,6 +70,10 @@ cublasStatus_t cublasXgemm(cublasHandle_t handle,
 #else
 typedef void* cublasHandle_t; 
 typedef void* curandState;
+typedef void* cudaStream_t;
+#define HOSTDEVICE 
+#include <math.h>
+using namespace std;
 #endif
 
 #define CUDA_CALL(x) 

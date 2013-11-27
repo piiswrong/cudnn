@@ -2,7 +2,6 @@
 #define DNEURON_CUH
 
 #include <common.cuh>
-#include <math_functions.h>
 #include <DMatrix.cuh>
 #include <DOperators.cuh>
 #include <kernels.cuh>
@@ -17,19 +16,19 @@ protected:
 public:
     class ForwardOp {
     public:
-        __host__ __device__ inline T operator() (T act, T drv) {
+        HOSTDEVICE inline T operator() (T act, T drv) {
             return drv;
         }
     };
     class BackwardOp {
     public:
-        __host__ __device__ inline T operator() (T delta, T drv, T act) {
+        HOSTDEVICE inline T operator() (T delta, T drv, T act) {
             return delta*1.0;
         }
     };
     class DeltaOp{
     public:
-        __host__ __device__ inline T operator() (T x, T y, T z) {
+        HOSTDEVICE inline T operator() (T x, T y, T z) {
             return y - z;
         }
     };
@@ -64,13 +63,13 @@ class DReLUNeuron : public DNeuron<T> {
 public:
     class ForwardOp {
     public:
-        __host__ __device__ T operator() (T act, T drv) {
+        HOSTDEVICE T operator() (T act, T drv) {
             return drv*(drv > (T)0.0);
         }
     };
     class BackwardOp {
     public:
-        __host__ __device__ T operator() (T delta, T drv, T act) {
+        HOSTDEVICE T operator() (T delta, T drv, T act) {
             return delta*(drv > (T)0.0);
         }
     };
@@ -98,6 +97,7 @@ public:
         res = new DMatrix<int>(batch_size, 1, handle);
     }
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
+#ifndef DISABLE_GPU
         if (DNeuron<T>::_on_device) {
             dim3 grid((act->ld()-1)/WARP_SIZE+1, 1, 1);
             dim3 block(WARP_SIZE, 32, 1);
@@ -105,8 +105,28 @@ public:
 #ifndef NDEBUG
             act->dev2host();
 #endif
-        }else {
-            exit(-1);
+        }else 
+#endif
+        {
+            int m = act->ld(), n = act->fd() - 1;
+            for (int i = 0; i < m; i++) {
+                T myMax = drv->getElem(i,0);
+                T myMark = 0;
+                for (int j = 1; j < n; j++) {
+                    if (drv->getElem(i,j) > myMax) {
+                        myMax = drv->getElem(i,j);
+                        myMark = j;
+                    }
+                }
+                res->getElem(i,0) = myMark;
+                T mySum = 0;
+                for (int j = 0; j < n; j++) {
+                    mySum += act->getElem(i,j) = exp(drv->getElem(i,j)-myMax);
+                }
+                for (int j = 0; j < n; j++) {
+                    act->getElem(i,j) /= mySum;
+                }
+            }
         }
     }
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
@@ -119,7 +139,7 @@ public:
         //DNeuron<T>::_loss = act->norm1(act->nelem() - act->ld());
     }
     virtual T getLoss() {
-        cudaStreamSynchronize(_stream);
+        CUDA_CALL(cudaStreamSynchronize(_stream));
         T loss = 0;
         for (int i = 0; i < _y->nrows(); i++) loss += _y->getElem(i, res->getElem(i, 0));
         return loss;
@@ -132,7 +152,7 @@ public:
     class ForwardOp {
     public:
         
-        __host__ __device__ T operator() (T act, T drv) {
+        HOSTDEVICE T operator() (T act, T drv) {
             return 0;
         }
 
@@ -140,7 +160,7 @@ public:
 
     class BackwardOp {
     public:
-        __host__ __device__ T operator() (float delta, float drv, float act) {
+        HOSTDEVICE T operator() (float delta, float drv, float act) {
             return delta/(3.0*act*act+1.0);
         }
     };
@@ -157,7 +177,7 @@ public:
 };
 
 template<>
-__host__ __device__ float DOddrootNeuron<float>::ForwardOp::operator() (float act, float drv) {
+HOSTDEVICE float DOddrootNeuron<float>::ForwardOp::operator() (float act, float drv) {
 /*    const unsigned int ebits = 8;
     const unsigned int fbits = 23;
     const unsigned int bias = (1 << (ebits-1))-1;
@@ -178,7 +198,7 @@ __host__ __device__ float DOddrootNeuron<float>::ForwardOp::operator() (float ac
     do {
         x0 = x;
         x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
-    }while (abs((x-x0)/x)>1e-6);
+    }while (fabs((x-x0)/x)>1e-6);
     return x;
 
 }

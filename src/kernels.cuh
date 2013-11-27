@@ -252,18 +252,19 @@ __global__ void kWeightUpdate(T* x, T* y, T decay_rate, int ld, int fd) {
 #else
 template<class T> 
 void hDropout(T *x, T *mask, curandState *state, float rate, bool trans, int m, int n, int ld) {
+    if (trans) std::swap(m,n);
     int thresh = rate*RAND_MAX;
     if (mask != NULL) {
         for (int j = 0; j < n; j++) {
             for (int i = 0; i < m; i++) {
                 mask[i+m*j] = rand() > thresh;
-                x->getElem(i,j) *= mask[i+m*j];
+                x[i+ld*j] *= mask[i+m*j];
             }
         }
     }else {
         for (int j = 0; j < n; j++) {
             for (int i = 0; i < m; i++) {
-                x->getElem(i,j) *= rand() > thresh;
+                x[i+ld*j] *= rand() > thresh;
             }
         }
     }

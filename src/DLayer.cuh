@@ -107,7 +107,7 @@ public:
                     }
                 }
                 for (int i = 0; i < n - 1; i++)
-                    _weight->getElem(m-1,j) = _weight->getElem(m-1,j)*factor + _momentun->getElem(m-1,j);
+                    _weight->getElem(m-1,i) = _weight->getElem(m-1,i)*factor + _momentun->getElem(m-1,i);
             }
         }else {
             _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());

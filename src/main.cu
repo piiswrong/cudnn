@@ -3,8 +3,8 @@
 #include <DData.cuh>
 
 int main() {
-    cublasHandle_t handle; 
-    cublasCreate(&handle);
+    cublasHandle_t handle = 0; 
+    CUDA_CALL(cublasCreate(&handle));
 
     int num_layers = 3;
     int layer_dims[] = {28*28, 2047, 2047, 10};
@@ -33,6 +33,6 @@ int main() {
     test_data = new DMnistData<float>("../data", DData<float>::Test, 10000, true, dnn->handle());
     printf("Testing Error:%f\n", dnn->test(test_data));
 
-    cudaDeviceReset();
+    CUDA_CALL(cudaDeviceReset());
     return 0;
 }

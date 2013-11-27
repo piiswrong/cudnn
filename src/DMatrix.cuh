@@ -176,7 +176,7 @@ public:
         if (_on_device) {
             CUBLAS_CALL(cublasXasum(_handle, nelem, _dev_data, 1, &res));
         }else {
-            res = cblas_asum(nelem, host_data(), 1);
+            res = cblas_Xasum(nelem, host_data(), 1);
         }
         return res;
     }
@@ -188,7 +188,7 @@ public:
         if (_on_device) {
             CUBLAS_CALL(cublasXnrm2(_handle, nelem, _dev_data, 1, &res));
         }else {
-            res = cblas_nrm2(nelem, host_data(), 1);
+            res = cblas_Xnrm2(nelem, host_data(), 1);
         }
         return res;
     }
@@ -224,7 +224,7 @@ public:
             dev2host();
 #endif
         }else{
-            cblas_gemm(CblasColMajor, A->hTchar(Ta), B->hTchar(Tb), A->nrows(Ta),
+            cblas_Xgemm(CblasColMajor, A->hTchar(Ta), B->hTchar(Tb), A->nrows(Ta),
                         B->ncols(Tb), A->ncols(Ta), alpha,
                         A->host_data(), A->ld(), B->host_data(), B->ld(),
                         beta, host_data(), ld());

@@ -56,7 +56,7 @@ public:
         if (_handle) {
             _on_device = true;
             _streams = new cudaStream_t[num_buffs];
-            for (int i = 0; i < num_buffs; i++) cudaStreamCreate(_streams+i);
+            for (int i = 0; i < num_buffs; i++) CUDA_CALL(cudaStreamCreate(_streams+i));
         }
 
         if (_permute) {
@@ -172,7 +172,7 @@ public:
                 y = new DMatrix<T>(_y_buffs[_buff_index], _buff_offset, dim - _buff_offset);
                 x->setT();
                 x->setT();
-                cudaStreamSynchronize(_streams[_buff_index]);
+                CUDA_CALL(cudaStreamSynchronize(_streams[_buff_index]));
                 if (dim < _buff_dim) {
                     return false;
                 }else {
@@ -188,7 +188,7 @@ public:
             y = new DMatrix<T>(_y_buffs[_buff_index], _buff_offset, batch_size);
             x->setT();
             x->setT();
-            cudaStreamSynchronize(_streams[_buff_index]);
+            CUDA_CALL(cudaStreamSynchronize(_streams[_buff_index]));
             _buff_offset += batch_size;
             return true;
         }
