@@ -77,7 +77,7 @@ public:
         _drv->update(dev_data, false, _weight, false);
         _neuron->fprop(_act, _drv);
         if (drop_out) 
-            hDropout(_act->dev_data(), _neuron->easyDropout()?NULL:_mask->dev_data(), _state, drop_rate, _act->getT(), _act->nrows(), _act->ncols() - 1, _act->ld());
+            hDropout(_act, _neuron->easyDropout()?NULL:_mask, _state, drop_rate, _act->getT(), _act->nrows(), _act->ncols() - 1, _act->ld());
     }
     
     void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, float rate, float mom, bool drop_out, bool decay, float decay_rate) {

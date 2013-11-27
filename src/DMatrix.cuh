@@ -310,5 +310,46 @@ public:
     }
 };
 
+#ifndef DISABLE_GPU
+template<class T> 
+void hDropout(DMatrix<T> *x, DMatrix<T> *mask, curandState *state, float rate, bool trans, int m, int n, int ld) {
+    if (trans) std::swap(m, n);
+    bool even_m = !(m%TILE_DIM), even_n = !(n%TILE_DIM), save = (mask!=NULL);
+    dim3 grid(m/TILE_DIM+!even_m, n/TILE_DIM+!even_n, 1);
+    dim3 block(TILE_DIM, BLOCK_ROWS, 1);
+    switch((save<<2)|(even_m<<1)|even_n) {
+    case 0: kDropout<T, false, false, false><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
+    case 1: kDropout<T, false, true, false><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
+    case 2: kDropout<T, true, false, false><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
+    case 3: kDropout<T, true, true, false><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
+    case 4: kDropout<T, false, false, true><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
+    case 5: kDropout<T, false, true, true><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
+    case 6: kDropout<T, true, false, true><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
+    case 7: kDropout<T, true, true, true><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
+    }
+}
+#else
+template<class T> 
+void hDropout(DMatrix<T> *x, DMatrix<T> *mask, curandState *state, float rate, bool trans, int m, int n, int ld) {
+    if (trans) std::swap(m,n);
+    T* xdata = x->host_data();
+    int thresh = rate*RAND_MAX;
+    if (mask != NULL) {
+        T* maskdata = mask->host_data();
+        for (int j = 0; j < n; j++) {
+            for (int i = 0; i < m; i++) {
+                maskdata[i+m*j] = rand() > thresh;
+                xdata[i+ld*j] *= maskdata[i+m*j];
+            }
+        }
+    }else {
+        for (int j = 0; j < n; j++) {
+            for (int i = 0; i < m; i++) {
+                xdata[i+ld*j] *= rand() > thresh;
+            }
+        }
+    }
+}
+#endif
 
 #endif //DMATRIX_CUH

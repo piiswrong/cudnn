@@ -1,31 +1,31 @@
 #FLAGS = -O3 -DNDEBUG --use_fast_math 
-FLAGS = -O3 -DNDEBUG -DDISABLE_GPU -pthread
-#C11 = --compiler-options "-std=c++0x"
-C11 = -std=c++0x
-#CC = nvcc
-CC = gcc -x c++ 
+#FLAGS = -O3 -DNDEBUG -DDISABLE_GPU 
+FLAGS = -g -DDISABLE_GPU
+C11 = --compiler-options "-std=c++0x"
+#C11 = -std=c++0x
+CC = nvcc
 LIBS = #-lcudart -lcublas
-LIBS += -L/usr/nikola/pkgs/intel/.2011.2.137/mkl/lib/intel64 -lstdc++ -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core
-LIBS += -L/usr/nikola/pkgs/intel/.2011.2.137/lib/intel64 -liomp5
+LIBS += -L/opt/intel/mkl/lib/intel64 
+LIBS += -L/opt/intel/lib/intel64 
+LIBS += -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5
 INCLUDE = -I.
-INCLUDE += -I/usr/nikola/pkgs/intel/.2011.2.137/mkl/include
+INCLUDE += -I/opt/intel/mkl/include
 
 main: common.o kernels.o main.o DRand.o
-	#$(CC) $(FLAGS) $(LIBS) common.o kernels.o DRand.o main.o -o main
-	gcc $(FLAGS) $(LIBS) common.o kernels.o DRand.o main.o -o main
+	nvcc $(FLAGS) $(LIBS) common.o kernels.o DRand.o main.o -o main
 	rm main.o
 
-common.o: common.cuh common.cu 
-	$(CC) $(FLAGS) $(INCLUDE) -c common.cu
+common.o: common.cuh common.cpp 
+	$(CC) $(FLAGS) $(INCLUDE) -c common.cpp
 
-kernels.o: kernels.cuh kernels.cu
-	$(CC) $(FLAGS) $(INCLUDE) -c kernels.cu
+kernels.o: kernels.cuh kernels.cpp
+	$(CC) $(FLAGS) $(INCLUDE) -c kernels.cpp
 
 DRand.o: DRand.h DRand.cc
 	$(CC) $(FLAGS) $(INCLUDE) $(C11) -c DRand.cc
 
-main.o: main.cu
-	$(CC) $(FLAGS) $(INCLUDE) -c main.cu
+main.o: main.cpp
+	$(CC) $(FLAGS) $(INCLUDE) -c main.cpp
 
 
 clean:

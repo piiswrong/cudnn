@@ -69,7 +69,7 @@ public:
 
     void fprop(DMatrix<T>* x, int num_layers, DLayer<T>** layers, bool idrop_out = false,
                         bool hdrop_out = false, float idrop_rate = 0.0, float hdrop_rate = 0.0) {
-        if (idrop_out) hDropout<T>(x->dev_data(), NULL, _state, idrop_rate, x->getT(), x->nrows(), x->ncols() - 1, x->ld());
+        if (idrop_out) hDropout<T>(x, NULL, _state, idrop_rate, x->getT(), x->nrows(), x->ncols() - 1, x->ld());
         layers[0]->fprop(x, num_layers > 1 && hdrop_out, hdrop_rate);
         for (int i = 1; i < num_layers; i++) 
             layers[i]->fprop(layers[i-1]->act(), i < num_layers - 1 && hdrop_out, hdrop_rate);

@@ -6,11 +6,11 @@ int main() {
     cublasHandle_t handle = 0; 
     CUDA_CALL(cublasCreate(&handle));
 
-    int num_layers = 3;
-    int layer_dims[] = {28*28, 2047, 2047, 10};
+    int num_layers = 2;
+    int layer_dims[] = {28*28, 511, 10};
     DHyperParams _bp_hyper_params, _pt_hyper_params;
     //_bp_hyper_params.batch_size = 10;
-    _bp_hyper_params.check_interval = 10000;
+    _bp_hyper_params.check_interval = 1000;
     _bp_hyper_params.learning_rate = 1.0;
 //    _bp_hyper_params.idrop_out = false;
 //    _bp_hyper_params.hdrop_out = false;
