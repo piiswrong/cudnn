@@ -1,16 +1,18 @@
 #FLAGS = -O3 -DNDEBUG --use_fast_math 
-FLAGS = -O3 -DNDEBUG -DDISABLE_GPU
+FLAGS = -O3 -DNDEBUG -DDISABLE_GPU -pthread
 #C11 = --compiler-options "-std=c++0x"
 C11 = -std=c++0x
 #CC = nvcc
 CC = gcc -x c++ 
 LIBS = #-lcudart -lcublas
-LIBS += -L/usr/nikola/pkgs/intel/.2011.2.137/mkl/lib
+LIBS += -L/usr/nikola/pkgs/intel/.2011.2.137/mkl/lib/intel64 -lstdc++ -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core
+LIBS += -L/usr/nikola/pkgs/intel/.2011.2.137/lib/intel64 -liomp5
 INCLUDE = -I.
 INCLUDE += -I/usr/nikola/pkgs/intel/.2011.2.137/mkl/include
 
 main: common.o kernels.o main.o DRand.o
-	$(CC) $(FLAGS) $(LIBS) common.o kernels.o DRand.o main.o -o main
+	#$(CC) $(FLAGS) $(LIBS) common.o kernels.o DRand.o main.o -o main
+	gcc $(FLAGS) $(LIBS) common.o kernels.o DRand.o main.o -o main
 	rm main.o
 
 common.o: common.cuh common.cu 
