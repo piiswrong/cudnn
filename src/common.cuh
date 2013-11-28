@@ -71,14 +71,13 @@ cublasStatus_t cublasXgemm(cublasHandle_t handle,
 typedef void* cublasHandle_t; 
 typedef void* curandState;
 typedef void* cudaStream_t;
+#define CUDA_CALL(x) 
+#define CUBLAS_CALL(x) 
+#define CURAND_CALL(x)
 #define HOSTDEVICE 
 #include <math.h>
 using namespace std;
 #endif
-
-#define CUDA_CALL(x) 
-#define CUBLAS_CALL(x) 
-#define CURAND_CALL(x)
 
 float cblas_Xasum (const MKL_INT N, const float *X, const MKL_INT incX);
 double cblas_Xasum (const MKL_INT N, const double *X, const MKL_INT incX);

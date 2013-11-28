@@ -303,7 +303,7 @@ public:
         {
             for (int j = 0; j < n; j++) {
                 for (int i = 0; i < m; i++) {
-                    getElem(i,j) = op(getElem(i,j), y->getElem(i,j), getElem(i,j));               
+                    getElem(i,j) = op(getElem(i,j), y->getElem(i,j), z->getElem(i,j));               
                 }
             }
         }

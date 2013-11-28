@@ -45,7 +45,7 @@ public:
         Validate = 2,
         Test = 4
     };
-    DData(int num_buffs, int x_dim, int y_dim, int buff_dim, bool permute, bool testing, cublasHandle_t handle = 0) {
+    DData(int num_buffs, int x_dim, int y_dim, int buff_dim, bool permute, bool testing, cublasHandle_t handle) {
         _num_buffs = num_buffs;
         _permute = permute;
         _x_dim = x_dim;
@@ -272,10 +272,10 @@ template<class T>
 class DDummyData : public DData<T> {
     int _n;
 public:
-    DDummyData(int n, cublasHandle_t handle) : DData<T>(1, n, n, 1, false, handle) {
-        _n = n;
+    DDummyData(int n, cublasHandle_t handle) : DData<T>(1, n+1, n+1, 1, false, false, handle) {
+        _n = n + 1;
     }
-    virtual bool fetch(T *&x, T *&y) { return false; }  
+    virtual int fetch(T *&x, T *&y) { return false; }  
     virtual void start() {}
     virtual int instancesPerEpoch() { return 256; }
     virtual bool getData(DMatrix<T> *&x, DMatrix<T>*&y, int batch_size) {

@@ -62,11 +62,11 @@ cublasStatus_t cublasXgemm(cublasHandle_t handle,
 #endif
 
 float cblas_Xasum (const MKL_INT N, const float *X, const MKL_INT incX) {
-    cblas_sasum (N, X, incX); 
+    return cblas_sasum (N, X, incX); 
 }
 
 double cblas_Xasum (const MKL_INT N, const double *X, const MKL_INT incX) {
-    cblas_dasum (N, X, incX);
+    return cblas_dasum (N, X, incX);
 }
 
 void cblas_Xaxpy (const MKL_INT N, const float alpha, const float *X, const MKL_INT incX, float *Y, const MKL_INT incY) {
@@ -77,11 +77,11 @@ void cblas_Xaxpy (const MKL_INT N, const double alpha, const double *X, const MK
 }
 
 float cblas_Xnrm2 (const MKL_INT N, const float *X, const MKL_INT incX) {
-    cblas_snrm2 (N, X, incX);
+    return cblas_snrm2 (N, X, incX);
 }
 
 double cblas_Xnrm2 (const MKL_INT N, const double *X, const MKL_INT incX) {
-    cblas_dnrm2 (N, X, incX);
+    return cblas_dnrm2 (N, X, incX);
 }
 
 void cblas_Xgemm (const CBLAS_ORDER Order, const CBLAS_TRANSPOSE TransA, const CBLAS_TRANSPOSE TransB, const MKL_INT M, const MKL_INT N, const MKL_INT K, const float alpha, const float *A, const MKL_INT lda, const float *B, const MKL_INT ldb, const float beta, float *C, const MKL_INT ldc) {

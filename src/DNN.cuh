@@ -141,7 +141,6 @@ public:
             data->getData(x, y, _bp_hyper_params.batch_size);
             error += trainOnBatch(x, y);
             CUDA_CALL(cudaThreadSynchronize());
-            delete x, y;
             nInstance += _bp_hyper_params.batch_size;
             while (nEpoch*iperEpoch <= nInstance) {
                 nEpoch++;
@@ -152,6 +151,7 @@ public:
             }
             lastCheck += _bp_hyper_params.batch_size;
             if (lastCheck >= _bp_hyper_params.check_interval) {
+                DMatrix<T> *m;
 /*#ifndef NDEBUG
                 for (int i = 0; i < _num_layers; i++) {
                     DMatrix<T> *m = x;//_layers[i]->delta();
@@ -164,28 +164,38 @@ public:
                     }
                     printf("\n");
                 }*/
-                DMatrix<T> *m = y;//_layers[i]->delta();
+                m = _delta;
                 m->dev2host();
                 for (int r = 0; r < 10; r++) {
                     for (int c = 0; c < m->ncols(); c++) {
-                        printf("%d ", (int)m->host_data()[r*10+c]);
+                        printf("%+1.3f ", (float)m->getElem(r,c));
+                    }
+                    printf("\n");
+                }
+                printf("\n");
+
+                m = y;//_layers[i]->delta();
+                m->dev2host();
+                for (int r = 0; r < 10; r++) {
+                    for (int c = 0; c < m->ncols(); c++) {
+                        printf("%+1.3f ", (float)m->getElem(r,c));
                     }
                     printf("\n");
                 }
                 printf("\n");
                 
-
+/*
                 m = _layers[_num_layers-1]->drv();
                 m->dev2host();
                 for (int r = 0; r < 10; r++) {
-                    for (int c = 0; c < m->fd(); c++) {
-                        printf("%+1.3f ", (float)m->host_data()[r+c*m->ld()]);
+                    for (int c = 0; c < m->ncols(); c++) {
+                        printf("%+1.3f ", (float)m->getElem(r,c));
                     }
                     printf("\n");
                 }
                 printf("\n");
                 
-              /*  for (int i = 0; i < _num_layers; i++) {
+                for (int i = 0; i < _num_layers; i++) {
                     DMatrix<T> *m = _layers[i]->drv();
                     m->dev2host();
                     for (int r = 0; r < m->ld(); r++) {
@@ -195,13 +205,14 @@ public:
                         printf("\n");
                     }
                     printf("\n");
-                }
+                }*/
+/*
                 for (int i = 0; i < _num_layers; i++) {
                     DMatrix<T> *m = _layers[i]->act();
                     m->dev2host();
-                    for (int r = 0; r < m->ld(); r++) {
-                        for (int c = 0; c < m->fd(); c++) {
-                            printf("%+1.3f ", (float)m->host_data()[r+c*m->ld()]);
+                    for (int r = 0; r < 10; r++) {
+                        for (int c = 0; c < m->ncols(); c++) {
+                            printf("%+1.3f ", (float)m->getElem(r,c));
                         }
                         printf("\n");
                     }
@@ -223,6 +234,7 @@ public:
                 lastCheck = 0;
                 error = 0.0;
             }
+            delete x, y;
         }
         
     }
