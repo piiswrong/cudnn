@@ -107,6 +107,22 @@ public:
             _scaled_weight = false;
         }
     }
+
+#ifdef ADMM
+    void admmReduce() {
+        for (int i = 0; i < _num_layers; i++) {
+            _layers[i]->ADMM_reduce();
+        }
+    }
+    
+    void admmFineTune(DData<T> *data, int total_epochs) {
+        for (int epoch = 0; epoch < total_epochs; epoch += _bp_hyper_params.reduce_epochs) {
+            fineTune(data, _bp_hyper_params.reduce_epochs);
+            admmReduce();
+        }
+    }
+#endif
+
     T test(DData<T>* data) {
         scaleWeight(true);
         data->start();

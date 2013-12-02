@@ -1,5 +1,8 @@
 #include <common.cuh>
 
+int mpi_world_size;
+int mpi_world_rank;
+
 #ifndef DISABLE_GPU
 
 cublasStatus_t  cublasXasum(cublasHandle_t handle, int n,

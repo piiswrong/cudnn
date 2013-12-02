@@ -12,6 +12,7 @@ class DData {
 protected:
     bool _on_device;
     cublasHandle_t _handle;
+    bool _started;
     bool _permute;
     int *_perm_seq;
     int _x_dim;
@@ -46,6 +47,7 @@ public:
         Test = 4
     };
     DData(int num_buffs, int x_dim, int y_dim, int buff_dim, bool permute, bool testing, cublasHandle_t handle) {
+        _started = false;
         _num_buffs = num_buffs;
         _permute = permute;
         _x_dim = x_dim;
@@ -104,7 +106,10 @@ public:
     int y_dim() { return _y_dim; }
 
     virtual void start() {
-        pthread_create(&_thread, NULL, DData<T>::generateDataHelper, (void*)this);
+        if (!_started) {
+            _started = true;
+            pthread_create(&_thread, NULL, DData<T>::generateDataHelper, (void*)this);
+        }
     }
 
     static void *generateDataHelper(void *ddata) {
@@ -208,7 +213,7 @@ class DMnistData : public DData<T> {
 
     char *_tx, *_ty;
 public:
-    DMnistData(std::string path, int split, int batch_size, int testing, cublasHandle_t handle = 0) : DData<T>(2, 28*28+1, 10, batch_size, true, testing, handle) {
+    DMnistData(std::string path, int split, int batch_size, int testing) : DData<T>(2, 28*28+1, 10, batch_size, true, testing, handle) {
         _split = split;
 		if (path[path.length()-1] != '/') path.append("/");
         if (split&(DData<T>::Train|DData<T>::Validate)) {
@@ -224,7 +229,7 @@ public:
 			_soffset = 0;
 			_eoffset = 10000;
 		}
-		_offset = 0;
+		_offset = _soffset;
 		fseek(_xfile, 16+_soffset*DData<T>::_x_dim, SEEK_SET);
 		fseek(_yfile, 8+_soffset, SEEK_SET);
 
@@ -288,6 +293,18 @@ public:
         }
         x->host2dev();
         return true;
+    }
+};
+
+template<class T>
+class DParallelMnistData : public DMnistData {
+public:
+    DParallelMnistData(string path, int N, int rank, int batch_size) : DMnistData(path, DData<T>::Train, batch_size, false) {
+        int block_size = DMnistData<T>::instancesPerEpoch()/N;
+        DMnistData<T>::_soffset = rank*block_size;
+        DMnistData<T>::_eoffset = min(DMnistData<T>::_soffset + block_size, DMnistData<T>::_eoffset);
+        fseek(DMnistData<T>::_xfile, 16+DMnistData<T>::_soffset*DData<T>::_x_dim, SEEK_SET);
+        fseek(DMnistData<T>::_yfile, 8+DMnistData<T>::_soffset, SEEK_SET);
     }
 };
 

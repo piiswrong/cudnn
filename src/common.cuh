@@ -79,6 +79,17 @@ typedef void* cudaStream_t;
 using namespace std;
 #endif
 
+#ifdef ADMM
+#define USE_MPI
+#endif
+
+#ifdef USE_MPI
+#include <mpi.h>
+extern int mpi_world_size;
+extern int mpi_world_rank;
+#endif
+
+
 float cblas_Xasum (const MKL_INT N, const float *X, const MKL_INT incX);
 double cblas_Xasum (const MKL_INT N, const double *X, const MKL_INT incX);
 void cblas_Xaxpy (const MKL_INT N, const float alpha, const float *X, const MKL_INT incX, float *Y, const MKL_INT incY);

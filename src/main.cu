@@ -2,7 +2,12 @@
 #include <DNN.cuh>
 #include <DData.cuh>
 
-int main() {
+int main(int argc, char **argv) {
+#ifdef USE_MPI 
+    MPI::Init(argc, argv);
+    mpi_world_size = MPI::COMM_WORLD.Get_size();
+    mpi_world_rank = MPI::COMM_WORLD.Get_rank();
+#endif
     cublasHandle_t handle = 0; 
     CUDA_CALL(cublasCreate(&handle));
 
@@ -23,15 +28,22 @@ int main() {
     neuron[1] = new DSoftmaxNeuron<float>(_bp_hyper_params.batch_size, handle);
     
     DNN<float> *dnn = new DNN<float>(num_layers, layer_dims, neuron, _pt_hyper_params, _bp_hyper_params, handle);
+#ifdef ADMM
+    DParallelMnistData<float> *data = new DParallelMnistData<float>("../data", mpi_world_size, mpi_world_rank, dnn->handle());
+    dnn->admmFineTune(data, 50);
+#else
     DMnistData<float> *data = new DMnistData<float>("../data", DData<float>::Train, 50000, false, dnn->handle());
     //DData<float> *data = new DDummyData<float>(10,  handle);
     dnn->fineTune(data, 10);
+#endif
 
     DMnistData<float> *test_data;// = new DMnistData<float>("../data", DData<float>::Test, 10000, false, dnn->handle());
-    //dnn->fineTune(test_data, 1);
     test_data = new DMnistData<float>("../data", DData<float>::Test, 10000, true, dnn->handle());
     printf("Testing Error:%f\n", dnn->test(test_data));
 
     CUDA_CALL(cudaDeviceReset());
+#ifdef USE_MPI
+    MPI::Finalize();
+#endif
     return 0;
 }

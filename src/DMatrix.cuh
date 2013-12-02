@@ -17,6 +17,10 @@ class DMatrix {
     T* _host_data;
     T* _dev_data;
     bool _on_device;
+
+#ifdef USE_MPI
+    MPI_Win _win;
+#endif
 	
     enum _Init {
         _None = 0,
@@ -80,6 +84,7 @@ public:
             }
         }   
     }
+
     
     int nrows(bool t = false) { return getT(t) ? fd():ld(); }
     int ncols(bool t = false) { return getT(t) ? ld():fd(); }
@@ -169,6 +174,34 @@ public:
         if (_on_device) 
             CUBLAS_CALL(cublasGetVectorAsync(_ld*_fd, sizeof(T), _dev_data, 1, _host_data, 1, stream));
     }
+
+#ifdef USE_MPI
+    MPI_Datatype mpiDatatype() {
+        assert(false);
+    }
+
+    void allReduce(DMatrix<T> *dest, MPI_OP op) {
+        dev2host();
+        MPI::COMM_WORLD.Allreduce(host_data(), dest->host_data(), nelem(), mpiDatatype(), op);
+        dest->host2dev();
+    }
+
+    void send(int dest, int tag) {
+        dev2host();
+        MPI_Send(host_data(), nelem(), mpiDatatype(), dest, tag, MPI_COMM_WORLD);
+    }
+
+    void recv(int src, int tag) {
+        MPI_Recv(host_data(), nelem(), mpiDatatype(), src, tag);
+        host2dev();
+    }    
+
+    void createWin() {
+        MPI::Info info = MPI::Info::Create();
+        _win = MPI::Win::Create(host_data(), nelem(), sizeof(T), info, MPI_COMM_WORLD);
+        info.Free();
+    }
+#endif
 
     T norm1(int nelem = 0) {
         if (nelem == 0) nelem = _nelem;

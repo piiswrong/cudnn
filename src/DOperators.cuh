@@ -12,6 +12,26 @@ public:
 };
 
 template<class T>
+class OpADMMDecay{
+    const T _scale;
+public:
+    OpScale(const T scale) : _scale(scale) {}
+    HOSTDEVICE T operator() (T x, T y, T z) {
+        return x+(y+z)*_scale;
+    }
+};
+
+template<class T>
+class OpScaleAdd{
+    const T _scale;
+public:
+    OpScale(const T scale) : _scale(scale) {}
+    HOSTDEVICE T operator() (T x, T y) {
+        return x+y*_scale;
+    }
+};
+
+template<class T>
 class OpScale{
     const T _scale;
 public:
@@ -53,6 +73,22 @@ class OpExp{
 public:
     HOSTDEVICE T operator() (T x, T y) {
         return exp(y);
+    }
+};
+
+template<class T>
+class OpAdd{
+public:
+    HOSTDEVICE T operator() (T x, T y, T z) {
+        return y + z;
+    }
+};
+
+template<class T>
+class OpSubEqu{
+public:
+    HOSTDEVICE T operator() (T x, T y, T z) {
+        return x + y - z;
     }
 };
 

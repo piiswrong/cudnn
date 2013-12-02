@@ -17,6 +17,9 @@ public:
     bool sparseInit;
     int batch_size;
     int check_interval;
+#ifdef ADMM
+    int reduce_epochs;
+#endif
 
     DHyperParams() {
         learning_rate = 1.0;
@@ -33,6 +36,9 @@ public:
         batch_size = 128;
         sparseInit = false;
         check_interval = 10000;
+#ifdef ADMM
+        reduce_epochs = 5;
+#endif
     }
 };
 

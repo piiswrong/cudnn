@@ -20,6 +20,9 @@ class DLayer {
     DHyperParams* _bp_hyper_params;
 
     DMatrix<T> *_momentun, *_weight, *_drv, *_act, *_delta, *_mask;
+#ifdef ADMM
+    DMatrix<T> *_z, *_u, *_buf;
+#endif
     curandState *_state;
 public:
     DLayer(int input_dim, int output_dim, DNeuron<T> *neuron, 
@@ -52,6 +55,14 @@ public:
         _delta->init(DMatrix<T>::Zero);
         _mask = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _mask->init(DMatrix<T>::Zero);
+#ifdef ADMM
+        _z = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
+        _z->init(DMatrix<T>::Zero);
+        _u = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
+        _u->init(DMatrix<T>::Zero);
+        _buf = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
+        _buf->init(DMatrix<T>::Zero);
+#endif
 #ifndef DISABLE_GPU
         if (_on_device) {
             CUDA_CALL(cudaMalloc((void**)&_state, _act->nelem()*sizeof(curandState)));
@@ -73,6 +84,16 @@ public:
         _momentun->init(DMatrix<T>::Zero);
     }
 
+#ifdef ADMM
+    void ADMM_reduce() {
+        _z->applyTenary(OpAdd(), _weight, _u, _weight->nrows(), _weight->ncols());
+        _z->allReduce(_z, MPI_SUM);
+        _z->applyBinary(OpScale(1.0/mpi_world_size), _z, _z->nrows(), _z->ncols());
+        _u->applyTenary(OpSubEqu(), _weight, _z, _weight->nrows(), _weight->ncols());
+        _buf->applyTenary(OpSub(), _u, _z, _buf->nrows(), _buf->ncols());
+    }
+#endif
+
     void fprop(DMatrix<T>* dev_data, bool drop_out, float drop_rate) {
         _drv->update(dev_data, false, _weight, false);
         _neuron->fprop(_act, _drv);
@@ -88,6 +109,15 @@ public:
 
         _delta->update(delta, false, _weight, true, 1.0, 0.0);
         _momentun->update(pre_act, true, delta, false, -(1.0-mom)*rate/delta->nrows(), mom);
+
+#ifdef ADMM
+        _momentun->applyTenary(OpADMMDecay(-(1.0-mom)*rate*decay_rate), _weight, _buf, _weight->nrows(), _weight->ncols());
+#else
+        if (decay) {
+            _momentun->applyBinary(OpScaleAdd(-(1.0-mom)*rate*decay_rate), _weight, _weight->nrows()-1, _weight->ncols()-1);
+        }
+#endif
+/*
         if (decay) {
 #ifndef DISABLE_GPU
             if (_on_device) {
@@ -112,6 +142,8 @@ public:
         }else {
             _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());
         }
+*/
+        _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());
     }
 
 
