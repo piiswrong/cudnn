@@ -171,7 +171,7 @@ public:
         pthread_mutex_unlock(&_mutex);
         
         int dim = _available[_buff_index];
-        if (batch_size >= dim - _buff_offset) {
+        if (batch_size > dim - _buff_offset) {
             if (_testing) {
                 x = new DMatrix<T>(_x_buffs[_buff_index], _buff_offset, dim - _buff_offset);
                 y = new DMatrix<T>(_y_buffs[_buff_index], _buff_offset, dim - _buff_offset);
@@ -204,6 +204,7 @@ public:
 
 template<class T>
 class DMnistData : public DData<T> {
+protected:
     int _split;
     FILE *_xfile;
     FILE *_yfile;
@@ -230,7 +231,7 @@ public:
 			_eoffset = 10000;
 		}
 		_offset = _soffset;
-		fseek(_xfile, 16+_soffset*DData<T>::_x_dim, SEEK_SET);
+		fseek(_xfile, 16+_soffset*(DData<T>::_x_dim-1), SEEK_SET);
 		fseek(_yfile, 8+_soffset, SEEK_SET);
 
         _tx = new char[(DData<T>::_x_dim-1)*DData<T>::_buff_dim];
@@ -250,7 +251,7 @@ public:
             _offset += available;
             if (_offset == _eoffset) {
                 if (!DData<T>::_testing) {
-                    fseek(_xfile, 16+_soffset*DData<T>::_x_dim, SEEK_SET);
+                    fseek(_xfile, 16+_soffset*(DData<T>::_x_dim-1), SEEK_SET);
                     fseek(_yfile, 8+_soffset, SEEK_SET);
                     _offset = 0;
                 }else {
@@ -303,7 +304,7 @@ public:
         int block_size = DMnistData<T>::instancesPerEpoch()/N;
         DMnistData<T>::_soffset = rank*block_size;
         DMnistData<T>::_eoffset = min(DMnistData<T>::_soffset + block_size, DMnistData<T>::_eoffset);
-        fseek(DMnistData<T>::_xfile, 16+DMnistData<T>::_soffset*DData<T>::_x_dim, SEEK_SET);
+        fseek(DMnistData<T>::_xfile, 16+DMnistData<T>::_soffset*(DData<T>::_x_dim-1), SEEK_SET);
         fseek(DMnistData<T>::_yfile, 8+DMnistData<T>::_soffset, SEEK_SET);
     }
 };

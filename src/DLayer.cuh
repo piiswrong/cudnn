@@ -86,11 +86,11 @@ public:
 
 #ifdef ADMM
     void ADMM_reduce() {
-        _z->applyTenary(OpAdd(), _weight, _u, _weight->nrows(), _weight->ncols());
+        _z->applyTenary(OpAdd<T>(), _weight, _u, _weight->nrows(), _weight->ncols());
         _z->allReduce(_z, MPI_SUM);
-        _z->applyBinary(OpScale(1.0/mpi_world_size), _z, _z->nrows(), _z->ncols());
-        _u->applyTenary(OpSubEqu(), _weight, _z, _weight->nrows(), _weight->ncols());
-        _buf->applyTenary(OpSub(), _u, _z, _buf->nrows(), _buf->ncols());
+        _z->applyBinary(OpScale<T>(1.0/mpi_world_size), _z, _z->nrows(), _z->ncols());
+        _u->applyTenary(OpSubEqu<T>(), _weight, _z, _weight->nrows(), _weight->ncols());
+        _buf->applyTenary(OpSub<T>(), _u, _z, _buf->nrows(), _buf->ncols());
     }
 #endif
 

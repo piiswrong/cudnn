@@ -4,9 +4,9 @@
 
 int main(int argc, char **argv) {
 #ifdef USE_MPI 
-    MPI::Init(argc, argv);
-    mpi_world_size = MPI::COMM_WORLD.Get_size();
-    mpi_world_rank = MPI::COMM_WORLD.Get_rank();
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &mpi_world_size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_world_rank);
 #endif
     cublasHandle_t handle = 0; 
     CUDA_CALL(cublasCreate(&handle));
@@ -21,6 +21,9 @@ int main(int argc, char **argv) {
     _bp_hyper_params.hdrop_out = false;
     _bp_hyper_params.momentum = 0.0;
     _bp_hyper_params.max_momentum = 0.0;
+#ifdef ADMM
+    _bp_hyper_params.decay_rate = 1.0;
+#endif
 
     //_bp_hyper_params.sparseInit = true;
     DNeuron<float> **neuron = new DNeuron<float>*[num_layers];
@@ -29,7 +32,7 @@ int main(int argc, char **argv) {
     
     DNN<float> *dnn = new DNN<float>(num_layers, layer_dims, neuron, _pt_hyper_params, _bp_hyper_params, handle);
 #ifdef ADMM
-    DParallelMnistData<float> *data = new DParallelMnistData<float>("../data", mpi_world_size, mpi_world_rank, dnn->handle());
+    DParallelMnistData<float> *data = new DParallelMnistData<float>("../data", mpi_world_size, mpi_world_rank, _bp_hyper_params.batch_size, dnn->handle());
     dnn->admmFineTune(data, 50);
 #else
     DMnistData<float> *data = new DMnistData<float>("../data", DData<float>::Train, 50000, false, dnn->handle());
@@ -43,7 +46,7 @@ int main(int argc, char **argv) {
 
     CUDA_CALL(cudaDeviceReset());
 #ifdef USE_MPI
-    MPI::Finalize();
+    MPI_Finalize();
 #endif
     return 0;
 }

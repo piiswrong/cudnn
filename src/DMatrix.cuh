@@ -52,7 +52,14 @@ public:
         _T = false;
         _nelem = _ld*_fd;
         _size = _nelem*sizeof(T);
+#ifdef USE_MPI
+        MPI_Info info;
+        MPI_Info_create(&info);
+        MPI_Alloc_mem(_size, info, &_host_data);
+        MPI_Info_free(&info);
+#else
         _host_data = (T*)malloc(_size);
+#endif
         _handle = handle;
         if (_handle) { 
             _on_device = true;
@@ -177,12 +184,13 @@ public:
 
 #ifdef USE_MPI
     MPI_Datatype mpiDatatype() {
-        assert(false);
+        printf("Datatype not supported by MPI\n");
+        exit(-1);
     }
 
-    void allReduce(DMatrix<T> *dest, MPI_OP op) {
+    void allReduce(DMatrix<T> *dest, MPI_Op op) {
         dev2host();
-        MPI::COMM_WORLD.Allreduce(host_data(), dest->host_data(), nelem(), mpiDatatype(), op);
+        MPI_Allreduce(MPI_IN_PLACE, dest->host_data(), nelem(), mpiDatatype(), op, MPI_COMM_WORLD);
         dest->host2dev();
     }
 
@@ -197,9 +205,10 @@ public:
     }    
 
     void createWin() {
-        MPI::Info info = MPI::Info::Create();
-        _win = MPI::Win::Create(host_data(), nelem(), sizeof(T), info, MPI_COMM_WORLD);
-        info.Free();
+        MPI_Info info;
+        MPI_Info_create(&info);
+        MPI_Win_create(host_data(), nelem(), sizeof(T), info, MPI_COMM_WORLD, &_win);
+        MPI_Info_free(&info);
     }
 #endif
 
@@ -342,6 +351,10 @@ public:
         }
     }
 };
+
+template<> MPI_Datatype DMatrix<float>::mpiDatatype() { return MPI_FLOAT; }
+template<> MPI_Datatype DMatrix<double>::mpiDatatype() { return MPI_DOUBLE; }
+template<> MPI_Datatype DMatrix<int>::mpiDatatype() { return MPI_INT; }
 
 #ifndef DISABLE_GPU
 template<class T> 

@@ -37,7 +37,7 @@ public:
         sparseInit = false;
         check_interval = 10000;
 #ifdef ADMM
-        reduce_epochs = 5;
+        reduce_epochs = 1;
 #endif
     }
 };
