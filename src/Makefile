@@ -2,15 +2,19 @@
 FLAGS = -O3 -DNDEBUG -DDISABLE_GPU 
 #FLAGS = -g -DDISABLE_GPU
 SUFIX = cpp
-C11 = --compiler-options "-std=c++0x"
-#C11 = -std=c++0x
-CC = nvcc
-LIBS = -lcudart -lcublas
-LIBS += -L/opt/intel/mkl/lib/intel64 
-LIBS += -L/opt/intel/lib/intel64 
+#C11 = --compiler-options "-std=c++0x"
+C11 = -std=c++0x
+CC = mpicc 
+LIBS = #-lcudart -lcublas
+#LIBS += -L/opt/intel/mkl/lib/intel64 
+#LIBS += -L/opt/intel/lib/intel64 
+LIBS += -L/usr/nikola/pkgs/intel/.2011.2.137/mkl/lib/intel64
+LIBS += -L/usr/nikola/pkgs/intel/.2011.2.137/lib/intel64
 LIBS += -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5
+LIBS += -lstdc++
 INCLUDE = -I.
 INCLUDE += -I/opt/intel/mkl/include
+INCLUDE += -I/usr/nikola/pkgs/intel/.2011.2.137/mkl/include
 
 main: common.o kernels.o main.o DRand.o
 	$(CC) $(FLAGS) $(LIBS) common.o kernels.o DRand.o main.o -o main

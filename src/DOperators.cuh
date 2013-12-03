@@ -15,7 +15,7 @@ template<class T>
 class OpADMMDecay{
     const T _scale;
 public:
-    OpScale(const T scale) : _scale(scale) {}
+    OpADMMDecay(const T scale) : _scale(scale) {}
     HOSTDEVICE T operator() (T x, T y, T z) {
         return x+(y+z)*_scale;
     }
@@ -25,7 +25,7 @@ template<class T>
 class OpScaleAdd{
     const T _scale;
 public:
-    OpScale(const T scale) : _scale(scale) {}
+    OpScaleAdd(const T scale) : _scale(scale) {}
     HOSTDEVICE T operator() (T x, T y) {
         return x+y*_scale;
     }

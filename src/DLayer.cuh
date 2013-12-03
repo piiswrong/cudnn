@@ -111,10 +111,10 @@ public:
         _momentun->update(pre_act, true, delta, false, -(1.0-mom)*rate/delta->nrows(), mom);
 
 #ifdef ADMM
-        _momentun->applyTenary(OpADMMDecay(-(1.0-mom)*rate*decay_rate), _weight, _buf, _weight->nrows(), _weight->ncols());
+        _momentun->applyTenary(OpADMMDecay<T>(-(1.0-mom)*rate*decay_rate), _weight, _buf, _weight->nrows(), _weight->ncols());
 #else
         if (decay) {
-            _momentun->applyBinary(OpScaleAdd(-(1.0-mom)*rate*decay_rate), _weight, _weight->nrows()-1, _weight->ncols()-1);
+            _momentun->applyBinary(OpScaleAdd<T>(-(1.0-mom)*rate*decay_rate), _weight, _weight->nrows()-1, _weight->ncols()-1);
         }
 #endif
 /*

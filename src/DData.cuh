@@ -213,7 +213,7 @@ class DMnistData : public DData<T> {
 
     char *_tx, *_ty;
 public:
-    DMnistData(std::string path, int split, int batch_size, int testing) : DData<T>(2, 28*28+1, 10, batch_size, true, testing, handle) {
+    DMnistData(std::string path, int split, int batch_size, int testing, cublasHandle_t handle) : DData<T>(2, 28*28+1, 10, batch_size, true, testing, handle) {
         _split = split;
 		if (path[path.length()-1] != '/') path.append("/");
         if (split&(DData<T>::Train|DData<T>::Validate)) {
@@ -297,9 +297,9 @@ public:
 };
 
 template<class T>
-class DParallelMnistData : public DMnistData {
+class DParallelMnistData : public DMnistData<T> {
 public:
-    DParallelMnistData(string path, int N, int rank, int batch_size) : DMnistData(path, DData<T>::Train, batch_size, false) {
+    DParallelMnistData(string path, int N, int rank, int batch_size, cublasHandle_t handle) : DMnistData<T>(path, DData<T>::Train, batch_size, false, handle) {
         int block_size = DMnistData<T>::instancesPerEpoch()/N;
         DMnistData<T>::_soffset = rank*block_size;
         DMnistData<T>::_eoffset = min(DMnistData<T>::_soffset + block_size, DMnistData<T>::_eoffset);
