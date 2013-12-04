@@ -15,6 +15,7 @@ class DLayer {
     cublasHandle_t _handle;
     int _input_dim;
     int _output_dim;
+    int _layer_id;
     DNeuron<T> *_neuron;
     DHyperParams* _pt_hyper_params;
     DHyperParams* _bp_hyper_params;
@@ -23,9 +24,12 @@ class DLayer {
 #ifdef ADMM
     DMatrix<T> *_z, *_u, *_buf;
 #endif
+#ifdef DOWN_POUR_SGD
+    DMatrix<T> *_grad;
+#endif
     curandState *_state;
 public:
-    DLayer(int input_dim, int output_dim, DNeuron<T> *neuron, 
+    DLayer(int input_dim, int output_dim, int layer_id, DNeuron<T> *neuron, 
            DHyperParams* pt_hyper_params, DHyperParams* bp_hyper_params, cublasHandle_t handle) {
         _handle = handle;
         if (_handle) {
@@ -35,6 +39,7 @@ public:
         }
         _input_dim = input_dim;
         _output_dim = output_dim;
+        _layer_id = layer_id;
         _neuron = neuron;
         _pt_hyper_params = pt_hyper_params;
         _bp_hyper_params = bp_hyper_params;
@@ -63,6 +68,14 @@ public:
         _buf = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
         _buf->init(DMatrix<T>::Zero);
 #endif
+
+#ifdef DOWN_POUR_SGD
+        if (mpi_world_rank < sgd_num_param_server) {
+            _grad = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
+            _grad->init(DMatrix<T>::Zero);
+        }
+#endif
+
 #ifndef DISABLE_GPU
         if (_on_device) {
             CUDA_CALL(cudaMalloc((void**)&_state, _act->nelem()*sizeof(curandState)));
@@ -95,6 +108,9 @@ public:
 #endif
 
     void fprop(DMatrix<T>* dev_data, bool drop_out, float drop_rate) {
+#ifdef DOWN_POUR_SGD
+        _weight->mpiGet(0);
+#endif
         _drv->update(dev_data, false, _weight, false);
         _neuron->fprop(_act, _drv);
         if (drop_out) 
@@ -103,47 +119,38 @@ public:
     
     void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, float rate, float mom, bool drop_out, bool decay, float decay_rate) {
         assert(!_weight->getT());
-        _neuron->bprop(delta, _drv, _act);
-        if (drop_out && !_neuron->easyDropout()) 
-            _delta->applyBinary(OpMul<T>(), _mask, _delta->nrows(), _delta->ncols()-1);
+#ifdef DOWN_POUR_SGD
+        if (mpi_world_rank >= sgd_num_param_server) {
+#endif
+            _neuron->bprop(delta, _drv, _act);
+            if (drop_out && !_neuron->easyDropout()) 
+                _delta->applyBinary(OpMul<T>(), _mask, _delta->nrows(), _delta->ncols()-1);
 
-        _delta->update(delta, false, _weight, true, 1.0, 0.0);
-        _momentun->update(pre_act, true, delta, false, -(1.0-mom)*rate/delta->nrows(), mom);
+            _delta->update(delta, false, _weight, true, 1.0, 0.0);
+#ifdef DOWN_POUR_SGD
+            _momentun->update(pre_act, true, delta, false, -(1.0-mom)*rate/delta->nrows(), 0.0);
+#else
+            _momentun->update(pre_act, true, delta, false, -(1.0-mom)*rate/delta->nrows(), mom);
+#endif
 
 #ifdef ADMM
-        _momentun->applyTenary(OpADMMDecay<T>(-(1.0-mom)*rate*decay_rate), _weight, _buf, _weight->nrows(), _weight->ncols());
+            _momentun->applyTenary(OpADMMDecay<T>(-(1.0-mom)*rate*decay_rate), _weight, _buf, _weight->nrows(), _weight->ncols());
 #else
-        if (decay) {
-            _momentun->applyBinary(OpScaleAdd<T>(-(1.0-mom)*rate*decay_rate), _weight, _weight->nrows()-1, _weight->ncols()-1);
-        }
-#endif
-/*
-        if (decay) {
-#ifndef DISABLE_GPU
-            if (_on_device) {
-                int ld = _weight->ld();
-                int fd = _weight->fd(); 
-                dim3 grid((ld-1)/TILE_DIM+1, (fd-1)/TILE_DIM+1, 1);
-                dim3 block(TILE_DIM, BLOCK_ROWS, 1);
-                kWeightUpdate<T><<<grid, block>>>(_weight->dev_data(), _momentun->dev_data(), (1.0-decay_rate), ld, fd);
-            }else 
-#endif
-            {
-                int m = _weight->nrows(), n = _weight->ncols();
-                T factor = 1.0-decay_rate;
-                for (int j = 0; j < n - 1; j++) {
-                    for (int i = 0; i < m - 1; i++) {
-                        _weight->getElem(i,j) = _weight->getElem(i,j)*factor + _momentun->getElem(i,j);
-                    }
-                }
-                for (int i = 0; i < n - 1; i++)
-                    _weight->getElem(m-1,i) = _weight->getElem(m-1,i)*factor + _momentun->getElem(m-1,i);
+            if (decay) {
+                _momentun->applyBinary(OpScaleAdd<T>(-(1.0-mom)*rate*decay_rate), _weight, _weight->nrows()-1, _weight->ncols());
             }
+#endif
+
+#ifdef DOWN_POUR_SGD
+            _momentun->send(0, _layer_id);
         }else {
+            _grad->recv(MPI_ANY_SOURCE, _layer_id);
+            _momentun->applyBinary(OPDPSGDMom<T>(mom), _grad, _weight->nrows(), _weight->ncols());
             _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());
         }
-*/
+#else
         _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());
+#endif
     }
 
 

@@ -22,6 +22,16 @@ public:
 };
 
 template<class T>
+class OpDPSGDMom{
+    const T _scale;
+public:
+    OpScaleAdd(const T scale) : _scale(scale) {}
+    HOSTDEVICE T operator() (T x, T y) {
+        return y+x*_scale;
+    }
+};
+
+template<class T>
 class OpScaleAdd{
     const T _scale;
 public:

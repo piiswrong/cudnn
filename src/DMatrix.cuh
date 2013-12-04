@@ -3,7 +3,6 @@
 
 
 #include <common.cuh>
-#include <DRand.h>
 #include <kernels.cuh>
 
 
@@ -38,7 +37,7 @@ public:
         None = 0,
         Zero = 1,
         Uniform = 2,
-        Normal = 4,
+        //Normal = 4,
         ColSparse = 1+8,
         RowSparse = 1 + 16,
         Weight = 1+32,
@@ -118,15 +117,14 @@ public:
 		if (p&_Zero) memset(_host_data, 0, _size);
         if (p&_One) for (int i = 0; i < _nelem; i++) _host_data[i] = (T)1;
 		if (p&_Uniform) {
-            DRand dist(a, b);
 			for (int i = 0; i < _nelem; i++) 
-                _host_data[i] = dist.uniform();
+                _host_data[i] = ((T)rand())/RAND_MAX*(b-a) + a;
 		}
-		if (p&_Normal) {
+		/*if (p&_Normal) {
             DRand dist(a, b);
 			for (int i = 0; i < _nelem; i++) 
                 _host_data[i] = dist.normal();
-		}
+		}*/
 		if (p&_ColSparse) {
 			for (int col = 0; col < _fd; col++) {
                 int n1 = SPARSE_DEGREE, n2 = _ld - SPARSE_DEGREE;

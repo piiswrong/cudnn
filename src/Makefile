@@ -2,8 +2,6 @@
 FLAGS = -O3 -DNDEBUG -DDISABLE_GPU -DADMM
 #FLAGS = -g -DDISABLE_GPU -DADMM
 SUFIX = cpp
-#C11 = --compiler-options "-std=c++0x"
-C11 = -std=c++0x
 CC = mpicxx 
 LIBS = #-lcudart -lcublas
 LIBS += -L/opt/intel/mkl/lib/intel64 
@@ -19,17 +17,14 @@ INCLUDE += -I/usr/nikola/pkgs/intel/.2011.2.137/mkl/include
 INCLUDE += -I/usr/include/mpi
 INCLUDE += -I/usr/lib/openmpi/include -I/usr/lib/openmpi/include/openmpi 
 
-main: common.o kernels.o main.o DRand.o
-	$(CC) $(FLAGS) $(LIBS) common.o kernels.o DRand.o main.o -o main
+main: common.o kernels.o main.o 
+	$(CC) $(FLAGS) $(LIBS) common.o kernels.o main.o -o main
 	rm main.o
 
 common.o: common.cuh common.$(SUFIX)
 	$(CC) $(FLAGS) $(INCLUDE) -c common.$(SUFIX)
 kernels.o: kernels.cuh kernels.$(SUFIX)
 	$(CC) $(FLAGS) $(INCLUDE) -c kernels.$(SUFIX)
-
-DRand.o: DRand.h DRand.cc
-	$(CC) $(FLAGS) $(INCLUDE) $(C11) -c DRand.cc
 
 main.o: main.$(SUFIX)
 	$(CC) $(FLAGS) $(INCLUDE) -c main.$(SUFIX)

@@ -83,6 +83,11 @@ using namespace std;
 #define USE_MPI
 #endif
 
+#ifdef DOWN_POUR_SGD
+#define USE_MPI
+extern int sgd_num_param_server;
+#endif
+
 #ifdef USE_MPI
 #include <mpi.h>
 extern int mpi_world_size;

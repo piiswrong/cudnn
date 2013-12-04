@@ -39,7 +39,7 @@ public:
 
         _layers = new DLayer<T>*[_num_layers];
         for (int i = 0; i < _num_layers; i++) {
-            _layers[i] = new DLayer<T>(layer_dims[i], layer_dims[i+1], neurons[i],
+            _layers[i] = new DLayer<T>(layer_dims[i], layer_dims[i+1], i, neurons[i],
                                     &_pt_hyper_params, &_bp_hyper_params, _handle);
         }
         _delta = new DMatrix<T>(_bp_hyper_params.batch_size, layer_dims[_num_layers]+1, _handle);
@@ -69,10 +69,16 @@ public:
 
     void fprop(DMatrix<T>* x, int num_layers, DLayer<T>** layers, bool idrop_out = false,
                         bool hdrop_out = false, float idrop_rate = 0.0, float hdrop_rate = 0.0) {
-        if (idrop_out) hDropout<T>(x, NULL, _state, idrop_rate, x->getT(), x->nrows(), x->ncols() - 1, x->ld());
-        layers[0]->fprop(x, num_layers > 1 && hdrop_out, hdrop_rate);
-        for (int i = 1; i < num_layers; i++) 
-            layers[i]->fprop(layers[i-1]->act(), i < num_layers - 1 && hdrop_out, hdrop_rate);
+#ifdef DOWN_POUR_SGD
+        if (mpi_world_rank >= sgd_num_param_server) {
+#endif
+            if (idrop_out) hDropout<T>(x, NULL, _state, idrop_rate, x->getT(), x->nrows(), x->ncols() - 1, x->ld());
+            layers[0]->fprop(x, num_layers > 1 && hdrop_out, hdrop_rate);
+            for (int i = 1; i < num_layers; i++) 
+                layers[i]->fprop(layers[i-1]->act(), i < num_layers - 1 && hdrop_out, hdrop_rate);
+#ifdef DOWN_POUR_SGD
+        }
+#endif
     }
 
     T bprop(DMatrix<T>* x, DMatrix<T>* y, int num_layers, DLayer<T>** layers) {
@@ -117,8 +123,19 @@ public:
     
     void admmFineTune(DData<T> *data, int total_epochs) {
         for (int epoch = 0; epoch < total_epochs; epoch += _bp_hyper_params.reduce_epochs) {
-            fineTune(data, _bp_hyper_params.reduce_epochs);
+            T error = fineTune(data, _bp_hyper_params.reduce_epochs);
+            int n = data->instancesPerEpoch();
             admmReduce();
+            T total_error;
+            int total_n;
+            error *= n;
+            MPI_Reduce(&n, &total_n, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+            MPI_Reduce(&error, &total_error, 1, _delta->mpiDatatype(), MPI_SUM, 0, MPI_COMM_WORLD);
+            if (mpi_world_rank == 0) {
+                printf("\n*************************************\n"
+                         "Iteration: %d\tError: %f\n"
+                         "*************************************\n", epoch/_bp_hyper_params.reduce_epochs, (float)(total_error/total_n));
+            }
         }
     }
 #endif
@@ -142,7 +159,7 @@ public:
         return loss/iperEpoch;
     }
 
-    void fineTune(DData<T>* data, int total_epochs) {
+    T fineTune(DData<T>* data, int total_epochs) {
         scaleWeight(false);
         data->start();
         int iperEpoch = data->instancesPerEpoch();
@@ -150,6 +167,8 @@ public:
         int nEpoch = 1;
         int nInstance = 0;
         T error = 0.0;
+        bool checked = false;
+        T lastError;
         int lastCheck = 0;
         
         CUDA_CALL(cudaThreadSynchronize());
@@ -246,16 +265,22 @@ public:
                 }
 #endif*/
 #ifdef USE_MPI
-                printf("\nNode%d\nEpoch: %d\nInstance: %d\nError: %f\n", mpi_world_rank, nEpoch, nInstance%iperEpoch, error/lastCheck);
+                printf("\nNode%d\tEpoch: %d\tInstance: %d\tError: %f\n", mpi_world_rank, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
 #else
-                printf("\nEpoch: %d\nInstance: %d\nError: %f\n", nEpoch, nInstance%iperEpoch, error/lastCheck);
+                printf("\nEpoch: %d\tInstance: %d\tError: %f\n", nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
 #endif
+                checked = true;
+                lastError = error/lastCheck;
                 lastCheck = 0;
                 error = 0.0;
             }
             delete x, y;
         }
-        
+        if (checked) {
+            return lastError;
+        }else {
+            return error / lastCheck;
+        }
     }
 
 };

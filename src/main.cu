@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
     _bp_hyper_params.momentum = 0.0;
     _bp_hyper_params.max_momentum = 0.0;
 #ifdef ADMM
-    _bp_hyper_params.decay_rate = 1.0;
+    _bp_hyper_params.decay_rate = 0.01;
 #endif
 
     //_bp_hyper_params.sparseInit = true;
