@@ -86,6 +86,7 @@ using namespace std;
 #ifdef DOWN_POUR_SGD
 #define USE_MPI
 extern int sgd_num_param_server;
+const int SGD_LOSS_TAG = 1024;
 #endif
 
 #ifdef USE_MPI

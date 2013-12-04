@@ -82,7 +82,10 @@ public:
     }
 
     T bprop(DMatrix<T>* x, DMatrix<T>* y, int num_layers, DLayer<T>** layers) {
-        layers[num_layers-1]->neuron()->initDelta(_delta, layers[num_layers-1]->act(), y);
+#ifdef DOWN_POUR_SGD
+        if (mpi_world_rank >= sgd_num_param_server) 
+#endif
+            layers[num_layers-1]->neuron()->initDelta(_delta, layers[num_layers-1]->act(), y);
         DMatrix<T>* d = _delta;
         for (int i = num_layers-1; i > 0; i--) {
             layers[i]->bprop(d, layers[i-1]->act(), _bp_hyper_params.learning_rate, _bp_hyper_params.momentum,
@@ -91,8 +94,22 @@ public:
         }
         layers[0]->bprop(d, x, _bp_hyper_params.learning_rate, _bp_hyper_params.momentum,
                             _bp_hyper_params.hdrop_out, _bp_hyper_params.weight_decay, _bp_hyper_params.decay_rate);
+#ifdef DOWN_POUR_SGD
+        if (mpi_world_rank >= sgd_num_param_server) {
+            layers[num_layers-1]->neuron()->computeLoss(_delta, layers[num_layers-1]->act(), y);
+            T loss = layers[num_layers-1]->neuron()->getLoss();
+            MPI_Send(&loss, 1, _delta->mpiDatatype(), 0, SGD_LOSS_TAG, MPI_COMM_WORLD);
+            return loss;
+        }else {
+            T loss;
+            MPI_Status status;
+            MPI_Recv(&loss, 1, _delta->mpiDatatype(), MPI_ANY_SOURCE, SGD_LOSS_TAG, MPI_COMM_WORLD, &status);
+            return loss;
+        }
+#else
         layers[num_layers-1]->neuron()->computeLoss(_delta, layers[num_layers-1]->act(), y);
         return layers[num_layers-1]->neuron()->getLoss();
+#endif
     }
 
     void scaleWeight(bool scaled_weight) {

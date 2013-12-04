@@ -186,27 +186,33 @@ public:
         exit(-1);
     }
 
-    void allReduce(DMatrix<T> *dest, MPI_Op op) {
+    void mpiAllReduce(DMatrix<T> *dest, MPI_Op op) {
         dev2host();
         MPI_Allreduce(MPI_IN_PLACE, dest->host_data(), nelem(), mpiDatatype(), op, MPI_COMM_WORLD);
         dest->host2dev();
     }
 
-    void send(int dest, int tag) {
+    void mpiSend(int dest, int tag) {
         dev2host();
         MPI_Send(host_data(), nelem(), mpiDatatype(), dest, tag, MPI_COMM_WORLD);
     }
 
-    void recv(int src, int tag) {
-        MPI_Recv(host_data(), nelem(), mpiDatatype(), src, tag);
+    void mpiRecv(int src, int tag) {
+        MPI_Status status;
+        MPI_Recv(host_data(), nelem(), mpiDatatype(), src, tag, MPI_COMM_WORLD, &status);
         host2dev();
     }    
 
-    void createWin() {
+    void mpiCreateWin() {
         MPI_Info info;
         MPI_Info_create(&info);
         MPI_Win_create(host_data(), nelem(), sizeof(T), info, MPI_COMM_WORLD, &_win);
         MPI_Info_free(&info);
+    }
+
+    void mpiGet(int target) {
+        MPI_Get(host_data(), nelem(), mpiDatatype(), target, 0, nelem(), mpiDatatype(), _win);
+        host2dev();
     }
 #endif
 

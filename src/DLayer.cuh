@@ -47,6 +47,9 @@ public:
         _momentun = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
         _momentun->init(DMatrix<T>::Zero);
         _weight = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
+#ifdef DOWN_POUR_SGD
+        _weight->mpiCreateWin();
+#endif
         if (_bp_hyper_params->sparseInit) {
             _weight->init(DMatrix<T>::Weight|DMatrix<T>::Uniform|DMatrix<T>::ColSparse, -1.0/sqrt((T)_weight->ld()), 1.0/sqrt((T)_weight->ld()));
         }else {
@@ -100,7 +103,7 @@ public:
 #ifdef ADMM
     void ADMM_reduce() {
         _z->applyTenary(OpAdd<T>(), _weight, _u, _weight->nrows(), _weight->ncols());
-        _z->allReduce(_z, MPI_SUM);
+        _z->mpiAllReduce(_z, MPI_SUM);
         _z->applyBinary(OpScale<T>(1.0/mpi_world_size), _z, _z->nrows(), _z->ncols());
         _u->applyTenary(OpSubEqu<T>(), _weight, _z, _weight->nrows(), _weight->ncols());
         _buf->applyTenary(OpSub<T>(), _u, _z, _buf->nrows(), _buf->ncols());
@@ -142,10 +145,10 @@ public:
 #endif
 
 #ifdef DOWN_POUR_SGD
-            _momentun->send(0, _layer_id);
+            _momentun->mpiSend(0, _layer_id);
         }else {
-            _grad->recv(MPI_ANY_SOURCE, _layer_id);
-            _momentun->applyBinary(OPDPSGDMom<T>(mom), _grad, _weight->nrows(), _weight->ncols());
+            _grad->mpiRecv(MPI_ANY_SOURCE, _layer_id);
+            _momentun->applyBinary(OpDPSGDMom<T>(mom), _grad, _weight->nrows(), _weight->ncols());
             _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());
         }
 #else

@@ -1,5 +1,5 @@
 #FLAGS = -O3 -DNDEBUG --use_fast_math 
-FLAGS = -O3 -DNDEBUG -DDISABLE_GPU -DADMM
+FLAGS = -O3 -DNDEBUG -DDISABLE_GPU -DDOWN_POUR_SGD#-DADMM
 #FLAGS = -g -DDISABLE_GPU -DADMM
 SUFIX = cpp
 CC = mpicxx 
@@ -23,12 +23,12 @@ main: common.o kernels.o main.o
 
 common.o: common.cuh common.$(SUFIX)
 	$(CC) $(FLAGS) $(INCLUDE) -c common.$(SUFIX)
+
 kernels.o: kernels.cuh kernels.$(SUFIX)
 	$(CC) $(FLAGS) $(INCLUDE) -c kernels.$(SUFIX)
 
 main.o: main.$(SUFIX)
 	$(CC) $(FLAGS) $(INCLUDE) -c main.$(SUFIX)
-
 
 clean:
 	rm *.o main

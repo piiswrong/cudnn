@@ -1,7 +1,13 @@
 #include <common.cuh>
 
+#ifdef DOWN_POUR_SGD
+int sgd_num_param_server;
+#endif
+
+#ifdef USE_MPI
 int mpi_world_size;
 int mpi_world_rank;
+#endif
 
 #ifndef DISABLE_GPU
 
