@@ -179,7 +179,7 @@ public:
                         printf("\n");
                     }
                     printf("\n");
-                }*/
+                }
                 m = _delta;
                 m->dev2host();
                 for (int r = 0; r < 10; r++) {
@@ -200,7 +200,6 @@ public:
                 }
                 printf("\n");
                 
-/*
                 m = _layers[_num_layers-1]->drv();
                 m->dev2host();
                 for (int r = 0; r < 10; r++) {
@@ -246,7 +245,11 @@ public:
                     printf("\n");
                 }
 #endif*/
+#ifdef USE_MPI
+                printf("\nNode%d\nEpoch: %d\nInstance: %d\nError: %f\n", mpi_world_rank, nEpoch, nInstance%iperEpoch, error/lastCheck);
+#else
                 printf("\nEpoch: %d\nInstance: %d\nError: %f\n", nEpoch, nInstance%iperEpoch, error/lastCheck);
+#endif
                 lastCheck = 0;
                 error = 0.0;
             }
