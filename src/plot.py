@@ -1,12 +1,16 @@
 import matplotlib.pyplot as plt
 
-fin = open('t.txt')
-a = fin.readline().strip().split(' ')
-y = a[0::3]
-x1 = a[1::3]
-x2 = a[2::3]
 plt.hold(True)
-plt.plot(y, x1)
-plt.plot(y, x2)
+l = [2, 3]
+for i in l:
+    fin = open(str(i)+'.log')
+    x = []
+    y = []
+    for line in fin:
+        line = line.strip().split(' ')
+        x.append(float(line[1]))
+        y.append(float(line[0]))
+    plt.plot(x,y)
+
 plt.show()
 
