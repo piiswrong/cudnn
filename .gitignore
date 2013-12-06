@@ -12,7 +12,11 @@
 *.la
 *.a
 
+*.log
 
 *.swp
 data/*
 .fuse*
+
+src/main
+

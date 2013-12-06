@@ -76,9 +76,6 @@ public:
             _y_buffs[i] = new DMatrix<T>(_y_dim, _buff_dim, _handle);
             _y_buffs[i]->setT();
         }
-        pthread_mutex_init(&_mutex, NULL);
-        pthread_cond_init(&_cond_get, NULL);
-        pthread_cond_init(&_cond_gen, NULL);
     }
     
     ~DData() {
@@ -111,6 +108,9 @@ public:
                 _ready[i] = false;
                 _available[i] = 0;
             }
+            pthread_mutex_init(&_mutex, NULL);
+            pthread_cond_init(&_cond_get, NULL);
+            pthread_cond_init(&_cond_gen, NULL);
             pthread_create(&_thread, NULL, DData<T>::generateDataHelper, (void*)this);
         }
     }
@@ -118,6 +118,7 @@ public:
     virtual void stop() {
         if (_started) {
             pthread_cancel(_thread);
+            _started = false;
         }
     }
 
@@ -247,7 +248,7 @@ public:
     }
 
     ~DMnistData() {
-        stop();
+        DData<T>::stop();
         fclose(_xfile);
         fclose(_yfile);
         delete _tx;
@@ -255,10 +256,6 @@ public:
     }
 
     
-    virtual void stop() {
-        DData<T>::stop();
-    }
-
     virtual void start() {
         if (DData<T>::_started) return;
 		_offset = _soffset;
@@ -339,6 +336,7 @@ public:
         _total_eoffset = DMnistData<T>::_eoffset;
         DMnistData<T>::_soffset = rank*block_size;
         DMnistData<T>::_eoffset = min(DMnistData<T>::_soffset + block_size, DMnistData<T>::_eoffset);
+        if (rank == N - 1) DMnistData<T>::_eoffset = _total_eoffset;
         printf("\nNODE%d now work on [%d,%d)\n", mpi_world_rank, DMnistData<T>::_soffset, DMnistData<T>::_eoffset);
     }
 
