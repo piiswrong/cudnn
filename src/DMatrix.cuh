@@ -51,14 +51,7 @@ public:
         _T = false;
         _nelem = _ld*_fd;
         _size = _nelem*sizeof(T);
-#ifdef USE_MPI
-        MPI_Info info;
-        MPI_Info_create(&info);
-        MPI_Alloc_mem(_size, info, &_host_data);
-        MPI_Info_free(&info);
-#else
         _host_data = (T*)malloc(_size);
-#endif
         _handle = handle;
         if (_handle) { 
             _on_device = true;

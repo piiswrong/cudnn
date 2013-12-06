@@ -26,7 +26,7 @@ public:
         learning_rate_decay = 0.998;
         momentum = 0.5;
         max_momentum = 0.90;
-        step_momentum = 0.40;
+        step_momentum = 0.04;
         weight_decay = false;
         decay_rate = 1e-6;
         idrop_out = true;
@@ -37,7 +37,7 @@ public:
         sparseInit = false;
         check_interval = 10000;
 #ifdef ADMM
-        reduce_epochs = 1;
+        reduce_epochs = 5;
 #endif
     }
 };

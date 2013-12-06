@@ -107,6 +107,8 @@ public:
         _z->applyBinary(OpScale<T>(1.0/mpi_world_size), _z, _z->nrows(), _z->ncols());
         _u->applyTenary(OpSubEqu<T>(), _weight, _z, _weight->nrows(), _weight->ncols());
         _buf->applyTenary(OpSub<T>(), _u, _z, _buf->nrows(), _buf->ncols());
+        _weight->mpiAllReduce(_weight, MPI_SUM);
+        _weight->applyBinary(OpScale<T>(1.0/mpi_world_size), _weight, _weight->nrows(), _weight->ncols());
     }
 #endif
 
