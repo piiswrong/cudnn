@@ -339,6 +339,7 @@ public:
         _total_eoffset = DMnistData<T>::_eoffset;
         DMnistData<T>::_soffset = rank*block_size;
         DMnistData<T>::_eoffset = min(DMnistData<T>::_soffset + block_size, DMnistData<T>::_eoffset);
+        printf("\nNODE%d now work on [%d,%d)\n", mpi_world_rank, DMnistData<T>::_soffset, DMnistData<T>::_eoffset);
     }
 
     void balance(int s, int t, int sec) {
@@ -349,13 +350,14 @@ public:
             for (int i = s; i < t; i++) 
                 sum += 1.0/buf[i-s];
             float fs = 0, fe = 0;
-            for (int i = s; i < mpi_world_rank; i++) {
+            for (int i = s; i <= mpi_world_rank; i++) {
                 fs = fe;
                 fe += (1.0/buf[i-s])/sum;
             }
             DMnistData<T>::_soffset = fs * (_total_eoffset - _total_soffset) + _total_soffset;
             DMnistData<T>::_eoffset = fe * (_total_eoffset - _total_soffset) + _total_soffset;
             if (mpi_world_rank == t - 1) DMnistData<T>::_eoffset = _total_eoffset;
+            printf("\n%d %d %d %f %f\n", s, t, mpi_world_rank, sum, (float)(1.0/buf[mpi_world_rank-s]));
             printf("\nNODE%d now work on [%d,%d)\n", mpi_world_rank, DMnistData<T>::_soffset, DMnistData<T>::_eoffset);
         }
     }
