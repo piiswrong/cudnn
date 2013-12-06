@@ -139,8 +139,13 @@ public:
     }
     
     void admmFineTune(DData<T> *data, int total_epochs) {
+        int starting = time(0);
+        int last_t = time(0);
+        bool balanced = false;
         for (int epoch = 0; epoch < total_epochs; epoch += _bp_hyper_params.reduce_epochs) {
             T error = fineTune(data, _bp_hyper_params.reduce_epochs);
+            int sec = time(0) - last_t;
+            last_t = time(0);
             int n = data->instancesPerEpoch();
             admmReduce();
             T total_error;
@@ -152,6 +157,12 @@ public:
                 printf("\n*************************************\n"
                          "Iteration: %d\tError: %f\n"
                          "*************************************\n", epoch/_bp_hyper_params.reduce_epochs, (float)(total_error/total_n));
+                LOG(fprintf(flog, "%f %d\n", (float)(total_error/total_n), time(0)-starting));
+            }
+            if (!balanced) {
+                data->stop();
+                data->balance(0, mpi_world_size, sec);
+                data->start();
             }
         }
     }

@@ -66,8 +66,6 @@ public:
             for (int i = 0; i < _buff_dim; i++) _perm_seq[i] = i;
         }
 
-        _buff_index = 0;
-        _buff_offset = 0;
         _ready = new bool[_num_buffs];
         _available = new int[_num_buffs];
         _x_buffs = new DMatrix<T>*[_num_buffs];
@@ -77,8 +75,6 @@ public:
             _x_buffs[i]->setT();
             _y_buffs[i] = new DMatrix<T>(_y_dim, _buff_dim, _handle);
             _y_buffs[i]->setT();
-            _ready[i] = false;
-            _available[i] = 0;
         }
         pthread_mutex_init(&_mutex, NULL);
         pthread_cond_init(&_cond_get, NULL);
@@ -86,11 +82,12 @@ public:
     }
     
     ~DData() {
-        pthread_cancel(_thread);
+        stop();
         if (_on_device) {
             delete _perm_seq;
         }
         delete _ready;
+        delete _available;
         for (int i = 0; i < _num_buffs; i++) {
             delete _x_buffs[i];
             delete _y_buffs[i];
@@ -108,9 +105,23 @@ public:
     virtual void start() {
         if (!_started) {
             _started = true;
+            _buff_index = 0;
+            _buff_offset = 0;
+            for (int i = 0; i < _num_buffs; i++) {
+                _ready[i] = false;
+                _available[i] = 0;
+            }
             pthread_create(&_thread, NULL, DData<T>::generateDataHelper, (void*)this);
         }
     }
+
+    virtual void stop() {
+        if (_started) {
+            pthread_cancel(_thread);
+        }
+    }
+
+    virtual void balance(int s, int t, int sec) {}
 
     static void *generateDataHelper(void *ddata) {
         ((DData<T>*)ddata)->generateData();
@@ -230,13 +241,32 @@ public:
 			_soffset = 0;
 			_eoffset = 10000;
 		}
-		_offset = _soffset;
-		fseek(_xfile, 16+_soffset*(DData<T>::_x_dim-1), SEEK_SET);
-		fseek(_yfile, 8+_soffset, SEEK_SET);
 
         _tx = new char[(DData<T>::_x_dim-1)*DData<T>::_buff_dim];
         _ty = new char[DData<T>::_buff_dim];
     }
+
+    ~DMnistData() {
+        stop();
+        fclose(_xfile);
+        fclose(_yfile);
+        delete _tx;
+        delete _ty;
+    }
+
+    
+    virtual void stop() {
+        DData<T>::stop();
+    }
+
+    virtual void start() {
+        if (DData<T>::_started) return;
+		_offset = _soffset;
+		fseek(_xfile, 16+_soffset*(DData<T>::_x_dim-1), SEEK_SET);
+		fseek(_yfile, 8+_soffset, SEEK_SET);
+        DData<T>::start();
+    }
+
 	virtual int instancesPerEpoch () { return _eoffset - _soffset; }
 	virtual int fetch(T *&x ,T *&y) {
 		x = new T[DData<T>::_x_dim*DData<T>::_buff_dim];
@@ -297,16 +327,41 @@ public:
     }
 };
 
+#ifdef USE_MPI
 template<class T>
 class DParallelMnistData : public DMnistData<T> {
+    int _total_soffset;
+    int _total_eoffset;
 public:
     DParallelMnistData(string path, int N, int rank, int batch_size, cublasHandle_t handle) : DMnistData<T>(path, DData<T>::Train, batch_size, false, handle) {
         int block_size = DMnistData<T>::instancesPerEpoch()/N;
+        _total_soffset = DMnistData<T>::_soffset;
+        _total_eoffset = DMnistData<T>::_eoffset;
         DMnistData<T>::_soffset = rank*block_size;
         DMnistData<T>::_eoffset = min(DMnistData<T>::_soffset + block_size, DMnistData<T>::_eoffset);
-        fseek(DMnistData<T>::_xfile, 16+DMnistData<T>::_soffset*(DData<T>::_x_dim-1), SEEK_SET);
-        fseek(DMnistData<T>::_yfile, 8+DMnistData<T>::_soffset, SEEK_SET);
+        printf("\nNODE%d now work on [%d,%d)\n", mpi_world_rank, DMnistData<T>::_soffset, DMnistData<T>::_eoffset);
+    }
+
+    void balance(int s, int t, int sec) {
+        if (mpi_world_rank >= s && mpi_world_rank < t) {
+            int *buf = new int[t-s];
+            MPI_Allgather(&sec, 1, MPI_INT, buf, 1, MPI_INT, MPI_COMM_WORLD);
+            float sum = 0;
+            for (int i = s; i < t; i++) 
+                sum += 1.0/buf[i-s];
+            float fs = 0, fe = 0;
+            for (int i = s; i <= mpi_world_rank; i++) {
+                fs = fe;
+                fe += (1.0/buf[i-s])/sum;
+            }
+            DMnistData<T>::_soffset = fs * (_total_eoffset - _total_soffset) + _total_soffset;
+            DMnistData<T>::_eoffset = fe * (_total_eoffset - _total_soffset) + _total_soffset;
+            if (mpi_world_rank == t - 1) DMnistData<T>::_eoffset = _total_eoffset;
+            //printf("\n%d %d %d %f %f\n", s, t, mpi_world_rank, sum, (float)(1.0/buf[mpi_world_rank-s]));
+            printf("\n%d %d %d %f %f NODE%d now work on [%d,%d)\n", s, t, mpi_world_rank, sum, (float)(1.0/buf[mpi_world_rank-s]), mpi_world_rank, DMnistData<T>::_soffset, DMnistData<T>::_eoffset);
+        }
     }
 };
+#endif
 
 #endif //DDATA_CUH

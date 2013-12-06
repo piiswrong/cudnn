@@ -1,5 +1,7 @@
 #include <common.cuh>
 
+FILE* flog = NULL;
+
 #ifdef DOWN_POUR_SGD
 int sgd_num_param_server;
 #endif

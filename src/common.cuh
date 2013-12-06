@@ -11,6 +11,13 @@
 #include <mkl.h>
 
 const int SPARSE_DEGREE = 15;
+extern FILE* flog;
+#define LOG(x) \
+if (flog != NULL) { \
+    x; \
+    fflush(flog); \
+}
+
 #ifndef DISABLE_GPU
 
 #include <cublas_v2.h>
