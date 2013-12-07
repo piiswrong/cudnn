@@ -22,9 +22,10 @@ int main(int argc, char **argv) {
     _bp_hyper_params.learning_rate = 1.0;
     _bp_hyper_params.idrop_out = true;
     _bp_hyper_params.hdrop_out = true;
-    _bp_hyper_params.momentum = 0.5;
+    _bp_hyper_params.momentum = 0.0;
     _bp_hyper_params.max_momentum = 0.99;
-    _bp_hyper_params.step_momentum = 0.001;
+    _bp_hyper_params.step_momentum = 0.00;
+    _bp_hyper_params.weight_decay = false;
 #ifdef ADMM
     _bp_hyper_params.decay_rate = 0.001;
 #endif
@@ -39,6 +40,10 @@ int main(int argc, char **argv) {
 #ifdef ADMM
     DParallelMnistData<float> *data = new DParallelMnistData<float>("../data", mpi_world_size, mpi_world_rank, _bp_hyper_params.batch_size, dnn->handle());
     dnn->admmFineTune(data, 500);
+#elif defined(DOWN_POUR_SGD)
+    DParallelMnistData<float> *data = new DParallelMnistData<float>("../data", mpi_world_size - sgd_num_param_server, mpi_world_rank - sgd_num_param_server, _bp_hyper_params.batch_size, dnn->handle());
+    dnn->fineTune(data, 500);
+
 #else
     DMnistData<float> *data = new DMnistData<float>("../data", DData<float>::Train, 50000, false, dnn->handle());
     //DData<float> *data = new DDummyData<float>(10,  handle);

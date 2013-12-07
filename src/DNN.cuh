@@ -100,7 +100,7 @@ public:
             T loss = layers[num_layers-1]->neuron()->getLoss();
             MPI_Send(&loss, 1, _delta->mpiDatatype(), 0, SGD_LOSS_TAG, MPI_COMM_WORLD);
             return loss;
-        }else {
+        }else if (mpi_world_rank == 0) {
             T loss;
             MPI_Status status;
             MPI_Recv(&loss, 1, _delta->mpiDatatype(), MPI_ANY_SOURCE, SGD_LOSS_TAG, MPI_COMM_WORLD, &status);
@@ -159,7 +159,7 @@ public:
                          "*************************************\n", epoch/_bp_hyper_params.reduce_epochs, (float)(total_error/total_n));
                 LOG(fprintf(flog, "%f %d\n", (float)(total_error/total_n), time(0)-starting));
             }
-            if (epoch >= 9 && !balanced) {
+            if (mpi_world_size > 1 && epoch >= 9 && !balanced) {
                 balanced = true;
                 data->stop();
                 data->balance(0, mpi_world_size, sec);
@@ -190,8 +190,15 @@ public:
 
     T fineTune(DData<T>* data, int total_epochs) {
         scaleWeight(false);
-        data->start();
+#ifdef DOWN_POUR_SGD
+        if (mpi_world_rank >= sgd_num_param_server)
+#endif  
+            data->start();
         int iperEpoch = data->instancesPerEpoch();
+#ifdef DOWN_POUR_SGD
+        if (mpi_world_rank < sgd_num_param_server)
+           iperEpoch = data->totalInstancesPerEpoch(); 
+#endif
         DMatrix<T> *x, *y;
         int nEpoch = 1;
         int nInstance = 0;
@@ -199,10 +206,14 @@ public:
         bool checked = false;
         T lastError;
         int lastCheck = 0;
+        int starting = time(0);
         
         CUDA_CALL(cudaThreadSynchronize());
         while ( nEpoch <= total_epochs ) {
-            data->getData(x, y, _bp_hyper_params.batch_size);
+#ifdef DOWN_POUR_SGD
+            if (mpi_world_rank >= sgd_num_param_server)
+#endif  
+                data->getData(x, y, _bp_hyper_params.batch_size);
             error += trainOnBatch(x, y);
             CUDA_CALL(cudaThreadSynchronize());
             nInstance += _bp_hyper_params.batch_size;
@@ -257,7 +268,7 @@ public:
                     printf("\n");
                 }
                 printf("\n");
-                
+               /* 
                 for (int i = 0; i < _num_layers; i++) {
                     DMatrix<T> *m = _layers[i]->drv();
                     m->dev2host();
@@ -284,19 +295,25 @@ public:
                 for (int i = 0; i < _num_layers; i++) {
                     DMatrix<T> *m = _layers[i]->weight();
                     m->dev2host();
-                    for (int r = 0; r < m->ld(); r++) {
-                        for (int c = 0; c < m->fd(); c++) {
+                    for (int r = 0; r < 10; r++) {
+                        for (int c = 0; c < 10; c++) {
                             printf("%+1.3f ", (float)m->host_data()[r+c*m->ld()]);
                         }
                         printf("\n");
                     }
                     printf("\n");
-                }
+                }/*
 #endif*/
-#ifdef USE_MPI
+#ifdef ADMM
                 printf("\nNode%d\tEpoch: %d\tInstance: %d\tError: %f\n", mpi_world_rank, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
+#elif defined(DOWN_POUR_SGD)
+                if (mpi_world_rank == 0) {
+                    printf("\nEpoch: %d\tInstance: %d\tError: %f\n", nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
+                    LOG(fprintf(flog, "%f %d\n", (float)(error/lastCheck), time(0)-starting));
+                }
 #else
                 printf("\nEpoch: %d\tInstance: %d\tError: %f\n", nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
+                LOG(fprintf(flog, "%f %d\n", (float)(error/lastCheck), time(0)-starting));
 #endif
                 checked = true;
                 lastError = error/lastCheck;

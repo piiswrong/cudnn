@@ -3,7 +3,7 @@
 FILE* flog = NULL;
 
 #ifdef DOWN_POUR_SGD
-int sgd_num_param_server;
+int sgd_num_param_server = 1;
 #endif
 
 #ifdef USE_MPI

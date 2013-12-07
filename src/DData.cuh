@@ -31,6 +31,8 @@ protected:
     pthread_cond_t _cond_get;
     pthread_cond_t _cond_gen;
     pthread_mutex_t _mutex;
+    
+    volatile bool _cancel_flag;
 
     void moveOn() {
         pthread_mutex_lock(&_mutex);
@@ -48,6 +50,7 @@ public:
     };
     DData(int num_buffs, int x_dim, int y_dim, int buff_dim, bool permute, bool testing, cublasHandle_t handle) {
         _started = false;
+        _cancel_flag = false;
         _num_buffs = num_buffs;
         _permute = permute;
         _x_dim = x_dim;
@@ -117,12 +120,18 @@ public:
 
     virtual void stop() {
         if (_started) {
-            pthread_cancel(_thread);
+            _cancel_flag = true;
+            pthread_mutex_lock(&_mutex);
+            pthread_cond_signal(&_cond_gen);
+            pthread_mutex_unlock(&_mutex);
+            pthread_join(_thread, NULL);
+            _cancel_flag = false;
             _started = false;
         }
     }
 
     virtual void balance(int s, int t, int sec) {}
+    virtual int totalInstancesPerEpoch() { return instancesPerEpoch(); }
 
     static void *generateDataHelper(void *ddata) {
         ((DData<T>*)ddata)->generateData();
@@ -132,12 +141,14 @@ public:
     void generateData() {
         T *x=0;
         T *y=0;
-        for (int c = 0; ; c = (c+1)%_num_buffs) {
+        for (int c = 0; !_cancel_flag; c = (c+1)%_num_buffs) {
             pthread_mutex_lock(&_mutex);
             while (_ready[c]) {
+                if (_cancel_flag) break;
                 pthread_cond_wait(&_cond_gen, &_mutex);
             }
             pthread_mutex_unlock(&_mutex);
+            if (_cancel_flag) return;
             int n = fetch(x, y);
             if (_permute) {
                 if (n < _buff_dim) 
@@ -164,8 +175,8 @@ public:
             pthread_mutex_lock(&_mutex);
             _ready[c] = true;
             _available[c] = n;
-            pthread_mutex_unlock(&_mutex);
             pthread_cond_signal(&_cond_get);
+            pthread_mutex_unlock(&_mutex);
             if (n < _buff_dim) break;
         }
     }
@@ -338,6 +349,10 @@ public:
         DMnistData<T>::_eoffset = min(DMnistData<T>::_soffset + block_size, DMnistData<T>::_eoffset);
         if (rank == N - 1) DMnistData<T>::_eoffset = _total_eoffset;
         printf("\nNODE%d now work on [%d,%d)\n", mpi_world_rank, DMnistData<T>::_soffset, DMnistData<T>::_eoffset);
+    }
+
+    int totalInstancesPerEpoch() {
+        return _total_eoffset - _total_soffset;
     }
 
     void balance(int s, int t, int sec) {

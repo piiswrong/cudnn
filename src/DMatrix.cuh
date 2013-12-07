@@ -204,7 +204,8 @@ public:
     }
 
     void mpiGet(int target) {
-        MPI_Get(host_data(), nelem(), mpiDatatype(), target, 0, nelem(), mpiDatatype(), _win);
+        int e = MPI_Get(host_data(), nelem(), mpiDatatype(), target, 0, nelem(), mpiDatatype(), _win);
+        printf("*%d\n", e);
         host2dev();
     }
 #endif
@@ -349,9 +350,11 @@ public:
     }
 };
 
+#ifdef USE_MPI
 template<> MPI_Datatype DMatrix<float>::mpiDatatype() { return MPI_FLOAT; }
 template<> MPI_Datatype DMatrix<double>::mpiDatatype() { return MPI_DOUBLE; }
 template<> MPI_Datatype DMatrix<int>::mpiDatatype() { return MPI_INT; }
+#endif
 
 #ifndef DISABLE_GPU
 template<class T> 
