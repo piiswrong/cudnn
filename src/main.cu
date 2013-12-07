@@ -22,9 +22,9 @@ int main(int argc, char **argv) {
     _bp_hyper_params.learning_rate = 1.0;
     _bp_hyper_params.idrop_out = true;
     _bp_hyper_params.hdrop_out = true;
-    _bp_hyper_params.momentum = 0.0;
+    _bp_hyper_params.momentum = 0.5;
     _bp_hyper_params.max_momentum = 0.99;
-    _bp_hyper_params.step_momentum = 0.00;
+    _bp_hyper_params.step_momentum = 0.001;
     _bp_hyper_params.weight_decay = false;
 #ifdef ADMM
     _bp_hyper_params.decay_rate = 0.001;

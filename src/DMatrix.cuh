@@ -204,8 +204,9 @@ public:
     }
 
     void mpiGet(int target) {
-        int e = MPI_Get(host_data(), nelem(), mpiDatatype(), target, 0, nelem(), mpiDatatype(), _win);
-        printf("*%d\n", e);
+	MPI_Win_lock(MPI_LOCK_SHARED, target, 0, _win);
+        MPI_Get(host_data(), nelem(), mpiDatatype(), target, 0, nelem(), mpiDatatype(), _win);
+	MPI_Win_unlock(target, _win);
         host2dev();
     }
 #endif

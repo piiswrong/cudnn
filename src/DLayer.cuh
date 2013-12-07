@@ -115,7 +115,7 @@ public:
     void fprop(DMatrix<T>* dev_data, bool drop_out, float drop_rate) {
 #ifdef DOWN_POUR_SGD
         _weight->mpiGet(0);
-        printf("%f\n", _weight->getElem(0,0));
+        //printf("%f\n", _weight->getElem(0,0));
 #endif
         _drv->update(dev_data, false, _weight, false);
         _neuron->fprop(_act, _drv);
@@ -154,7 +154,7 @@ public:
             _momentun->applyBinary(OpDPSGDMom<T>(mom), _grad, _weight->nrows(), _weight->ncols());
             T tt = _weight->getElem(0,0);
             _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());
-            printf("%f+%f=%f\n", tt, _momentun->getElem(0,0), _weight->getElem(0,0));
+            //printf("%f+%f=%f\n", tt, _momentun->getElem(0,0), _weight->getElem(0,0));
         }
 #else
         _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());

@@ -320,7 +320,10 @@ public:
                 lastCheck = 0;
                 error = 0.0;
             }
-            delete x, y;
+#ifdef DOWN_POUR_SGD
+	    if (mpi_world_rank >= sgd_num_param_server)
+#endif
+		delete x, y;
         }
         if (checked) {
             return lastError;
