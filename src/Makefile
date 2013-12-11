@@ -1,8 +1,9 @@
 #FLAGS = -O3 -DNDEBUG --use_fast_math 
-FLAGS = -O3 -DNDEBUG -DDISABLE_GPU -DADMM
+FLAGS = -O3 -DNDEBUG -DDISABLE_GPU 
 #FLAGS = -g -DDISABLE_GPU #-DADMM
 SUFIX = cpp
-CC = mpicxx
+CC = gcc -pthread
+#CC = mpicxx
 LIBS = #-lcudart -lcublas
 LIBS += -L/opt/intel/mkl/lib/intel64 
 LIBS += -L/opt/intel/lib/intel64 
