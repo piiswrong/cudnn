@@ -4,6 +4,7 @@
 #include <common.cuh>
 #include <algorithm>
 #include <DMatrix.cuh>
+#include <DOperators.cuh>
 #include <pthread.h>
 #include <cstring>
 
@@ -225,72 +226,81 @@ public:
 
 };
 
-template<class T>
-class DMnistData : public DData<T> {
+template<class T, class Tx, class Ty, class xOp, class yOp>
+class DBinaryData : public DData<T> {
 protected:
-    int _split;
     FILE *_xfile;
     FILE *_yfile;
+    int _xskip;
+    int _yskip;
     int _offset;
     int _soffset;
     int _eoffset;
 
-    char *_tx, *_ty;
-public:
-    DMnistData(std::string path, int split, int batch_size, int testing, cublasHandle_t handle) : DData<T>(2, 28*28+1, 10, batch_size, true, testing, handle) {
-        _split = split;
-		if (path[path.length()-1] != '/') path.append("/");
-        if (split&(DData<T>::Train|DData<T>::Validate)) {
-            _xfile = fopen((path+"train-images-idx3-ubyte").c_str(), "r");
-			_yfile = fopen((path+"train-labels-idx1-ubyte").c_str(), "r");
-			_soffset = 0;
-			_eoffset = 60000;
-			if (!(split&DData<T>::Train)) _soffset = 50000;
-			if (!(split&DData<T>::Validate)) _eoffset = 50000;
-        }else {
-			_xfile = fopen((path+"t10k-images-idx3-ubyte").c_str(), "r");
-			_yfile = fopen((path+"t10k-labels-idx1-ubyte").c_str(), "r");
-			_soffset = 0;
-			_eoffset = 10000;
-		}
+    bool _xappendone;
+    bool _yonehot;
 
-        _tx = new char[(DData<T>::_x_dim-1)*DData<T>::_buff_dim];
-        _ty = new char[DData<T>::_buff_dim];
+    int _xdim;
+    int _ydim;
+
+    xOp _xop;
+    yOp _yop;
+
+    Tx *_tx;
+    Ty *_ty;
+
+public:
+    DBinaryData(xOp xop, yOp yop, int xdim, int ydim, bool xappendone, bool yonehot, int buff_dim, int permute, int testing, cublasHandle_t handle) :
+                DData<T>(2, xdim + xappendone, ydim, buff_dim, permute, testing, handle), _xop(xop), _yop(yop) {
+        _xappendone = xappendone;
+        _xdim = xdim;
+        _ydim = yonehot ? 1:ydim;
+        _tx = new Tx[xdim*buff_dim];
+        _ty = new Ty[ydim*buff_dim];
     }
 
-    ~DMnistData() {
+    ~DBinaryData() {
         DData<T>::stop();
         fclose(_xfile);
         fclose(_yfile);
         delete _tx;
         delete _ty;
     }
-
     
-    virtual void start() {
-        if (DData<T>::_started) return;
-		_offset = _soffset;
-		fseek(_xfile, 16+_soffset*(DData<T>::_x_dim-1), SEEK_SET);
-		fseek(_yfile, 8+_soffset, SEEK_SET);
-        DData<T>::start();
+    void open(const char *xpath, const char *ypath, int xskip, int yskip, int soffset, int eoffset) {
+        _xskip = xskip;
+        _yskip = yskip;
+        _xfile = fopen(xpath, "r");
+        _yfile = fopen(ypath, "r");
+        _soffset = soffset;
+        _eoffset = eoffset;
     }
 
 	virtual int instancesPerEpoch () { return _eoffset - _soffset; }
-	virtual int fetch(T *&x ,T *&y) {
+
+    virtual void start() {
+        if (DData<T>::_started) return;
+		_offset = _soffset;
+		fseek(_xfile, _xskip+_soffset*_xdim, SEEK_SET);
+		fseek(_yfile, _yskip+_soffset*_ydim, SEEK_SET);
+        DData<T>::start();
+    }
+    
+    virtual int fetch(T *&x ,T *&y) {
 		x = new T[DData<T>::_x_dim*DData<T>::_buff_dim];
         y = new T[DData<T>::_y_dim*DData<T>::_buff_dim];
         int need = DData<T>::_buff_dim;
         do {
             int available = (need < _eoffset - _offset) ? need:(_eoffset - _offset);
-            fread(_tx, sizeof(char), available*(DData<T>::_x_dim-1), _xfile); 
-            fread(_ty, sizeof(char), available, _yfile); 
+            fread(_tx, sizeof(Tx), available*_xdim, _xfile); 
+            fread(_ty, sizeof(Ty), available*_ydim, _yfile); 
             
             need -= available;
             _offset += available;
             if (_offset == _eoffset) {
                 if (!DData<T>::_testing) {
-                    fseek(_xfile, 16+_soffset*(DData<T>::_x_dim-1), SEEK_SET);
-                    fseek(_yfile, 8+_soffset, SEEK_SET);
+                    fseek(_xfile, _xskip+_soffset*_xdim, SEEK_SET);
+                    fseek(_yfile, _yskip+_soffset*_ydim, SEEK_SET);
                     _offset = 0;
                 }else {
                     break;
@@ -298,18 +308,59 @@ public:
             }
         }while (need);
         
-        int ld = DData<T>::_x_dim, fd = DData<T>::_buff_dim - need;
+        int ld = _xdim, fd = DData<T>::_buff_dim - need;
         for (int i = 0; i < fd; i++) {
-            for (int j = 0; j < ld-1; j++) {
-                x[i*ld+j] = _tx[i*(ld-1)+j]/256.0;
+            for (int j = 0; j < ld; j++) {
+                x[i*(ld+_xappendone)+j] = _xop(_tx[i*ld+j], _tx[i*ld+j]);
             }
-            x[i*ld+ld-1] = 1;
+            if (_xappendone)
+                x[i*(ld+1)+ld] = 1;
         }
         memset(y, 0, sizeof(T)*DData<T>::_y_dim*DData<T>::_buff_dim);
-        for (int i = 0; i < fd; i++) y[i*DData<T>::_y_dim + _ty[i]] = 1.0;
+        if (_yonehot) {
+            for (int i = 0; i < fd; i++) y[i*_ydim + _ty[i]] = 1.0;
+        }else {
+            ld = DData<T>::_y_dim;
+            for (int i = 0; i < fd; i++) {
+                for (int j = 0; j < ld; j++) {
+                    y[i*ld+j] = _yop(_ty[i*ld+j], _ty[i*ld+j]);
+                }
+            }   
+        }
+
         return fd;
 	}
+};
 
+template<class T>
+class DMnistData : public DBinaryData<T, char, char, OpScale<T>, OpNop<T> > {
+protected:
+    int _split;
+public:
+    DMnistData(std::string path, int split, int buff_dim, int testing, cublasHandle_t handle) : DBinaryData<T, char, char, OpScale<T>, OpNop<T> >(OpScale<T>(1.0/256.0), OpNop<T>(), 28*28, 10, true, true, buff_dim, true, testing, handle) {
+        _split = split;
+        const char *xpath, *ypath;
+        int soffset, eoffset;
+		if (path[path.length()-1] != '/') path.append("/");
+        if (split&(DData<T>::Train|DData<T>::Validate)) {
+            xpath = (path+"train-images-idx3-ubyte").c_str();
+			ypath = (path+"train-labels-idx1-ubyte").c_str();
+			soffset = 0;
+			eoffset = 60000;
+			if (!(split&DData<T>::Train)) soffset = 50000;
+			if (!(split&DData<T>::Validate)) eoffset = 50000;
+        }else {
+			xpath = (path+"t10k-images-idx3-ubyte").c_str();
+			ypath = (path+"t10k-labels-idx1-ubyte").c_str();
+			soffset = 0;
+			eoffset = 10000;
+		}
+        DBinaryData<T, char, char, OpScale<T>, OpNop<T> >::open(xpath, ypath, 16, 8, soffset, eoffset);
+    }
+
+    ~DMnistData() {
+        DData<T>::stop();
+    }
 };
 
 template<class T>

@@ -111,5 +111,13 @@ public:
     }
 };
 
+template<class T>
+class OpNop {
+public:
+    HOSTDEVICE T operator() (T x, T y) {
+        return y;
+    }
+};
+
 
 #endif //DOPERATORS_CUH

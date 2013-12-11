@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
         flog = fopen(argv[1], "w");
     }
     cublasHandle_t handle = 0; 
-    CUDA_CALL(cublasCreate(&handle));
+    CUBLAS_CALL(cublasCreate(&handle));
 
     int num_layers = 3;
     int layer_dims[] = {28*28, 1024, 1024, 10};
