@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
         flog = fopen(argv[1], "w");
     }
     cublasHandle_t handle = 0; 
-    CUDA_CALL(cublasCreate(&handle));
+    CUBLAS_CALL(cublasCreate(&handle));
 
     int num_layers = 3;
     int layer_dims[] = {28*28, 1024, 1024, 10};
@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
 #else
     DMnistData<float> *data = new DMnistData<float>("../data", DData<float>::Train, 50000, false, dnn->handle());
     //DData<float> *data = new DDummyData<float>(10,  handle);
-    dnn->fineTune(data, 500);
+    dnn->fineTune(data, 2);
 #endif
 
     DMnistData<float> *test_data;// = new DMnistData<float>("../data", DData<float>::Test, 10000, false, dnn->handle());
