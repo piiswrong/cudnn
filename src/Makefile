@@ -1,7 +1,8 @@
-FLAGS = -O3 -DNDEBUG --use_fast_math 
+#FLAGS = -O3 -DNDEBUG --use_fast_math 
+FLAGS = -g -G
 #FLAGS = -O3 -DNDEBUG -DDISABLE_GPU 
-#FLAGS = -g -DDISABLE_GPU #-DADMM
-SUFIX = cu 
+#FLAGS =  -g -DDISABLE_GPU #-DADMM
+SUFIX = cu
 #CC = gcc -pthread
 CC = nvcc --compiler-options="-pthread"
 LIBS = -lcudart -lcublas

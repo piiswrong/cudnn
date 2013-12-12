@@ -248,7 +248,7 @@ public:
                     printf("\n");
                 }
                 printf("\n");
-
+*/
                 m = y;//_layers[i]->delta();
                 m->dev2host();
                 for (int r = 0; r < 10; r++) {
@@ -259,7 +259,7 @@ public:
                 }
                 printf("\n");
                 
-                m = _layers[_num_layers-1]->drv();
+                m = _layers[_num_layers-1]->act();
                 m->dev2host();
                 for (int r = 0; r < 10; r++) {
                     for (int c = 0; c < m->ncols(); c++) {

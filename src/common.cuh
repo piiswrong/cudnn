@@ -31,14 +31,17 @@ const int TILE_DIM = 32;
 const int BLOCK_ROWS = 8;
 
 
-#define CUDA_CALL(x) do { if((x) != cudaSuccess) { \
-                            printf("Error at %s:%d\n",__FILE__,__LINE__);\
+#define CUDA_CALL(statment) do {   int macroErrorCode = statment; \
+                            if((macroErrorCode) != cudaSuccess) { \
+                            printf("Cuda Error at %s:%d with code %d(!=%d)\n",__FILE__,__LINE__, macroErrorCode, cudaSuccess);\
                             exit(EXIT_FAILURE);}} while(0)
-#define CUBLAS_CALL(x) do { if((x) != CUBLAS_STATUS_SUCCESS) { \
-                            printf("Error at %s:%d\n",__FILE__,__LINE__);\
+#define CUBLAS_CALL(statment) do { int macroErrorCode = statment; \
+                            if((macroErrorCode) != CUBLAS_STATUS_SUCCESS) { \
+                            printf("Cublas Error at %s:%d with code %d(!=%d)\n",__FILE__,__LINE__, macroErrorCode, CUBLAS_STATUS_SUCCESS);\
                             exit(EXIT_FAILURE);}} while(0)
-#define CURAND_CALL(x) do { if((x) != CURAND_STATUS_SUCCESS) { \
-                            printf("Error at %s:%d\n",__FILE__,__LINE__);\
+#define CURAND_CALL(statment) do { int macroErrorCode = statment; \
+                            if((macroErrorCode) != CURAND_STATUS_SUCCESS) { \
+                            printf("Curand Error at %s:%d with code %d(!=%d)\n",__FILE__,__LINE__, macroErrorCode, CURAND_STATUS_SUCCESS);\
                             exit(EXIT_FAILURE);}} while(0)
 
 cublasStatus_t  cublasXasum(cublasHandle_t handle, int n,

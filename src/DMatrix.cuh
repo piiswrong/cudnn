@@ -365,14 +365,14 @@ void hDropout(DMatrix<T> *x, DMatrix<T> *mask, curandState *state, float rate, b
     dim3 grid(m/TILE_DIM+!even_m, n/TILE_DIM+!even_n, 1);
     dim3 block(TILE_DIM, BLOCK_ROWS, 1);
     switch((save<<2)|(even_m<<1)|even_n) {
-    case 0: kDropout<T, false, false, false><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
-    case 1: kDropout<T, false, true, false><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
-    case 2: kDropout<T, true, false, false><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
-    case 3: kDropout<T, true, true, false><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
-    case 4: kDropout<T, false, false, true><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
-    case 5: kDropout<T, false, true, true><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
-    case 6: kDropout<T, true, false, true><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
-    case 7: kDropout<T, true, true, true><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
+    case 0: kDropout<T, false, false, false><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);break;
+    case 1: kDropout<T, false, true, false><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);break;
+    case 2: kDropout<T, true, false, false><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);break;
+    case 3: kDropout<T, true, true, false><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);break;
+    case 4: kDropout<T, false, false, true><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);break;
+    case 5: kDropout<T, false, true, true><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);break;
+    case 6: kDropout<T, true, false, true><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);break;
+    case 7: kDropout<T, true, true, true><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);break;
     }
 }
 #else
