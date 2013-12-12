@@ -1,5 +1,5 @@
-#FLAGS = -O3 -DNDEBUG --use_fast_math 
-FLAGS = -g -G
+FLAGS = -O3 -DNDEBUG --use_fast_math 
+#FLAGS = -g -G
 #FLAGS = -O3 -DNDEBUG -DDISABLE_GPU 
 #FLAGS =  -g -DDISABLE_GPU #-DADMM
 SUFIX = cu

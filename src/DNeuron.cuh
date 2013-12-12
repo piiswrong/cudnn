@@ -96,6 +96,7 @@ public:
         }
         res = new DMatrix<int>(batch_size, 1, handle);
     }
+    virtual bool easyDropout() { return false; }
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
 #ifndef DISABLE_GPU
         if (DNeuron<T>::_on_device) {

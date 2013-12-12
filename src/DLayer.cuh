@@ -130,7 +130,7 @@ public:
 #endif
             _neuron->bprop(delta, _drv, _act);
             if (drop_out && !_neuron->easyDropout()) 
-                _delta->applyBinary(OpMul<T>(), _mask, _delta->nrows(), _delta->ncols()-1);
+                delta->applyBinary(OpMul<T>(), _mask, delta->nrows(), delta->ncols()-1);
 
             _delta->update(delta, false, _weight, true, 1.0, 0.0);
 #ifdef DOWN_POUR_SGD

@@ -10,6 +10,9 @@
 
 #include <mkl.h>
 
+#include <fenv.h>
+
+
 const int SPARSE_DEGREE = 15;
 extern FILE* flog;
 #define LOG(x) \

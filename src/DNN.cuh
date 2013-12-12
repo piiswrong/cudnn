@@ -73,9 +73,9 @@ public:
         if (mpi_world_rank >= sgd_num_param_server) {
 #endif
             if (idrop_out) hDropout<T>(x, NULL, _state, idrop_rate, x->getT(), x->nrows(), x->ncols() - 1, x->ld());
-            layers[0]->fprop(x, num_layers > 1 && hdrop_out, hdrop_rate);
+            layers[0]->fprop(x, (num_layers > 1) && hdrop_out, hdrop_rate);
             for (int i = 1; i < num_layers; i++) 
-                layers[i]->fprop(layers[i-1]->act(), i < num_layers - 1 && hdrop_out, hdrop_rate);
+                layers[i]->fprop(layers[i-1]->act(), (i < num_layers - 1) && hdrop_out, hdrop_rate);
 #ifdef DOWN_POUR_SGD
         }
 #endif
@@ -89,11 +89,11 @@ public:
         DMatrix<T>* d = _delta;
         for (int i = num_layers-1; i > 0; i--) {
             layers[i]->bprop(d, layers[i-1]->act(), _bp_hyper_params.learning_rate, _bp_hyper_params.momentum,
-                            _bp_hyper_params.hdrop_out, _bp_hyper_params.weight_decay, _bp_hyper_params.decay_rate);
+                            (i < num_layers-1) && _bp_hyper_params.hdrop_out, _bp_hyper_params.weight_decay, _bp_hyper_params.decay_rate);
             d = layers[i]->delta();
         }
         layers[0]->bprop(d, x, _bp_hyper_params.learning_rate, _bp_hyper_params.momentum,
-                            _bp_hyper_params.hdrop_out, _bp_hyper_params.weight_decay, _bp_hyper_params.decay_rate);
+                            (num_layers>1) && _bp_hyper_params.hdrop_out, _bp_hyper_params.weight_decay, _bp_hyper_params.decay_rate);
 #ifdef DOWN_POUR_SGD
         if (mpi_world_rank >= sgd_num_param_server) {
             layers[num_layers-1]->neuron()->computeLoss(_delta, layers[num_layers-1]->act(), y);
@@ -291,13 +291,13 @@ public:
                         printf("\n");
                     }
                     printf("\n");
-                }
+                }*/
                 for (int i = 0; i < _num_layers; i++) {
                     DMatrix<T> *m = _layers[i]->weight();
                     m->dev2host();
                     for (int r = 0; r < 10; r++) {
                         for (int c = 0; c < 10; c++) {
-                            printf("%+1.3f ", (float)m->host_data()[r+c*m->ld()]);
+                            printf("%+1.3f ", (float)m->getElem(r,c));
                         }
                         printf("\n");
                     }

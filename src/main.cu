@@ -3,6 +3,7 @@
 #include <DData.cuh>
 
 int main(int argc, char **argv) {
+    feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
 #ifdef USE_MPI 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_world_size);
@@ -15,11 +16,11 @@ int main(int argc, char **argv) {
     CUBLAS_CALL(cublasCreate(&handle));
 
     int num_layers = 3;
-    int layer_dims[] = {28*28, 1024, 1024, 10};
+    int layer_dims[] = {28*28, 1023, 1023, 10};
     DHyperParams _bp_hyper_params, _pt_hyper_params;
     //_bp_hyper_params.batch_size = 10;
     _bp_hyper_params.check_interval = 10000;
-    _bp_hyper_params.learning_rate = 1.0;
+    _bp_hyper_params.learning_rate = 0.1;
     _bp_hyper_params.idrop_out = true;
     _bp_hyper_params.hdrop_out = true;
     _bp_hyper_params.momentum = 0.5;
@@ -47,7 +48,7 @@ int main(int argc, char **argv) {
 #else
     DMnistData<float> *data = new DMnistData<float>("../data", DData<float>::Train, 50000, false, dnn->handle());
     //DData<float> *data = new DDummyData<float>(10,  handle);
-    dnn->fineTune(data, 2);
+    dnn->fineTune(data, 500);
 #endif
 
     DMnistData<float> *test_data;// = new DMnistData<float>("../data", DData<float>::Test, 10000, false, dnn->handle());
