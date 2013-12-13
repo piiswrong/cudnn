@@ -46,14 +46,15 @@ int main(int argc, char **argv) {
     dnn->fineTune(data, 500);
 
 #else
-    DMnistData<float> *data = new DMnistData<float>("../data", DData<float>::Train, 50000, false, dnn->handle());
+    //DMnistData<float> *data = new DMnistData<float>("../data", DData<float>::Train, 50000, false, dnn->handle());
     //DData<float> *data = new DDummyData<float>(10,  handle);
-    dnn->fineTune(data, 500);
+    DTimitData<float> *data = new DTimitData<float>("../data", 128*100, true, dnn->handle());
+    dnn->fineTune(data, 10);
 #endif
 
     DMnistData<float> *test_data;// = new DMnistData<float>("../data", DData<float>::Test, 10000, false, dnn->handle());
-    test_data = new DMnistData<float>("../data", DData<float>::Test, 10000, true, dnn->handle());
-    printf("Testing Error:%f\n", dnn->test(test_data));
+    //test_data = new DMnistData<float>("../data", DData<float>::Test, 10000, true, dnn->handle());
+    //printf("Testing Error:%f\n", dnn->test(test_data));
 
     CUDA_CALL(cudaDeviceReset());
 #ifdef USE_MPI

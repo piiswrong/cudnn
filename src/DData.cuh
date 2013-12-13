@@ -153,10 +153,10 @@ public:
             if (_permute) {
                 for (int i = 0; i < n; i++) 
                     _perm_seq[i] = i;
-                /*for (int i = 0; i < n; i++) {
+                for (int i = 0; i < n; i++) {
                     int j = rand()%(n - i);
                     std::swap(_perm_seq[i], _perm_seq[j+i]);
-                }*/
+                }
                 for (int i = 0; i < n; i++) {
                     memcpy(_x_buffs[c]->host_data() + _x_dim*_perm_seq[i], x+_x_dim*i, sizeof(T)*_x_dim);
                     memcpy(_y_buffs[c]->host_data() + _y_dim*_perm_seq[i], y+_y_dim*i, sizeof(T)*_y_dim);
@@ -319,7 +319,7 @@ public:
         }
         memset(y, 0, sizeof(T)*DData<T>::_y_dim*DData<T>::_buff_dim);
         if (_yonehot) {
-            for (int i = 0; i < fd; i++) y[i*DData<T>::_y_dim + _ty[i]] = 1.0;
+            for (int i = 0; i < fd; i++) y[(int)(i*DData<T>::_y_dim + _ty[i])] = 1.0;
         }else {
             ld = DData<T>::_y_dim;
             for (int i = 0; i < fd; i++) {
@@ -362,6 +362,20 @@ public:
 
     ~DMnistData() {
         DData<T>::stop();
+    }
+};
+
+template<class T>
+class DTimitData : public DBinaryData<T, double, double, OpNop<double>, OpNop<double> > {
+public:
+    DTimitData(std::string path, int buff_dim, bool testing, cublasHandle_t handle) 
+       : DBinaryData<T, double, double, OpNop<double>, OpNop<double> >(OpNop<double>(), OpNop<double>(), 351, 150, true, false, buff_dim, true, testing, handle) {
+       std::string xpath, ypath;
+       xpath = path+"trainData.bin";
+       ypath = path+"trainLabels.bin";
+       int soffset = 0;
+       int eoffset = 1373108;
+       DBinaryData<T, double, double, OpNop<double>, OpNop<double> >::open(xpath.c_str(), ypath.c_str(), 0, 0, soffset, eoffset);
     }
 };
 
