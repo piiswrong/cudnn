@@ -48,7 +48,7 @@ public:
         delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols());
     }
     virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        delta->applyTenary(DeltaOp(), act, y, delta->nrows(), delta->ncols() - 1);
+        delta->applyTenary(DeltaOp(), act, y, y->nrows(), delta->ncols() - 1);
     }
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
         _loss = delta->norm2(delta->nelem() - delta->ld());
@@ -96,12 +96,14 @@ public:
         }
         res = new DMatrix<int>(batch_size, 1, handle);
     }
+    virtual bool easyDropout() { return false; }
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
 #ifndef DISABLE_GPU
         if (DNeuron<T>::_on_device) {
             dim3 grid((act->ld()-1)/WARP_SIZE+1, 1, 1);
             dim3 block(WARP_SIZE, 32, 1);
             kSoftmaxAct<T,32><<<grid, block>>>(act->dev_data(), drv->dev_data(), res->dev_data(), act->ld(), act->fd()-1);
+            CUDA_KERNEL_CHECK();
 #ifndef NDEBUG
             act->dev2host();
 #endif

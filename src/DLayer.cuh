@@ -85,6 +85,7 @@ public:
             dim3 grid((_act->nelem()-1)/BLOCK_SIZE+1);
             dim3 block(BLOCK_SIZE);
             kSetupCurand<<<grid, block>>>(_state, _act->nelem(), time(0));
+            CUDA_KERNEL_CHECK();
         }
 #endif
     }
@@ -130,7 +131,7 @@ public:
 #endif
             _neuron->bprop(delta, _drv, _act);
             if (drop_out && !_neuron->easyDropout()) 
-                _delta->applyBinary(OpMul<T>(), _mask, _delta->nrows(), _delta->ncols()-1);
+                delta->applyBinary(OpMul<T>(), _mask, delta->nrows(), delta->ncols()-1);
 
             _delta->update(delta, false, _weight, true, 1.0, 0.0);
 #ifdef DOWN_POUR_SGD

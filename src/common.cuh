@@ -10,6 +10,9 @@
 
 #include <mkl.h>
 
+#include <fenv.h>
+
+
 const int SPARSE_DEGREE = 15;
 extern FILE* flog;
 #define LOG(x) \
@@ -25,21 +28,37 @@ if (flog != NULL) { \
 #include <math_functions.h>
 
 #define HOSTDEVICE __host__ __device__
-const int WARP_SIZE = 32;
+const int WARP_SIZE = 16;
 const int BLOCK_SIZE = 256;
-const int TILE_DIM = 32;
+const int TILE_DIM = 16;
 const int BLOCK_ROWS = 8;
 
-
-#define CUDA_CALL(x) do { if((x) != cudaSuccess) { \
-                            printf("Error at %s:%d\n",__FILE__,__LINE__);\
+#define CUDA_CALL(statment) do {   cudaError_t macroErrorCode = statment; \
+                            if((macroErrorCode) != cudaSuccess) { \
+                            printf("Cuda Error at %s:%d with code %d(!=%d): %s\n",__FILE__,__LINE__, macroErrorCode, cudaSuccess, cudaGetErrorString(macroErrorCode));\
+                            assert(false);\
                             exit(EXIT_FAILURE);}} while(0)
-#define CUBLAS_CALL(x) do { if((x) != CUBLAS_STATUS_SUCCESS) { \
-                            printf("Error at %s:%d\n",__FILE__,__LINE__);\
+#define CUBLAS_CALL(statment) do { int macroErrorCode = statment; \
+                            if((macroErrorCode) != CUBLAS_STATUS_SUCCESS) { \
+                            printf("Cublas Error at %s:%d with code %d(!=%d)\n",__FILE__,__LINE__, macroErrorCode, CUBLAS_STATUS_SUCCESS);\
+                            assert(false);\
                             exit(EXIT_FAILURE);}} while(0)
-#define CURAND_CALL(x) do { if((x) != CURAND_STATUS_SUCCESS) { \
-                            printf("Error at %s:%d\n",__FILE__,__LINE__);\
+#define CURAND_CALL(statment) do { int macroErrorCode = statment; \
+                            if((macroErrorCode) != CURAND_STATUS_SUCCESS) { \
+                            printf("Curand Error at %s:%d with code %d(!=%d)\n",__FILE__,__LINE__, macroErrorCode, CURAND_STATUS_SUCCESS);\
+                            assert(false);\
                             exit(EXIT_FAILURE);}} while(0)
+#ifdef NDEBUG
+#define CUDA_KERNEL_CHECK() do {  \
+                            CUDA_CALL(cudaPeekAtLastError()); \
+                            }while(0)
+#else
+#define CUDA_KERNEL_CHECK() do { \
+                            CUDA_CALL(cudaPeekAtLastError()); \
+                            CUDA_CALL(cudaDeviceSynchronize()); \
+                            }while(0)
+#endif
+                            
 
 cublasStatus_t  cublasXasum(cublasHandle_t handle, int n,
                             const float           *x, int incx, float  *result);

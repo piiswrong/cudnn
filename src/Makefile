@@ -1,16 +1,16 @@
-#FLAGS = -O3 -DNDEBUG --use_fast_math 
-FLAGS = -O3 -DNDEBUG -DDISABLE_GPU 
-#FLAGS = -g -DDISABLE_GPU #-DADMM
-SUFIX = cpp
-CC = gcc -pthread
-#CC = mpicxx
-LIBS = #-lcudart -lcublas
+FLAGS = -O3 -DNDEBUG --use_fast_math 
+#FLAGS = -g -G
+#FLAGS = -O3 -DNDEBUG -DDISABLE_GPU 
+#FLAGS =  -g -DDISABLE_GPU #-DADMM
+SUFIX = cu
+#CC = gcc -pthread
+CC = nvcc --compiler-options="-pthread"
+LIBS = -lcudart -lcublas
 LIBS += -L/opt/intel/mkl/lib/intel64 
 LIBS += -L/opt/intel/lib/intel64 
 LIBS += -L/usr/nikola/pkgs/intel/.2011.2.137/mkl/lib/intel64
 LIBS += -L/usr/nikola/pkgs/intel/.2011.2.137/lib/intel64
 LIBS += -L/projects/grail/local/pkg/intel/mkl/lib/em64t
-#LIBS += -L/usr/lib/openmpi/lib -lmpi_cxx -lmpi -ldl
 LIBS += -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5
 LIBS += -lstdc++
 INCLUDE = -I.

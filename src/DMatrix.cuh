@@ -284,14 +284,14 @@ public:
             dim3 block(TILE_DIM, BLOCK_ROWS, 1);
             int word = (even_m<<2)|(even_n<<1)|y_trans;
             switch(word) {
-            case 0: kApplyBinaryOp<T, Op, false, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
-            case 1: kApplyBinaryOp<T, Op, false, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
-            case 2: kApplyBinaryOp<T, Op, false, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
-            case 3: kApplyBinaryOp<T, Op, false, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
-            case 4: kApplyBinaryOp<T, Op, true, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
-            case 5: kApplyBinaryOp<T, Op, true, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
-            case 6: kApplyBinaryOp<T, Op, true, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
-            case 7: kApplyBinaryOp<T, Op, true, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);break;
+            case 0: kApplyBinaryOp<T, Op, false, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);CUDA_KERNEL_CHECK();break;;
+            case 1: kApplyBinaryOp<T, Op, false, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);CUDA_KERNEL_CHECK();break;;
+            case 2: kApplyBinaryOp<T, Op, false, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);CUDA_KERNEL_CHECK();break;;
+            case 3: kApplyBinaryOp<T, Op, false, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);CUDA_KERNEL_CHECK();break;;
+            case 4: kApplyBinaryOp<T, Op, true, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);CUDA_KERNEL_CHECK();break;;
+            case 5: kApplyBinaryOp<T, Op, true, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);CUDA_KERNEL_CHECK();break;;
+            case 6: kApplyBinaryOp<T, Op, true, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);CUDA_KERNEL_CHECK();break;;
+            case 7: kApplyBinaryOp<T, Op, true, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), m, n, ldx, ldy);CUDA_KERNEL_CHECK();break;;
             }
 #ifndef NDEBUG
             dev2host();
@@ -319,22 +319,22 @@ public:
             dim3 block(TILE_DIM, BLOCK_ROWS, 1);
             int word = (even_m<<3)|(even_n<<2)|(y_trans<<1)|(z_trans);
             switch(word) {
-            case 0: kApplyTenaryOp<T, Op, false, false, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 1: kApplyTenaryOp<T, Op, false, false, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 2: kApplyTenaryOp<T, Op, false, false, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 3: kApplyTenaryOp<T, Op, false, false, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 4: kApplyTenaryOp<T, Op, false, true, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 5: kApplyTenaryOp<T, Op, false, true, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 6: kApplyTenaryOp<T, Op, false, true, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 7: kApplyTenaryOp<T, Op, false, true, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 8: kApplyTenaryOp<T, Op, true, false, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 9: kApplyTenaryOp<T, Op, true, false, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 10: kApplyTenaryOp<T, Op, true, false, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 11: kApplyTenaryOp<T, Op, true, false, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 12: kApplyTenaryOp<T, Op, true, true, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 13: kApplyTenaryOp<T, Op, true, true, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 14: kApplyTenaryOp<T, Op, true, true, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
-            case 15: kApplyTenaryOp<T, Op, true, true, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);break;
+            case 0: kApplyTenaryOp<T, Op, false, false, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
+            case 1: kApplyTenaryOp<T, Op, false, false, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
+            case 2: kApplyTenaryOp<T, Op, false, false, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
+            case 3: kApplyTenaryOp<T, Op, false, false, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
+            case 4: kApplyTenaryOp<T, Op, false, true, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
+            case 5: kApplyTenaryOp<T, Op, false, true, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
+            case 6: kApplyTenaryOp<T, Op, false, true, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
+            case 7: kApplyTenaryOp<T, Op, false, true, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
+            case 8: kApplyTenaryOp<T, Op, true, false, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
+            case 9: kApplyTenaryOp<T, Op, true, false, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
+            case 10: kApplyTenaryOp<T, Op, true, false, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
+            case 11: kApplyTenaryOp<T, Op, true, false, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
+            case 12: kApplyTenaryOp<T, Op, true, true, false, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
+            case 13: kApplyTenaryOp<T, Op, true, true, false, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
+            case 14: kApplyTenaryOp<T, Op, true, true, true, false><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
+            case 15: kApplyTenaryOp<T, Op, true, true, true, true><<<grid, block>>>(op, dev_data(), y->dev_data(), z->dev_data(), m, n, ldx, ldy, ldz);CUDA_KERNEL_CHECK();break;;
             }
 #ifndef NDEBUG
             dev2host();
@@ -365,14 +365,14 @@ void hDropout(DMatrix<T> *x, DMatrix<T> *mask, curandState *state, float rate, b
     dim3 grid(m/TILE_DIM+!even_m, n/TILE_DIM+!even_n, 1);
     dim3 block(TILE_DIM, BLOCK_ROWS, 1);
     switch((save<<2)|(even_m<<1)|even_n) {
-    case 0: kDropout<T, false, false, false><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
-    case 1: kDropout<T, false, true, false><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
-    case 2: kDropout<T, true, false, false><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
-    case 3: kDropout<T, true, true, false><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
-    case 4: kDropout<T, false, false, true><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
-    case 5: kDropout<T, false, true, true><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
-    case 6: kDropout<T, true, false, true><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
-    case 7: kDropout<T, true, true, true><<<grid, block>>>(x->dev_data(), mask->dev_data(), state, rate, m, n, ld);break;
+    case 0: kDropout<T, false, false, false><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);CUDA_KERNEL_CHECK();break;;
+    case 1: kDropout<T, false, true, false><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);CUDA_KERNEL_CHECK();break;;
+    case 2: kDropout<T, true, false, false><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);CUDA_KERNEL_CHECK();break;;
+    case 3: kDropout<T, true, true, false><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);CUDA_KERNEL_CHECK();break;;
+    case 4: kDropout<T, false, false, true><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);CUDA_KERNEL_CHECK();break;;
+    case 5: kDropout<T, false, true, true><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);CUDA_KERNEL_CHECK();break;;
+    case 6: kDropout<T, true, false, true><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);CUDA_KERNEL_CHECK();break;;
+    case 7: kDropout<T, true, true, true><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);CUDA_KERNEL_CHECK();break;;
     }
 }
 #else

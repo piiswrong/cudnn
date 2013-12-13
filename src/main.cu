@@ -3,6 +3,7 @@
 #include <DData.cuh>
 
 int main(int argc, char **argv) {
+    feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
 #ifdef USE_MPI 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_world_size);
@@ -12,19 +13,20 @@ int main(int argc, char **argv) {
         flog = fopen(argv[1], "w");
     }
     cublasHandle_t handle = 0; 
-    CUDA_CALL(cublasCreate(&handle));
+    CUBLAS_CALL(cublasCreate(&handle));
 
     int num_layers = 3;
-    int layer_dims[] = {28*28, 1024, 1024, 10};
+    int layer_dims[] = {351, 2047, 2047, 150};
     DHyperParams _bp_hyper_params, _pt_hyper_params;
     //_bp_hyper_params.batch_size = 10;
     _bp_hyper_params.check_interval = 10000;
-    _bp_hyper_params.learning_rate = 1.0;
-    _bp_hyper_params.idrop_out = true;
+    _bp_hyper_params.learning_rate = 0.1;
+    _bp_hyper_params.idrop_out = false;
     _bp_hyper_params.hdrop_out = true;
+    _bp_hyper_params.hdrop_rate= 0.2;
     _bp_hyper_params.momentum = 0.5;
-    _bp_hyper_params.max_momentum = 0.99;
-    _bp_hyper_params.step_momentum = 0.001;
+    _bp_hyper_params.max_momentum = 0.90;
+    _bp_hyper_params.step_momentum = 0.04;
     _bp_hyper_params.weight_decay = false;
 #ifdef ADMM
     _bp_hyper_params.decay_rate = 0.001;
@@ -45,14 +47,15 @@ int main(int argc, char **argv) {
     dnn->fineTune(data, 500);
 
 #else
-    DMnistData<float> *data = new DMnistData<float>("../data", DData<float>::Train, 50000, false, dnn->handle());
+    //DMnistData<float> *data = new DMnistData<float>("../data", DData<float>::Train, 50000, false, dnn->handle());
     //DData<float> *data = new DDummyData<float>(10,  handle);
-    dnn->fineTune(data, 500);
+    DTimitData<float> *data = new DTimitData<float>("../data", 128*100, false, dnn->handle());
+    dnn->fineTune(data, 10);
 #endif
 
     DMnistData<float> *test_data;// = new DMnistData<float>("../data", DData<float>::Test, 10000, false, dnn->handle());
-    test_data = new DMnistData<float>("../data", DData<float>::Test, 10000, true, dnn->handle());
-    printf("Testing Error:%f\n", dnn->test(test_data));
+    //test_data = new DMnistData<float>("../data", DData<float>::Test, 10000, true, dnn->handle());
+    //printf("Testing Error:%f\n", dnn->test(test_data));
 
     CUDA_CALL(cudaDeviceReset());
 #ifdef USE_MPI
