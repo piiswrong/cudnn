@@ -51,7 +51,18 @@ public:
         delta->applyTenary(DeltaOp(), act, y, y->nrows(), delta->ncols() - 1);
     }
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        _loss = delta->norm2(delta->nelem() - delta->ld());
+        if (delta->nrows() != y->nrows()) {
+            _loss = 0.0;
+            delta->dev2host();
+            for (int i = 0; i < y->ncols(); i++) {
+                for (int j = 0; j < y->nrows(); j++) {
+                    T t = delta->getElem(j, i);
+                    _loss += t*t;
+                }
+            }
+        }else {
+            _loss = delta->norm2(delta->nelem() - delta->ld());
+        }
     }
     virtual T getLoss() {
         return _loss;

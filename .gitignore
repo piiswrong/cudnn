@@ -16,6 +16,7 @@
 
 *.swp
 data/*
+log/*
 .fuse*
 
 src/main

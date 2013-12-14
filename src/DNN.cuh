@@ -59,7 +59,19 @@ public:
     cublasHandle_t handle() { return _handle; }
 
     void save(FILE *fout) {
-
+        scaleWeight(true);
+        fprintf(fout, "%d\n", _num_layers);
+        for (int i = 0; i < _num_layers; i++) {
+            fprintf(fout, "%d\ng%d ", i, i);
+            DMatrix<T> *x = _layers[i]->weight();
+            x->dev2host();
+            fprintf(fout, "%d %d\n", x->ncols() - 1, x->nrows());
+            for (int j = 0; j < x->ncols() - 1; j++) {
+                for (int k = 0; k < x->nrows(); k++) 
+                    fprintf(fout, "%lf ", (double)x->getElem(k, j));
+                fprintf(fout, "\n");
+            }
+        }
     }
 
     T trainOnBatch(DMatrix<T>* x, DMatrix<T>* y) {
