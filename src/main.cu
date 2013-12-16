@@ -17,11 +17,16 @@ int main(int argc, char **argv) {
         param_out = fopen((path+".param").c_str(), "w");
     }
 
+    //CUDA_CALL(cudaSetDevice(1));
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 3;
-    int layer_dims[] = {351, 2047, 2047, 150};
+    int num_layers = 20;
+    int input_dim = 351, output_dim = 150;
+    int *layer_dims = new int[num_layers+1];
+    layer_dims[0] = input_dim;
+    layer_dims[num_layers] = output_dim;
+    for (int i = 1; i < num_layers; i++) layer_dims[i] = 1023;
     DHyperParams _bp_hyper_params, _pt_hyper_params;
     //_bp_hyper_params.batch_size = 10;
     _bp_hyper_params.check_interval = 10000;
@@ -39,9 +44,8 @@ int main(int argc, char **argv) {
 
     //_bp_hyper_params.sparseInit = true;
     DNeuron<float> **neuron = new DNeuron<float>*[num_layers];
-    neuron[0] = new DOddrootNeuron<float>(handle);
-    neuron[1] = new DOddrootNeuron<float>(handle);
-    neuron[2] = new DSoftmaxNeuron<float>(_bp_hyper_params.batch_size, handle);
+    for (int i = 0; i < num_layers-1; i++) neuron[i] = new DOddrootNeuron<float>(handle);
+    neuron[num_layers-1] = new DSoftmaxNeuron<float>(_bp_hyper_params.batch_size, handle);
     
     DNN<float> *dnn = new DNN<float>(num_layers, layer_dims, neuron, _pt_hyper_params, _bp_hyper_params, handle);
 #ifdef ADMM
@@ -54,7 +58,7 @@ int main(int argc, char **argv) {
 #else
     //DMnistData<float> *data = new DMnistData<float>("../data", DData<float>::Train, 50000, false, dnn->handle());
     //DData<float> *data = new DDummyData<float>(10,  handle);
-    DTimitData<float> *data = new DTimitData<float>("../data", 128*100, false, dnn->handle());
+    DTimitData<float> *data = new DTimitData<float>("../data", 128*10, false, dnn->handle());
     dnn->fineTune(data, 200);
 #endif
     if (param_out != NULL) {

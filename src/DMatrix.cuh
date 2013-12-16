@@ -166,6 +166,7 @@ public:
     void host2devAsync(cudaStream_t stream) {
         if (_on_device) 
             CUBLAS_CALL(cublasSetVectorAsync(_ld*_fd, sizeof(T), _host_data, 1, _dev_data, 1, stream)); 
+            //CUDA_CALL(cudaMemcpyAsync(_dev_data, _host_data, _size, cudaMemcpyHostToDevice, stream));
     }
 
     void dev2hostAsync(cudaStream_t stream) {
