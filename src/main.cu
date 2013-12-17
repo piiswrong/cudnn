@@ -17,7 +17,6 @@ int main(int argc, char **argv) {
         param_out = fopen((path+".param").c_str(), "w");
     }
 
-    //CUDA_CALL(cudaSetDevice(1));
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
@@ -26,7 +25,7 @@ int main(int argc, char **argv) {
     int *layer_dims = new int[num_layers+1];
     layer_dims[0] = input_dim;
     layer_dims[num_layers] = output_dim;
-    for (int i = 1; i < num_layers; i++) layer_dims[i] = 1023;
+    for (int i = 1; i < num_layers; i++) layer_dims[i] = 511;
     DHyperParams _bp_hyper_params, _pt_hyper_params;
     //_bp_hyper_params.batch_size = 10;
     _bp_hyper_params.check_interval = 10000;
