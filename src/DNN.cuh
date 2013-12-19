@@ -57,6 +57,7 @@ public:
     }
 
     cublasHandle_t handle() { return _handle; }
+    DLayer<T> **layers() { return _layers; }
 
     void save(FILE *fout) {
         scaleWeight(true);
@@ -217,7 +218,7 @@ public:
             DLayer<T> **layers = new DLayer<T>*[layer+2];
             DMatrix<T> *tmp = new DMatrix<T>(_bp_hyper_params.batch_size, _layer_dims[layer], _handle);
             for (int i = 0; i <= layer; i++) layers[i] = _layers[i];
-            layers[layer+1] = new DLayer<T>(_layer_dims[layer+1], _layer_dims[layer], layer>0?layers[layer-1]->neuron():new DNeuron<T>(), 
+            layers[layer+1] = new DLayer<T>(_layer_dims[layer+1], _layer_dims[layer], layer + _num_layers, layer>0?layers[layer-1]->neuron():new DNeuron<T>(_handle), 
                                             &_pt_hyper_params, &_bp_hyper_params, _handle);
             while (nEpoch < epochs_per_layer) {
                 data->getData(x, y, _bp_hyper_params.batch_size);
@@ -226,7 +227,7 @@ public:
                     fprop(x, layer, layers, &dummy_param);
                     input = layers[layer-1]->act();
                 }
-                tmp->devCopyFrom(input);
+                tmp->CopyFrom(input);
                 fprop(input, 2, layers+layer, &_pt_hyper_params);
                 error += bprop(tmp, tmp, 2, layers+layer, &_pt_hyper_params);
 
@@ -301,7 +302,7 @@ public:
                 }
 #else
                 printf("\nEpoch: %d\tInstance: %d\tError: %f\n", nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
-                LOG(fprintf(flog, "%f %d\n", (float)(error/lastCheck), time(0)-starting));
+                LOG(fprintf(flog, "%f %d\n", (float)(error/lastCheck), (int)time(0)-starting));
 #endif
                 checked = true;
                 lastError = error/lastCheck;

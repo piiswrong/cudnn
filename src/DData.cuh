@@ -453,4 +453,43 @@ public:
 };
 #endif
 
+#ifdef WITH_GMTK
+#include <BatchSource.h>
+template<class T>
+class DGmtkData : public DData<T> {
+    BatchSource *_batch_source;
+    Matrix _mx, _my;
+
+public:
+    DGmtkData(BatchSource *batch_source, int buff_dim, bool testing, cublasHandle_t handle) : DData<T>(2, batch_source->numDataRows() + 1, batch_source->numLabelRows(), buff_dim, false, testing, handle) {
+        _batch_source = batch_source;
+    }
+    int instancesPerEpoch() { return _batch_source->epochSize(); }
+
+    virtual int fetch(T *&x, T *&y) {
+        int n = DData<T>::_buff_dim;
+        x = new T[DData<T>::_x_dim*n];
+        y = new T[DData<T>::_y_dim*n];
+        
+        int need = n;
+        do {
+            _batch_source->getBatch(n, _mx, _my);
+            for (int i = n-need; i < n-need+_mx.NumC(); i++) {
+                for (int j = 0; j < _mx.NumR(); j++) {
+                    x[i*DData<T>::_x_dim + j] = _mx.At(j, i);
+                }
+                x[i*DData<T>::_x_dim + DData<T>::_x_dim - 1] = 1.0;
+            }
+            for (int i = n-need; i < n-need+_my.NumC(); i++) {
+                for (int j = 0; j < _my.NumR(); j++) {
+                    y[i*DData<T>::_y_dim + j] = _my.At(j, i);
+                }
+            }
+            need -= _mx.NumC();
+        }while (DData<T>::_testing && need);
+        return n - need;
+    }
+};
+#endif
+
 #endif //DDATA_CUH

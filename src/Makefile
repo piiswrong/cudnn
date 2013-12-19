@@ -1,11 +1,11 @@
-FLAGS = -O3 -DNDEBUG --use_fast_math 
+#FLAGS = -O3 -DNDEBUG --use_fast_math 
 #FLAGS = -g -G
-#FLAGS = -O3 -DNDEBUG -DDISABLE_GPU 
+FLAGS = -O3 -DNDEBUG -DDISABLE_GPU -DWITH_GMTK
 #FLAGS =  -g -DDISABLE_GPU #-DADMM
-SUFIX = cu
-#CC = gcc -pthread
-CC = nvcc --compiler-options="-pthread"
-LIBS = -lcudart -lcublas
+SUFIX = cpp 
+CC = gcc -pthread -std=c++0x
+#CC = nvcc --compiler-options="-pthread" 
+#LIBS = -lcudart -lcublas
 LIBS += -L/opt/intel/mkl/lib/intel64 
 LIBS += -L/opt/intel/lib/intel64 
 LIBS += -L/usr/nikola/pkgs/intel/.2011.2.137/mkl/lib/intel64
@@ -19,6 +19,16 @@ INCLUDE += -I/usr/nikola/pkgs/intel/.2011.2.137/mkl/include
 INCLUDE += -I/projects/grail/local/pkg/intel/mkl/include/
 INCLUDE += -I/usr/include/mpi
 INCLUDE += -I/usr/lib/openmpi/include -I/usr/lib/openmpi/include/openmpi 
+
+LIBS += -L../../tksrc -L../../miscSupport -L../../featureFileIO -L../../IEEEFloatingpoint -L../../deepMLP
+LIBS += -lIEEEsupport -lmiscSupport -lGMTK -lDMLP -lgmtkio
+INCLUDE += -I../../tksrc -I../../miscSupport -I../../featureFileIO -I../../IEEEFloatingpoint -I../../deepMLP -I../../mitk
+FLAGS += -DHAVE_CONFIG_H -DHAVE_HG_H
+
+gmtkGPUtrain: common.o kernels.o main.o
+	$(CC) $(FLAGS) $(INCLUDE) -c gmtkGPUtrain.cpp 
+	$(CC) $(FLAGS) $(LIBS) common.o kernels.o gmtkGPUtrain.o -o gmtkGPUtrain
+	rm gmtkGPUtrain.o
 
 main: common.o kernels.o main.o 
 	$(CC) $(FLAGS) $(LIBS) common.o kernels.o main.o -o main

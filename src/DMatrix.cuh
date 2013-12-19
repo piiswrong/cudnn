@@ -174,6 +174,13 @@ public:
             CUBLAS_CALL(cublasGetVectorAsync(_ld*_fd, sizeof(T), _dev_data, 1, _host_data, 1, stream));
     }
 
+    void CopyFrom(DMatrix<T> *src) {
+        if (_on_device) 
+            CUDA_CALL(cudaMemcpy(_dev_data, src->dev_data(), _size, cudaMemcpyDeviceToDevice));
+        else
+            memcpy(_host_data, src->host_data(), _size);
+    }
+
 #ifdef USE_MPI
     MPI_Datatype mpiDatatype() {
         printf("Datatype not supported by MPI\n");
