@@ -20,21 +20,21 @@ int main(int argc, char **argv) {
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 20;
+    int num_layers = 5;
     int input_dim = 351, output_dim = 150;
     int *layer_dims = new int[num_layers+1];
     layer_dims[0] = input_dim;
     layer_dims[num_layers] = output_dim;
-    for (int i = 1; i < num_layers; i++) layer_dims[i] = 511;
+    for (int i = 1; i < num_layers; i++) layer_dims[i] = 200;
     DHyperParams _bp_hyper_params, _pt_hyper_params;
     //_bp_hyper_params.batch_size = 10;
     _bp_hyper_params.check_interval = 10000;
     _bp_hyper_params.learning_rate = 0.1;
     _bp_hyper_params.idrop_out = false;
-    _bp_hyper_params.hdrop_out = true;
+    _bp_hyper_params.hdrop_out = false;
     _bp_hyper_params.hdrop_rate= 0.2;
-    _bp_hyper_params.momentum = 0.5;
-    _bp_hyper_params.max_momentum = 0.90;
+    _bp_hyper_params.momentum = 0.0;
+    _bp_hyper_params.max_momentum = 0.00;
     _bp_hyper_params.step_momentum = 0.04;
     _bp_hyper_params.weight_decay = false;
 #ifdef ADMM

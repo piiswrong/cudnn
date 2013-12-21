@@ -95,6 +95,31 @@ public:
 };
 
 template<class T>
+class DLogisticNeuron : public DNeuron<T> {
+public:
+    class ForwardOp {
+    public:
+        HOSTDEVICE T operator() (T act, T drv) {
+            return 1.0/(1.0+exp(-drv));
+        }
+    };
+    class BackwardOp {
+    public:
+        HOSTDEVICE T operator() (T delta, T drv, T act) {
+            return delta*act*(1.0-act);
+        }
+    };
+
+    DLogisticNeuron(cublasHandle_t handle) : DNeuron<T>(handle) {}
+    virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
+        act->applyBinary(ForwardOp(), drv, act->nrows(), act->ncols() - 1);
+    }
+    virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
+        delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols());
+    }
+};
+
+template<class T>
 class DSoftmaxNeuron : public DNeuron<T> {
 protected:
     cudaStream_t _stream;
