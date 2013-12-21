@@ -292,7 +292,11 @@ public:
             }
             lastCheck += _bp_hyper_params.batch_size;
             if (lastCheck >= _bp_hyper_params.check_interval) {
-
+                _layers[_num_layers-1]->weight()->samplePrint();
+                _layers[_num_layers-2]->act()->samplePrint();
+                _layers[_num_layers-1]->act()->samplePrint();
+                y->samplePrint();
+                x->samplePrint();
 #ifdef ADMM
                 printf("\nNode%d\tEpoch: %d\tInstance: %d\tError: %f\n", mpi_world_rank, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
 #elif defined(DOWN_POUR_SGD)

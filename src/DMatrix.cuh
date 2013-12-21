@@ -84,6 +84,15 @@ public:
         }   
     }
 
+    void samplePrint() {
+        for (int i = 0; i < 10 && i < nrows(); i++) {
+            for (int j = 0; j < 10 && j < ncols(); j++) {
+                printf("%+0.3f ", getElem(i,j));
+            }
+            printf("\n");
+        }
+        printf("\n");
+    }
     
     int nrows(bool t = false) { return getT(t) ? fd():ld(); }
     int ncols(bool t = false) { return getT(t) ? ld():fd(); }

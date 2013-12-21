@@ -473,7 +473,7 @@ public:
         
         int need = n;
         do {
-            _batch_source->getBatch(n, _mx, _my);
+            _batch_source->getBatch(need, _mx, _my);
             for (int i = n-need; i < n-need+_mx.NumC(); i++) {
                 for (int j = 0; j < _mx.NumR(); j++) {
                     x[i*DData<T>::_x_dim + j] = _mx.At(j, i);
@@ -486,7 +486,7 @@ public:
                 }
             }
             need -= _mx.NumC();
-        }while (DData<T>::_testing && need);
+        }while (!DData<T>::_testing && need);
         return n - need;
     }
 };

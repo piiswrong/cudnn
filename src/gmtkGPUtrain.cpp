@@ -261,7 +261,7 @@ main(int argc,char*argv[])
       if (i == numLayers - 1) {
 	error("ERROR: gmtkDMLPtrain only supports linear or softmax for the output layer\n");
       }
-      error("ERROR: logitstic is not yet supported\n");
+      neurons[i] = new DLogisticNeuron<GPU_REAL>(handle);
       break;
     case DeepNN::TANH: 
       if (i == numLayers - 1) {
@@ -429,7 +429,6 @@ main(int argc,char*argv[])
   else 
       bpHyperParams.hdrop_out           = false;
 
-
 #if 0
   // Pack training instances into a Matrix for Galen's training code
   unsigned numUnits = trainSched->numTrainingUnitsPerEpoch();
@@ -477,22 +476,27 @@ main(int argc,char*argv[])
 #if 1
   DNN<GPU_REAL> dbn(numLayers, layerDims, neurons, ptHyperParams, bpHyperParams, handle);
   DLayer<GPU_REAL> **layers = dbn.layers();
-  for (unsigned j=0; j < numLayers; j+=1) {
-    double *params;
-    int rows, cols;
-    dnn->getParams(j, rows, cols, params);
-    Matrix P(params, cols, rows, cols, false);
-    DMatrix<GPU_REAL> *m = layers[j]->weight();
-    for (int r = 0; r < rows; r++) {
-        for (int c = 0; c < cols; c++) {
-            m->getElem(c, r) = P.At(r, c);
+  if (loadTrainingFile != NULL) {
+    for (unsigned j=0; j < numLayers; j+=1) {
+        //printf("%d %d\n", layers[j]->weight()->nrows(), layers[j]->weight()->ncols());
+        double *params;
+        int rows, cols;
+        dnn->getParams(j, rows, cols, params);
+        Matrix P(params, cols, rows, cols, false);
+        DMatrix<GPU_REAL> *m = layers[j]->weight();
+        //printf("%d %d\n", rows, cols);
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+            //printf("%d\n",c);
+                m->getElem(c, r) = P.At(c, r);
+            }
         }
+        m->host2dev();
     }
-    m->host2dev();
   }
-  DGmtkData<GPU_REAL> *data = new DGmtkData<GPU_REAL>(asynchBatchSrc, 128*100, false, handle);
-  if (ptNumEpochs)
-    dbn.pretrain(data, ptNumEpochs);
+  DGmtkData<GPU_REAL> *data = new DGmtkData<GPU_REAL>(asynchBatchSrc, bpMiniBatchSize, false, handle);
+  //if (ptNumEpochs)
+  //  dbn.pretrain(data, ptNumEpochs);
   dbn.fineTune(data, bpNumEpochs);
 #else
   dbn.Train(asynchBatchSrc, objType, pretrainHyperParams, bpHyperParams, 
