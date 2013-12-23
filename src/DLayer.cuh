@@ -90,11 +90,25 @@ public:
 #endif
     }
 
+    ~DLayer() {
+        delete _momentun, _weight, _drv, _act, _delta, _mask;
+#ifdef ADMM
+        delete _z, _u, _buf;
+#endif
+#ifdef DOWN_POUR_SGD
+        delete _grad;
+#endif
+        if (_on_device) {
+            CUDA_CALL(cudaFree((void*)_state));
+        }
+    }
+
     DMatrix<T> *delta() { return _delta; }
     DMatrix<T> *drv() { return _drv; }
     DMatrix<T> *act() { return _act; }
     DMatrix<T> *weight() { return _weight; }
     DNeuron<T> *neuron() { return _neuron; }
+    curandState*state() { return _state; }
 
     
     void clearMomentum() {

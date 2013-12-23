@@ -74,6 +74,16 @@ public:
             _dev_data = x->_dev_data + _ld*offset;
         }
     }
+    
+    void CopyFrom(DMatrix<T> *src) {
+        _ld = src->_ld;
+        _fd = src->_fd;
+        _T  = src->_T;
+        if (_on_device) 
+            CUDA_CALL(cudaMemcpy(_dev_data, src->dev_data(), _size, cudaMemcpyDeviceToDevice));
+        else
+            memcpy(_host_data, src->host_data(), _size);
+    }
 
     ~DMatrix() {
         if (!_is_view) {
@@ -84,7 +94,9 @@ public:
         }   
     }
 
-    void samplePrint() {
+    void samplePrint(const char * title = NULL) {
+        dev2host();
+        if (title != NULL) printf("%s\n", title);
         for (int i = 0; i < 10 && i < nrows(); i++) {
             for (int j = 0; j < 10 && j < ncols(); j++) {
                 printf("%+0.3f ", getElem(i,j));
@@ -92,6 +104,23 @@ public:
             printf("\n");
         }
         printf("\n");
+    }
+
+    bool isSane(T limit = -1) {
+        dev2host();
+        if (limit < 0) {
+            for (int i = 0; i < nrows(); i++)
+                for (int j = 0; j < ncols(); j++)
+                    if (getElem(i,j) != getElem(i,j))
+                        return false;
+            return true;
+        }else {
+            for (int i = 0; i < nrows(); i++)
+                for (int j = 0; j < ncols(); j++)
+                    if (abs(getElem(i,j)) > limit)
+                        return false;
+            return true;
+        }
     }
     
     int nrows(bool t = false) { return getT(t) ? fd():ld(); }
@@ -183,12 +212,7 @@ public:
             CUBLAS_CALL(cublasGetVectorAsync(_ld*_fd, sizeof(T), _dev_data, 1, _host_data, 1, stream));
     }
 
-    void CopyFrom(DMatrix<T> *src) {
-        if (_on_device) 
-            CUDA_CALL(cudaMemcpy(_dev_data, src->dev_data(), _size, cudaMemcpyDeviceToDevice));
-        else
-            memcpy(_host_data, src->host_data(), _size);
-    }
+    
 
 #ifdef USE_MPI
     MPI_Datatype mpiDatatype() {

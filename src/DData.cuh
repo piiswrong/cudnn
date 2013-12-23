@@ -75,9 +75,11 @@ public:
         _y_buffs = new DMatrix<T>*[_num_buffs];
         for (int i = 0; i < _num_buffs; i++) {
             _x_buffs[i] = new DMatrix<T>(_x_dim, _buff_dim, _handle);
+            _x_buffs[i]->init(DMatrix<T>::Zero);
             _x_buffs[i]->setT();
             _y_buffs[i] = new DMatrix<T>(_y_dim, _buff_dim, _handle);
             _y_buffs[i]->setT();
+            _y_buffs[i]->init(DMatrix<T>::Zero);
         }
     }
     
@@ -171,6 +173,8 @@ public:
                 _x_buffs[c]->host2devAsync(_streams[c]);
                 _y_buffs[c]->host2devAsync(_streams[c]);
             }
+            CUDA_CALL(cudaStreamSynchronize(_streams[c]));
+            assert(_x_buffs[c]->isSane(1e5));
             pthread_mutex_lock(&_mutex);
             _ready[c] = true;
             _available[c] = n;
@@ -195,11 +199,9 @@ public:
         int dim = _available[_buff_index];
         if (batch_size > dim - _buff_offset) {
             if (_testing) {
+                CUDA_CALL(cudaStreamSynchronize(_streams[_buff_index]));
                 x = new DMatrix<T>(_x_buffs[_buff_index], _buff_offset, dim - _buff_offset);
                 y = new DMatrix<T>(_y_buffs[_buff_index], _buff_offset, dim - _buff_offset);
-                x->setT();
-                x->setT();
-                CUDA_CALL(cudaStreamSynchronize(_streams[_buff_index]));
                 if (dim < _buff_dim) {
                     return false;
                 }else {
@@ -211,11 +213,11 @@ public:
                 return getData(x, y, batch_size);
             }
         }else {
+            CUDA_CALL(cudaStreamSynchronize(_streams[_buff_index]));
             x = new DMatrix<T>(_x_buffs[_buff_index], _buff_offset, batch_size);
             y = new DMatrix<T>(_y_buffs[_buff_index], _buff_offset, batch_size);
-            x->setT();
-            x->setT();
-            CUDA_CALL(cudaStreamSynchronize(_streams[_buff_index]));
+            assert(_x_buffs[_buff_index]->isSane(1e5));
+            assert(x->isSane(1e5));
             _buff_offset += batch_size;
             return true;
         }
@@ -321,6 +323,7 @@ public:
         for (int i = 0; i < fd; i++) {
             for (int j = 0; j < ld; j++) {
                 x[i*(ld+_xappendone)+j] = _xop(_tx[i*ld+j], _tx[i*ld+j]);
+                assert(abs(x[i*(ld+_xappendone)+j]) < 1e6);
             }
             if (_xappendone)
                 x[i*(ld+1)+ld] = 1;
@@ -377,7 +380,7 @@ template<class T>
 class DTimitData : public DBinaryData<T, double, double, OpNop<double>, OpNop<double> > {
 public:
     DTimitData(std::string path, int buff_dim, bool testing, cublasHandle_t handle) 
-        : DBinaryData<T, double, double, OpNop<double>, OpNop<double> >(OpNop<double>(), OpNop<double>(), 351, 150, true, false, buff_dim, true, testing, handle) {
+        : DBinaryData<T, double, double, OpNop<double>, OpNop<double> >(OpNop<double>(), OpNop<double>(), 351, 150, true, false, buff_dim, false, testing, handle) {
         std::string xpath, ypath;
         if (path[path.length()-1] != '/') path.append("/");
         xpath = path+"trainData.bin";

@@ -21,6 +21,7 @@ class DNN {
     curandState *_state;
     bool _scaled_weight;
 
+    DMatrix<T> *_x;
 public:
     DNN(int num_layers, int *layer_dims, DNeuron<T> **neurons, 
         DHyperParams& pt_hyper_params, DHyperParams& bp_hyper_params,
@@ -76,18 +77,19 @@ public:
     }
 
     T trainOnBatch(DMatrix<T>* x, DMatrix<T>* y) {
-        fprop(x, _num_layers, _layers, &_bp_hyper_params);
+        fprop(x, _num_layers, _layers, &_bp_hyper_params, _state);
         return bprop(x, y, _num_layers, _layers, &_bp_hyper_params);
     }
 
-    void fprop(DMatrix<T>* x, int num_layers, DLayer<T>** layers, DHyperParams *params) {
+    void fprop(DMatrix<T>* x, int num_layers, DLayer<T>** layers, DHyperParams *params, curandState *state) {
 #ifdef DOWN_POUR_SGD
         if (mpi_world_rank >= sgd_num_param_server) {
 #endif
-            if (params->idrop_out) hDropout<T>(x, NULL, _state, params->idrop_rate, x->getT(), x->nrows(), x->ncols() - 1, x->ld());
+            if (params->idrop_out) hDropout<T>(x, NULL, state, params->idrop_rate, x->getT(), x->nrows(), x->ncols() - 1, x->ld());
             layers[0]->fprop(x, (num_layers > 1) && params->hdrop_out, params->hdrop_rate);
-            for (int i = 1; i < num_layers; i++) 
+            for (int i = 1; i < num_layers; i++) {
                 layers[i]->fprop(layers[i-1]->act(), (i < num_layers - 1) && params->hdrop_out, params->hdrop_rate);
+            }
 #ifdef DOWN_POUR_SGD
         }
 #endif
@@ -193,7 +195,7 @@ public:
         _pt_hyper_params.idrop_rate = _pt_hyper_params.hdrop_rate = false;
         while (true) {
             bool more = data->getData(x, y, _bp_hyper_params.batch_size);
-            fprop(x, _num_layers, _layers, &dummy_param);
+            fprop(x, _num_layers, _layers, &dummy_param, _state);
             _layers[_num_layers-1]->neuron()->initDelta(_delta, _layers[_num_layers-1]->act(), y);
             _layers[_num_layers-1]->neuron()->computeLoss(_delta, _layers[_num_layers-1]->act(), y);
             loss += _layers[_num_layers-1]->neuron()->getLoss();
@@ -206,32 +208,41 @@ public:
     void pretrain(DData<T>* data, int epochs_per_layer) {
         DMatrix<T> *x, *y;
         DHyperParams dummy_param(_pt_hyper_params);
-        _pt_hyper_params.idrop_out = _pt_hyper_params.hdrop_out = false;
-        _pt_hyper_params.idrop_rate = _pt_hyper_params.hdrop_rate = false;
+        dummy_param.idrop_out = dummy_param.hdrop_out = false;
+        dummy_param.idrop_rate = dummy_param.hdrop_rate = false;
         data->start();
         int iperEpoch = data->instancesPerEpoch();
-        for( int layer = 0 ; layer < _num_layers; layer++) {
+        for( int layer = 1 ; layer < _num_layers; layer++) {
+            printf("Pretraining layer %d of %d\n", layer, _num_layers);
             int nEpoch = 1;
             int nInstance = 0;
             int lastCheck = 0;
             T error = 0.0;
             DLayer<T> **layers = new DLayer<T>*[layer+2];
-            DMatrix<T> *tmp = new DMatrix<T>(_bp_hyper_params.batch_size, _layer_dims[layer], _handle);
+            DMatrix<T> *tmp = new DMatrix<T>(_bp_hyper_params.batch_size, _layer_dims[layer]+1, _handle);
             for (int i = 0; i <= layer; i++) layers[i] = _layers[i];
             layers[layer+1] = new DLayer<T>(_layer_dims[layer+1], _layer_dims[layer], layer + _num_layers, layer>0?layers[layer-1]->neuron():new DNeuron<T>(_handle), 
                                             &_pt_hyper_params, &_bp_hyper_params, _handle);
-            while (nEpoch < epochs_per_layer) {
+            while (nEpoch <= epochs_per_layer) {
+                CUDA_CALL(cudaThreadSynchronize());
                 data->getData(x, y, _bp_hyper_params.batch_size);
+                _x = x;
                 DMatrix<T> *input = x;
+                curandState *state = _state;
                 if (layer > 0) {
-                    fprop(x, layer, layers, &dummy_param);
+                    fprop(x, layer, layers, &dummy_param, state);
                     input = layers[layer-1]->act();
+                    state = layers[layer-1]->state();
                 }
                 tmp->CopyFrom(input);
-                fprop(input, 2, layers+layer, &_pt_hyper_params);
-                error += bprop(tmp, tmp, 2, layers+layer, &_pt_hyper_params);
+                //input->samplePrint("input");
+                //if (layer > 2) layers[layer-3]->act()->samplePrint("act");
+                //if (layer > 3) layers[layer-4]->act()->samplePrint("act");
+                fprop(input, 2, layers+layer, &_pt_hyper_params, state);
+                error += bprop(input, tmp, 2, layers+layer, &_pt_hyper_params);
 
-                CUDA_CALL(cudaThreadSynchronize());
+                //layers[layer+1]->act()->samplePrint("act");
+
                 nInstance += _bp_hyper_params.batch_size;
                 while (nEpoch*iperEpoch <= nInstance) {
                     nEpoch++;
@@ -241,17 +252,19 @@ public:
                         _pt_hyper_params.momentum = _pt_hyper_params.max_momentum;
                 }
                 lastCheck += _bp_hyper_params.batch_size;
-                if (lastCheck >= _bp_hyper_params.check_interval) {
+                if (lastCheck >= _pt_hyper_params.check_interval) {
                     printf("\nEpoch: %d\tInstance: %d\tError: %f\n", nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
                     lastCheck = 0;
                     error = 0.0;
                 }
                 delete x, y;
             }
-            layers[layer]->scaleWeight(1-_pt_hyper_params.idrop_out);
+            layers[layer]->scaleWeight(1-_pt_hyper_params.idrop_rate);
+            delete tmp;
             delete layers[layer+1];
             delete layers;
         }
+        _scaled_weight = true;
     }
 
     T fineTune(DData<T>* data, int total_epochs) {
@@ -293,7 +306,6 @@ public:
             lastCheck += _bp_hyper_params.batch_size;
             if (lastCheck >= _bp_hyper_params.check_interval) {
                 _layers[_num_layers-1]->weight()->samplePrint();
-                _layers[_num_layers-2]->act()->samplePrint();
                 _layers[_num_layers-1]->act()->samplePrint();
                 y->samplePrint();
                 x->samplePrint();
