@@ -1,4 +1,5 @@
-from math import *
+import math
+"""
 fout = open('test.hyper', 'w')
 
 
@@ -20,7 +21,7 @@ fout.write('hdrop_out=' + str(1) + '\n')
 fout.write('hdrop_rate=' + str(0.5) + '\n')
 fout.write('batch_size=' + str(128) + '\n')
 fout.write('check_interval=' + str(10000) + '\n')
-
+"""
 
 
 def makeHyper():
@@ -46,7 +47,7 @@ def makeHyper():
              'decay_rate',
              'idrop_out',
              'idrop_rate',
-             'hdrop_out'
+             'hdrop_out',
              'hdrop_rate',
              'batch_size',
              'check_interval']
@@ -54,12 +55,12 @@ def makeHyper():
 def makeNet():
     return { 'num_layers':5,
              'hidden_dim':2000,
-             'unit':'Logistic',
+             'neuron':'Logistic',
              'pt_epochs':0.2,
              'bp_epochs':200
             }, ['num_layers',
              'hidden_dim',
-             'unit',
+             'neuron',
              'pt_epochs',
              'bp_epochs']
 
@@ -77,17 +78,17 @@ def makeExp(exp_name, ntotal_param):
     ptHyper, horder = makeHyper()
     bpHyper, horder = makeHyper()
     id = 0
-    for i in xrange(10, 2, 20):
+    for i in xrange(10, 20, 2):
         for rate in [0.0001, 0.001]:
             net['num_layers'] = i
-            t = (-501+sqrt((501.0+i)**2+4.0*(i-2)*ntotal_param))/(2.0*(i-2))
-            net['hidden_dim'] = int((t+8)/16)*16
+            t = (-501+math.sqrt((501.0+i)**2+4.0*(i-2)*ntotal_param))/(2.0*(i-2))
+            net['hidden_dim'] = int((t+8)/16)*16 - 1
             
-            id = 0
-            fout = open('~/cudnn/log/%s_%d.hyper'%(exp_name, id), 'w')
+            fout = open('/homes/grail/jxie/cudnn/log/%s_%d.hyper'%(exp_name, id), 'w')
             writeExp(fout, net, norder, ptHyper, bpHyper, horder)
+            id += 1
 
-
+makeExp('test', 1e7)
 
 
 

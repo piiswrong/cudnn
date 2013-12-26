@@ -3,7 +3,7 @@
 #include <DData.cuh>
 
 int main(int argc, char **argv) {
-    std::string path = "~/cudnn/log/";
+    std::string path = "/homes/grail/jxie/cudnn/log/";
 //    feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
 #ifdef USE_MPI 
     MPI_Init(&argc, &argv);
@@ -16,6 +16,8 @@ int main(int argc, char **argv) {
         flog = fopen((path+argv[1]+".log").c_str(), "w");
         param_out = fopen((path+argv[1]+".param").c_str(), "w");
         fin = fopen((path+argv[1]+".hyper").c_str(), "r");
+        printf("%s\n", (path+argv[1]+".hyper").c_str());
+        if (fin == NULL) exit(-1);
     }
 
     cublasHandle_t handle = 0; 
@@ -24,6 +26,7 @@ int main(int argc, char **argv) {
     int num_layers = 20;
     int hidden_dim = 647;
     char unit[255];
+    strcpy(unit, "Logistic");
     double pt_epochs = 0.2;
     DHyperParams _bp_hyper_params, _pt_hyper_params;
     //_bp_hyper_params.batch_size = 10;

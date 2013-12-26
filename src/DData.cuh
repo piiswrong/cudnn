@@ -383,8 +383,8 @@ public:
         : DBinaryData<T, double, double, OpNop<double>, OpNop<double> >(OpNop<double>(), OpNop<double>(), 351, 150, true, false, buff_dim, false, testing, handle) {
         std::string xpath, ypath;
         if (path[path.length()-1] != '/') path.append("/");
-        xpath = path+"trainData.bin";
-        ypath = path+"trainLabels.bin";
+        xpath = path+"trainData_updatedBootModel.bin";
+        ypath = path+"trainLabel_updatedBootModel.bin";
         int soffset = 0;
         int eoffset = 1373108;
         DBinaryData<T, double, double, OpNop<double>, OpNop<double> >::open(xpath.c_str(), ypath.c_str(), 0, 0, soffset, eoffset);
