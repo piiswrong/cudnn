@@ -3,6 +3,7 @@
 #include <DData.cuh>
 
 int main(int argc, char **argv) {
+    std::string path = "~/cudnn/log/";
 //    feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
 #ifdef USE_MPI 
     MPI_Init(&argc, &argv);
@@ -10,23 +11,20 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_world_rank);
 #endif
     FILE *param_out = NULL;
+    FILE *fin = NULL;
     if (argc >= 2) {
-        std::string path = "../log/";
-        path = path + argv[1];
-        flog = fopen((path+".log").c_str(), "w");
-        param_out = fopen((path+".param").c_str(), "w");
+        flog = fopen((path+argv[1]+".log").c_str(), "w");
+        param_out = fopen((path+argv[1]+".param").c_str(), "w");
+        fin = fopen((path+argv[1]+".hyper").c_str(), "r");
     }
 
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 10;
-    int input_dim = 351, output_dim = 150;
-    int ptEpochs = 1;
-    int *layer_dims = new int[num_layers+1];
-    layer_dims[0] = input_dim;
-    layer_dims[num_layers] = output_dim;
-    for (int i = 1; i < num_layers; i++) layer_dims[i] = 511;
+    int num_layers = 20;
+    int hidden_dim = 647;
+    char unit[255];
+    double pt_epochs = 0.2;
     DHyperParams _bp_hyper_params, _pt_hyper_params;
     //_bp_hyper_params.batch_size = 10;
     _pt_hyper_params.idrop_out = true;
@@ -46,9 +44,38 @@ int main(int argc, char **argv) {
     _bp_hyper_params.decay_rate = 0.001;
 #endif
 
-    //_bp_hyper_params.sparseInit = true;
+    int bp_epochs = 200;
+    if (fin != NULL) {
+        READ_PARAM(num_layers);
+        READ_PARAM(hidden_dim);
+        fscanf(fin, "neuron=%s\n", unit);
+        READ_PARAM(pt_epochs);
+        READ_PARAM(bp_epochs);
+        _pt_hyper_params.load(fin);
+        _bp_hyper_params.load(fin);
+    }
+
+
+    int input_dim = 351, output_dim = 150;
+    int *layer_dims = new int[num_layers+1];
+    layer_dims[0] = input_dim;
+    layer_dims[num_layers] = output_dim;
+    for (int i = 1; i < num_layers; i++) layer_dims[i] = hidden_dim;
+
     DNeuron<float> **neuron = new DNeuron<float>*[num_layers];
-    for (int i = 0; i < num_layers-1; i++) neuron[i] = new DOddrootNeuron<float>(handle);
+    for (int i = 0; i < num_layers-1; i++) {
+        std::string str_unit(unit);
+        if (str_unit == "Logistic") {
+            neuron[i] = new DLogisticNeuron<float>(handle);
+        }else if (str_unit == "Oddroot") {
+            neuron[i] = new DOddrootNeuron<float>(handle);
+        }else if (str_unit == "ReLU") {
+            neuron[i] = new DReLUNeuron<float>(handle);
+        }else {
+            printf("ERROR: \"%s\" is not a supported neuron type\n", unit);
+            exit(-1);
+        }
+    }
     neuron[num_layers-1] = new DSoftmaxNeuron<float>(_bp_hyper_params.batch_size, handle);
     
     DNN<float> *dnn = new DNN<float>(num_layers, layer_dims, neuron, _pt_hyper_params, _bp_hyper_params, handle);
@@ -62,9 +89,9 @@ int main(int argc, char **argv) {
 #else
     //DMnistData<float> *data = new DMnistData<float>("../data", DData<float>::Train, 50000, false, dnn->handle());
     //DData<float> *data = new DDummyData<float>(10,  handle);
-    DTimitData<float> *data = new DTimitData<float>("../data", 1000, false, dnn->handle());
-    dnn->pretrain(data, ptEpochs);
-    dnn->fineTune(data, 200);
+    DTimitData<float> *data = new DTimitData<float>("/scratch/cudnn/data/", 10000, false, dnn->handle());
+    dnn->pretrain(data, pt_epochs);
+    dnn->fineTune(data, bp_epochs);
 #endif
     if (param_out != NULL) {
         dnn->save(param_out);

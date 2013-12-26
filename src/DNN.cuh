@@ -21,7 +21,6 @@ class DNN {
     curandState *_state;
     bool _scaled_weight;
 
-    DMatrix<T> *_x;
 public:
     DNN(int num_layers, int *layer_dims, DNeuron<T> **neurons, 
         DHyperParams& pt_hyper_params, DHyperParams& bp_hyper_params,
@@ -205,13 +204,14 @@ public:
         return loss/iperEpoch;
     }
 
-    void pretrain(DData<T>* data, int epochs_per_layer) {
+    void pretrain(DData<T>* data, double epochs_per_layer) {
         DMatrix<T> *x, *y;
         DHyperParams dummy_param(_pt_hyper_params);
         dummy_param.idrop_out = dummy_param.hdrop_out = false;
         dummy_param.idrop_rate = dummy_param.hdrop_rate = false;
         data->start();
         int iperEpoch = data->instancesPerEpoch();
+        int instances_per_layer = iperEpoch * epochs_per_layer;
         for( int layer = 1 ; layer < _num_layers; layer++) {
             printf("Pretraining layer %d of %d\n", layer, _num_layers);
             int nEpoch = 1;
@@ -223,10 +223,9 @@ public:
             for (int i = 0; i <= layer; i++) layers[i] = _layers[i];
             layers[layer+1] = new DLayer<T>(_layer_dims[layer+1], _layer_dims[layer], layer + _num_layers, layer>0?layers[layer-1]->neuron():new DNeuron<T>(_handle), 
                                             &_pt_hyper_params, &_bp_hyper_params, _handle);
-            while (nEpoch <= epochs_per_layer) {
+            while (instances_per_layer > nInstance) {
                 CUDA_CALL(cudaThreadSynchronize());
                 data->getData(x, y, _bp_hyper_params.batch_size);
-                _x = x;
                 DMatrix<T> *input = x;
                 curandState *state = _state;
                 if (layer > 0) {
@@ -253,7 +252,8 @@ public:
                 }
                 lastCheck += _bp_hyper_params.batch_size;
                 if (lastCheck >= _pt_hyper_params.check_interval) {
-                    printf("\nEpoch: %d\tInstance: %d\tError: %f\n", nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
+                    printf("\nLayer: %d\t Epoch: %d\tInstance: %d\tError: %f\n", layer, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
+                    LOG(printf("\nLayer: %d\t Epoch: %d\tInstance: %d\tError: %f\n", layer, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck)));
                     lastCheck = 0;
                     error = 0.0;
                 }
@@ -288,6 +288,7 @@ public:
         int starting = time(0);
         
         CUDA_CALL(cudaThreadSynchronize());
+        LOG(fprintf(flog, "Fine Tuning\n"));
         while ( nEpoch <= total_epochs ) {
 #ifdef DOWN_POUR_SGD
             if (mpi_world_rank >= sgd_num_param_server)
@@ -305,10 +306,8 @@ public:
             }
             lastCheck += _bp_hyper_params.batch_size;
             if (lastCheck >= _bp_hyper_params.check_interval) {
-                _layers[_num_layers-1]->weight()->samplePrint();
                 _layers[_num_layers-1]->act()->samplePrint();
                 y->samplePrint();
-                x->samplePrint();
 #ifdef ADMM
                 printf("\nNode%d\tEpoch: %d\tInstance: %d\tError: %f\n", mpi_world_rank, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
 #elif defined(DOWN_POUR_SGD)
