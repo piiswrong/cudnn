@@ -34,8 +34,8 @@ def makeHyper():
              'decay_rate':1e-6,
              'idrop_out':0,
              'idrop_rate':0.2,
-             'hdrop_out':0,
-             'hdrop_rate':0.5,
+             'hdrop_out':1,
+             'hdrop_rate':0.2,
              'batch_size':128,
              'check_interval':10000,
              }, ['learning_rate',
@@ -55,8 +55,8 @@ def makeHyper():
 def makeNet():
     return { 'num_layers':5,
              'hidden_dim':2000,
-             'neuron':'Logistic',
-             'pt_epochs':0.2,
+             'neuron':'ReLU',
+             'pt_epochs':0.0,
              'bp_epochs':200
             }, ['num_layers',
              'hidden_dim',
@@ -78,17 +78,20 @@ def makeExp(exp_name, ntotal_param):
     ptHyper, horder = makeHyper()
     bpHyper, horder = makeHyper()
     id = 0
-    for i in xrange(10, 20, 2):
-        for rate in [0.0001, 0.001]:
+    i = 8
+    for i in xrange(5, 20, 3):
+        for rate in [0.1, 0.01]:
             net['num_layers'] = i
             t = (-501+math.sqrt((501.0+i)**2+4.0*(i-2)*ntotal_param))/(2.0*(i-2))
             net['hidden_dim'] = int((t+8)/16)*16 - 1
+
+            bpHyper['learning_rate'] = rate
             
-            fout = open('/homes/grail/jxie/cudnn/log/%s_%d.hyper'%(exp_name, id), 'w')
+            fout = open('/projects/grail/jxie/cudnn/log/%s_%d.hyper'%(exp_name, id), 'w')
             writeExp(fout, net, norder, ptHyper, bpHyper, horder)
             id += 1
 
-makeExp('test', 1e7)
+makeExp('ReLU', 1e7)
 
 
 

@@ -32,6 +32,8 @@ protected:
     pthread_cond_t _cond_get;
     pthread_cond_t _cond_gen;
     pthread_mutex_t _mutex;
+
+    int _devId;
     
     volatile bool _cancel_flag;
 
@@ -60,6 +62,7 @@ public:
         _handle = handle;
         _testing = testing;
         if (_handle) {
+            _devId = 0;
             _on_device = true;
             _streams = new cudaStream_t[num_buffs];
             for (int i = 0; i < num_buffs; i++) CUDA_CALL(cudaStreamCreate(_streams+i));
@@ -103,6 +106,7 @@ public:
 
     int x_dim() { return _x_dim; }
     int y_dim() { return _y_dim; }
+    void set_devId(int id) { _devId = id; }
 
     virtual void start() {
         if (!_started) {
@@ -143,6 +147,7 @@ public:
     void generateData() {
         T *x=0;
         T *y=0;
+        CUDA_CALL(cudaSetDevice(_devId));
         for (int c = 0; !_cancel_flag; c = (c+1)%_num_buffs) {
             pthread_mutex_lock(&_mutex);
             while (_ready[c]) {
@@ -170,8 +175,8 @@ public:
             delete x;
             delete y;
             if (_on_device) {
-                _x_buffs[c]->host2devAsync(_streams[c]);
-                _y_buffs[c]->host2devAsync(_streams[c]);
+                _x_buffs[c]->host2dev();//Async(_streams[c]);
+                _y_buffs[c]->host2dev();//Async(_streams[c]);
             }
             CUDA_CALL(cudaStreamSynchronize(_streams[c]));
             assert(_x_buffs[c]->isSane(1e5));
@@ -383,8 +388,8 @@ public:
         : DBinaryData<T, double, double, OpNop<double>, OpNop<double> >(OpNop<double>(), OpNop<double>(), 351, 150, true, false, buff_dim, false, testing, handle) {
         std::string xpath, ypath;
         if (path[path.length()-1] != '/') path.append("/");
-        xpath = path+"trainData_updatedBootModel.bin";
-        ypath = path+"trainLabel_updatedBootModel.bin";
+        xpath = path+"trainData.bin";
+        ypath = path+"trainLabel.bin";
         int soffset = 0;
         int eoffset = 1373108;
         DBinaryData<T, double, double, OpNop<double>, OpNop<double> >::open(xpath.c_str(), ypath.c_str(), 0, 0, soffset, eoffset);

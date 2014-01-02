@@ -52,6 +52,7 @@ public:
         _nelem = _ld*_fd;
         _size = _nelem*sizeof(T);
         _host_data = (T*)malloc(_size);
+        //CUDA_CALL(cudaHostAlloc((void**)&_host_data, _size, cudaHostAllocPortable));
         _handle = handle;
         if (_handle) { 
             _on_device = true;

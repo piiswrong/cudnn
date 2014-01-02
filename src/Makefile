@@ -5,7 +5,7 @@ FLAGS = -O3 -DNDEBUG --use_fast_math
 SUFIX = cu 
 #CC = gcc -pthread -std=c++0x
 CC = nvcc --compiler-options="-pthread" 
-LIBS = -lcudart -lcublas
+LIBS = -lcudart -lcublas -lnvidia-ml
 LIBS += -L/opt/intel/mkl/lib/intel64 
 LIBS += -L/opt/intel/lib/intel64 
 LIBS += -L/usr/nikola/pkgs/intel/.2011.2.137/mkl/lib/intel64

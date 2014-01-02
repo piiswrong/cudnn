@@ -212,7 +212,7 @@ public:
         data->start();
         int iperEpoch = data->instancesPerEpoch();
         int instances_per_layer = iperEpoch * epochs_per_layer;
-        for( int layer = 1 ; layer < _num_layers; layer++) {
+        for( int layer = 0 ; layer < _num_layers; layer++) {
             printf("Pretraining layer %d of %d\n", layer, _num_layers);
             int nEpoch = 1;
             int nInstance = 0;
@@ -252,8 +252,10 @@ public:
                 }
                 lastCheck += _bp_hyper_params.batch_size;
                 if (lastCheck >= _pt_hyper_params.check_interval) {
+                    tmp->samplePrint("input");
+                    layers[layer+1]->act()->samplePrint("output");
                     printf("\nLayer: %d\t Epoch: %d\tInstance: %d\tError: %f\n", layer, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
-                    LOG(printf("\nLayer: %d\t Epoch: %d\tInstance: %d\tError: %f\n", layer, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck)));
+                    LOG(fprintf(flog, "\nLayer: %d\t Epoch: %d\tInstance: %d\tError: %f\n", layer, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck)));
                     lastCheck = 0;
                     error = 0.0;
                 }
@@ -308,6 +310,7 @@ public:
             if (lastCheck >= _bp_hyper_params.check_interval) {
                 _layers[_num_layers-1]->act()->samplePrint();
                 y->samplePrint();
+                _layers[0]->weight()->samplePrint();
 #ifdef ADMM
                 printf("\nNode%d\tEpoch: %d\tInstance: %d\tError: %f\n", mpi_world_rank, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
 #elif defined(DOWN_POUR_SGD)

@@ -2,19 +2,86 @@
 #include <DNN.cuh>
 #include <DData.cuh>
 
+#include <nvml_old.h>
+#include <sstream>
+
+template<class T>
+void fineTuneWithCheckpoint(DNN<T> *dnn, DData<T> *data, int ntotal, int ninterval, std::string path) {
+    for (int i = 0; i < ntotal; i += ninterval) {
+        if (i + ninterval <= ntotal) 
+            dnn->fineTune(data, ninterval);
+        else 
+            dnn->fineTune(data, ntotal - i);
+        std::stringstream ss;
+        ss << i;
+        FILE *fout = fopen((path+"_"+ss.str()+".param").c_str(), "w");
+        dnn->save(fout);
+        fclose(fout);
+    }
+}
+
 int main(int argc, char **argv) {
-    std::string path = "/homes/grail/jxie/cudnn/log/";
+    std::string path = "/projects/grail/jxie/cudnn/log/";
 //    feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
 #ifdef USE_MPI 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_world_rank);
 #endif
+
+    nvmlReturn_t ret;
+    unsigned int deviceCount;
+
+    if ((ret = nvmlInit()) != NVML_SUCCESS)
+    {
+        printf("Could not init NVML: %s\n", nvmlErrorString(ret));
+        return 1;
+    }
+
+    if ((ret = nvmlDeviceGetCount(&deviceCount)) != NVML_SUCCESS)
+    {
+        printf("Could not get device count: %s\n", nvmlErrorString(ret));
+        nvmlShutdown();
+        return 1;
+    }
+    printf("Device count: %d\n", deviceCount);
+
+    int devId = -1;
+    for (int i = 0; i < deviceCount; i++) {
+        nvmlDevice_t device;
+        if ((ret = nvmlDeviceGetHandleByIndex(i, &device)) != NVML_SUCCESS)
+        {
+            printf("Skip %d, can not get index\n", i);
+            continue;
+        }
+        nvmlUtilization_t util;
+        if ((ret = nvmlDeviceGetUtilizationRates(device, &util)) != NVML_SUCCESS)
+        {
+            printf("Can not get util rate on %d\n", i);
+        }else {
+            if (util.gpu < 5) 
+            {
+                devId = i;
+                break;
+            }
+        }
+    }
+
+    if (devId != -1)
+    {
+        printf("Selecting device %d\n", devId);
+        CUDA_CALL(cudaSetDevice(devId));
+    }else {
+        printf("Can not find idle device\n");
+        exit(-1);
+    }
+                                        
+
+
     FILE *param_out = NULL;
     FILE *fin = NULL;
     if (argc >= 2) {
         flog = fopen((path+argv[1]+".log").c_str(), "w");
-        param_out = fopen((path+argv[1]+".param").c_str(), "w");
         fin = fopen((path+argv[1]+".hyper").c_str(), "r");
         printf("%s\n", (path+argv[1]+".hyper").c_str());
         if (fin == NULL) exit(-1);
@@ -84,22 +151,27 @@ int main(int argc, char **argv) {
     DNN<float> *dnn = new DNN<float>(num_layers, layer_dims, neuron, _pt_hyper_params, _bp_hyper_params, handle);
 #ifdef ADMM
     DParallelMnistData<float> *data = new DParallelMnistData<float>("../data", mpi_world_size, mpi_world_rank, _bp_hyper_params.batch_size, dnn->handle());
+    data->set_devId(devId);
     dnn->admmFineTune(data, 500);
 #elif defined(DOWN_POUR_SGD)
     DParallelMnistData<float> *data = new DParallelMnistData<float>("../data", mpi_world_size - sgd_num_param_server, mpi_world_rank - sgd_num_param_server, _bp_hyper_params.batch_size, dnn->handle());
+    data->set_devId(devId);
     dnn->fineTune(data, 500);
 
 #else
     //DMnistData<float> *data = new DMnistData<float>("../data", DData<float>::Train, 50000, false, dnn->handle());
     //DData<float> *data = new DDummyData<float>(10,  handle);
-    DTimitData<float> *data = new DTimitData<float>("/scratch/cudnn/data/", 10000, false, dnn->handle());
-    dnn->pretrain(data, pt_epochs);
-    dnn->fineTune(data, bp_epochs);
+    DTimitData<float> *data = new DTimitData<float>("/scratch/jxie/", 10000, false, dnn->handle());
+    data->set_devId(devId);
+    if (pt_epochs > 0) dnn->pretrain(data, pt_epochs);
+    //dnn->fineTune(data, bp_epochs);
+    fineTuneWithCheckpoint(dnn, data, bp_epochs, 10, path+argv[1]);
 #endif
     if (param_out != NULL) {
         dnn->save(param_out);
     }
     DMnistData<float> *test_data;// = new DMnistData<float>("../data", DData<float>::Test, 10000, false, dnn->handle());
+    //test_data->set_devId(devId);
     //test_data = new DMnistData<float>("../data", DData<float>::Test, 10000, true, dnn->handle());
     //printf("Testing Error:%f\n", dnn->test(test_data));
 

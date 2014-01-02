@@ -3,7 +3,7 @@
 
 #include <common.cuh>
 
-#define READ_PARAM(x) do { float tmp; fscanf(fin, #x "=%f\n", &tmp); x = tmp; printf(#x "=%f\n", (float)x); LOG(printf(#x "=%f\n", (float)x)); }while(false)
+#define READ_PARAM(x) do { float tmp; fscanf(fin, #x "=%f\n", &tmp); x = tmp; printf(#x "=%f\n", (float)x); LOG(fprintf(flog, #x "=%f\n", (float)x)); }while(false)
 
 class DHyperParams {
 public:
