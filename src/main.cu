@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 4;
+    int num_layers = 3;
     int hidden_dim = 2047;
     char unit[255];
     strcpy(unit, "ReLU");
@@ -116,8 +116,9 @@ int main(int argc, char **argv) {
     _pt_hyper_params.learning_rate = 0.01;
 
     _bp_hyper_params.check_interval = 10000;
-    _bp_hyper_params.learning_rate = 0.1;
+    _bp_hyper_params.learning_rate = 1.0;
     _bp_hyper_params.idrop_out = false;
+    _bp_hyper_params.idrop_rate = 0.2;
     _bp_hyper_params.hdrop_out = true;
     _bp_hyper_params.hdrop_rate= 0.2;
     _bp_hyper_params.momentum = 0.5;

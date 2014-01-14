@@ -5,6 +5,8 @@
 #include <common.cuh>
 #include <kernels.cuh>
 
+#include <cmath>
+
 
 template<class T> 
 class DMatrix {
@@ -37,7 +39,7 @@ public:
         None = 0,
         Zero = 1,
         Uniform = 2,
-        //Normal = 4,
+        Normal = 4,
         ColSparse = 1+8,
         RowSparse = 1 + 16,
         Weight = 1+32,
@@ -156,11 +158,12 @@ public:
 			for (int i = 0; i < _nelem; i++) 
                 _host_data[i] = ((T)rand())/RAND_MAX*(b-a) + a;
 		}
-		/*if (p&_Normal) {
-            DRand dist(a, b);
-			for (int i = 0; i < _nelem; i++) 
-                _host_data[i] = dist.normal();
-		}*/
+		if (p&_Normal) {
+			for (int i = 0; i < _nelem; i++) {
+                float u = rand()/(float)RAND_MAX, v = rand()/(float)RAND_MAX;
+                _host_data[i] = b*std::sqrt(-2.0*std::log(u))*std::cos(2.0*3.14159265359*v)+a;
+            }
+		}
 		if (p&_ColSparse) {
 			for (int col = 0; col < _fd; col++) {
                 int n1 = SPARSE_DEGREE, n2 = _ld - SPARSE_DEGREE;
@@ -191,6 +194,7 @@ public:
 		}
         if (p&_Weight) {
             for (int i = _nelem - _ld; i < _nelem; i++) _host_data[i] = 0.0;
+            for (int i = _ld-1; i < _nelem; i+=_ld) _host_data[i] = 0.0;
             _host_data[_nelem-1] = 1.0;
         }
         host2dev();

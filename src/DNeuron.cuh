@@ -81,7 +81,7 @@ public:
     class BackwardOp {
     public:
         HOSTDEVICE T operator() (T delta, T drv, T act) {
-            return delta*(drv > (T)0.0);
+            return delta*(act > (T)0.0);
         }
     };
 

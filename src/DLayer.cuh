@@ -9,6 +9,7 @@
 #include <kernels.cuh>
 
 
+
 template<class T>
 class DLayer {
     bool _on_device;
@@ -53,7 +54,7 @@ public:
 //        if (_bp_hyper_params->sparseInit) {
 //            _weight->init(DMatrix<T>::Weight|DMatrix<T>::Uniform|DMatrix<T>::ColSparse, -1.0/sqrt((T)_weight->ld()), 1.0/sqrt((T)_weight->ld()));
 //        }else {
-            _weight->init(DMatrix<T>::Weight|DMatrix<T>::Uniform, -1.0/sqrt((T)_weight->ld()), 1.0/sqrt((T)_weight->ld()));
+            _weight->init(DMatrix<T>::Weight|DMatrix<T>::Normal, 0, 0.01);
 //        }
         _drv = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _drv->init(DMatrix<T>::Zero);

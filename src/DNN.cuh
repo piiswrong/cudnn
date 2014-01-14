@@ -113,8 +113,8 @@ public:
             //layers[0]->act()->samplePrint("0");
             for (int i = 1; i < num_layers; i++) {
                 layers[i]->fprop(layers[i-1]->act(), (i < num_layers - 1) && params->hdrop_out, params->hdrop_rate);
-                char buf[256];
-                sprintf(buf, "%d", i);
+                //char buf[256];
+                //sprintf(buf, "%d", i);
                 //layers[i]->act()->samplePrint(buf);
             }
 #ifdef DOWN_POUR_SGD
@@ -133,8 +133,8 @@ public:
                             (i < num_layers-1) && params->hdrop_out, params->weight_decay, params->decay_rate);
             d = layers[i]->delta();
             //assert(layers[i]->weight()->isSane(1));
-            char buf[256];
-            sprintf(buf, "%d", i);
+            //char buf[256];
+            //sprintf(buf, "%d", i);
             //layers[i]->weight()->samplePrint(buf);
             //d->samplePrint("d");
         }
@@ -346,8 +346,7 @@ public:
             //_layers[5]->weight()->samplePrint();
             if (lastCheck >= _bp_hyper_params.check_interval) {
                 _layers[_num_layers-1]->act()->samplePrint();
-                y->samplePrint();
-                x->samplePrint();
+                _layers[_num_layers-2]->act()->samplePrint();
                 _layers[0]->weight()->samplePrint();
 #ifdef ADMM
                 printf("\nNode%d\tEpoch: %d\tInstance: %d\tError: %f\n", mpi_world_rank, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));

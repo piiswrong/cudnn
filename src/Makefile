@@ -38,6 +38,7 @@ main: common.o kernels.o main.o
 common.o: common.cuh common.$(SUFIX)
 	$(CC) $(FLAGS) $(INCLUDE) -c common.$(SUFIX)
 
+
 kernels.o: kernels.cuh kernels.$(SUFIX)
 	$(CC) $(FLAGS) $(INCLUDE) -c kernels.$(SUFIX)
 
