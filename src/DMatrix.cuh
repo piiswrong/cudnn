@@ -98,13 +98,17 @@ public:
     void samplePrint(const char * title = NULL) {
         dev2host();
         if (title != NULL) printf("%s\n", title);
-        for (int i = 0; i < 10 && i < nrows(); i++) {
-            for (int j = 0; j < 10 && j < ncols(); j++) {
-                printf("%+0.3f ", getElem(i,j));
+        T max = getElem(0,0), min = getElem(0,0);
+        for (int i = 0; i < nrows(); i++) {
+            for (int j = 0; j < ncols(); j++) {
+                T t = getElem(i,j);
+                if( i < 10 && j < 10)printf("%+0.3f ", (float)t);
+                if (t > max) max = t;
+                if (t < min) min = t;
             }
-            printf("\n");
+            if( i < 10 )printf("\n");
         }
-        printf("\n");
+        printf("max=%f, min = %f\n", (float)max, (float)min);
     }
 
     bool isSane(T limit = -1) {
@@ -118,7 +122,7 @@ public:
         }else {
             for (int i = 0; i < nrows(); i++)
                 for (int j = 0; j < ncols(); j++)
-                    if (abs(getElem(i,j)) > limit)
+                    if (std::abs(getElem(i,j)) > limit)
                         return false;
             return true;
         }

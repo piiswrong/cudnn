@@ -23,6 +23,8 @@ fout.write('batch_size=' + str(128) + '\n')
 fout.write('check_interval=' + str(10000) + '\n')
 """
 
+log_path = '/projects/grail/jxie/cudnn/log/'
+
 
 def makeHyper():
     return { 'learning_rate':0.1,
@@ -55,9 +57,9 @@ def makeHyper():
 def makeNet():
     return { 'num_layers':5,
              'hidden_dim':2000,
-             'neuron':'ReLU',
+             'neuron':'Oddroot',
              'pt_epochs':0.0,
-             'bp_epochs':200
+             'bp_epochs':300
             }, ['num_layers',
              'hidden_dim',
              'neuron',
@@ -80,26 +82,74 @@ def makeExp(exp_name, ntotal_param):
     id = 0
     i = 8
     for i in xrange(5, 20, 3):
-        for rate in [0.1, 0.01]:
+        for rate in [0.05, 0.005, 0.001]:
             net['num_layers'] = i
             t = (-501+math.sqrt((501.0+i)**2+4.0*(i-2)*ntotal_param))/(2.0*(i-2))
             net['hidden_dim'] = int((t+8)/16)*16 - 1
 
             bpHyper['learning_rate'] = rate
             
-            fout = open('/projects/grail/jxie/cudnn/log/%s_%d.hyper'%(exp_name, id), 'w')
+            fout = open('%s%s_%d.hyper'%(log_path,exp_name, id), 'w')
             writeExp(fout, net, norder, ptHyper, bpHyper, horder)
             id += 1
 
-makeExp('ReLU', 1e7)
+
+def makeReport(exp_name, exps):
+    nnet = len(makeNet()[0])
+    nhyper = len(makeHyper()[0])
+    params = []
+    for exp in exps:
+        fin = open('%s%s_%d.hyper'%(log_path, exp_name, exp))
+        params.append(fin.readlines())
+        fin.close()
+    diff = []
+    for i in xrange(nnet+2*nhyper):
+        for param in params[1:]:
+            if param[i] != params[0][i]:
+                diff.append(i)
+                break
+
+    print 'Global hyper-parameters:'
+    for i in xrange(0,nnet):
+        if not i in diff:
+            print params[0][i].strip()
+
+    print '\npre-training hyper-parameters:'
+    for i in xrange(nnet,nnet+nhyper):
+        if not i in diff:
+            print params[0][i].strip()
+            
+    print '\nfine tuning hyper-parameters:'
+    for i in xrange(nnet+nhyper, nnet+2*nhyper):
+        if not i in diff:
+            print params[0][i].strip()
 
 
 
 
+    for i in diff:
+        s = params[0][i].strip().split('=')[0]
+        if i >= nnet and i < nnet+nhyper:
+            s = 'pt_'+s
+        print s+'\t',
+    print '\n'
+    for exp,param in zip(exps, params):
+        for i in diff:
+            v = param[i].strip().split('=')[1]
+            print str(v)+'\t',
+        fin = open('%s%s_%d.acc'%(log_path, exp_name, exp))
+        lines = [ (int(l.strip().split(' ')[0]),float(l.strip().split(' ')[1])) for l in fin ]
+        fin.close()
+        maxacc = 0.0
+        for e,acc in sorted(lines, key=lambda x: x[0]):
+            if acc > maxacc:
+                maxacc = acc
+            print '%.2f'%acc + '\t',
+        print '%.2f'%maxacc+'\n'
 
-
-
-
+        
+makeReport('oddroot', [0,2,4,6,8])
+#makeExp('oddroot3', 1e7)
 
 
 

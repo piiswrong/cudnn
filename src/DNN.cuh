@@ -75,6 +75,29 @@ public:
         }
     }
 
+    void load(FILE *fin) {
+        int tmp;
+        fscanf(fin, "%d", &tmp);
+        if (tmp != _num_layers) {
+            printf("Error loading: # of layers doesn't match!\n");
+            exit(-1);
+        }
+        for (int i = 0; i < _num_layers; i++) {
+            fscanf(fin, "%*d\ng%*d");
+            DMatrix<T> *x = _layers[i]->weight();
+            fscanf(fin, "%*d %*d");
+            for (int j = 0; j < x->ncols() - 1; j++) {
+                for (int k = 0; k < x->nrows(); k++) {
+                    double t;
+                    fscanf(fin, "%lf", &t);
+                    x->getElem(k, j) = (T)t;
+                }
+            }
+            x->host2dev();
+        }
+        _scaled_weight = true;
+    }
+
     T trainOnBatch(DMatrix<T>* x, DMatrix<T>* y) {
         fprop(x, _num_layers, _layers, &_bp_hyper_params, _state);
         return bprop(x, y, _num_layers, _layers, &_bp_hyper_params);
@@ -86,8 +109,13 @@ public:
 #endif
             if (params->idrop_out) hDropout<T>(x, NULL, state, params->idrop_rate, x->getT(), x->nrows(), x->ncols() - 1, x->ld());
             layers[0]->fprop(x, (num_layers > 1) && params->hdrop_out, params->hdrop_rate);
+            //x->samplePrint("x");
+            //layers[0]->act()->samplePrint("0");
             for (int i = 1; i < num_layers; i++) {
                 layers[i]->fprop(layers[i-1]->act(), (i < num_layers - 1) && params->hdrop_out, params->hdrop_rate);
+                char buf[256];
+                sprintf(buf, "%d", i);
+                //layers[i]->act()->samplePrint(buf);
             }
 #ifdef DOWN_POUR_SGD
         }
@@ -104,6 +132,11 @@ public:
             layers[i]->bprop(d, layers[i-1]->act(), params->learning_rate, params->momentum,
                             (i < num_layers-1) && params->hdrop_out, params->weight_decay, params->decay_rate);
             d = layers[i]->delta();
+            //assert(layers[i]->weight()->isSane(1));
+            char buf[256];
+            sprintf(buf, "%d", i);
+            //layers[i]->weight()->samplePrint(buf);
+            //d->samplePrint("d");
         }
         layers[0]->bprop(d, x, params->learning_rate, params->momentum,
                             (num_layers>1) && params->hdrop_out, params->weight_decay, params->decay_rate);
@@ -307,9 +340,14 @@ public:
                     _bp_hyper_params.momentum = _bp_hyper_params.max_momentum;
             }
             lastCheck += _bp_hyper_params.batch_size;
+            //printf("%d\n", nInstance);
+            //_layers[_num_layers-1]->act()->samplePrint();
+            //_layers[0]->weight()->samplePrint();
+            //_layers[5]->weight()->samplePrint();
             if (lastCheck >= _bp_hyper_params.check_interval) {
                 _layers[_num_layers-1]->act()->samplePrint();
                 y->samplePrint();
+                x->samplePrint();
                 _layers[0]->weight()->samplePrint();
 #ifdef ADMM
                 printf("\nNode%d\tEpoch: %d\tInstance: %d\tError: %f\n", mpi_world_rank, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));

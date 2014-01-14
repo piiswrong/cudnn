@@ -6,6 +6,7 @@
 #include <cstring>
 #include <string>
 #include <algorithm>
+#include <cmath>
 #include <assert.h>
 
 #include <mkl.h>

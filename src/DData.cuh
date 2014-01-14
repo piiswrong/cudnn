@@ -328,7 +328,7 @@ public:
         for (int i = 0; i < fd; i++) {
             for (int j = 0; j < ld; j++) {
                 x[i*(ld+_xappendone)+j] = _xop(_tx[i*ld+j], _tx[i*ld+j]);
-                assert(abs(x[i*(ld+_xappendone)+j]) < 1e6);
+                assert(std::abs(x[i*(ld+_xappendone)+j]) < 1e6);
             }
             if (_xappendone)
                 x[i*(ld+1)+ld] = 1;

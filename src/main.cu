@@ -6,14 +6,14 @@
 #include <sstream>
 
 template<class T>
-void fineTuneWithCheckpoint(DNN<T> *dnn, DData<T> *data, int ntotal, int ninterval, std::string path) {
+void fineTuneWithCheckpoint(DNN<T> *dnn, DData<T> *data, int ntotal, int ninterval, std::string path, int resuming) {
     for (int i = 0; i < ntotal; i += ninterval) {
         if (i + ninterval <= ntotal) 
             dnn->fineTune(data, ninterval);
         else 
             dnn->fineTune(data, ntotal - i);
         std::stringstream ss;
-        ss << i;
+        ss << i+resuming;
         FILE *fout = fopen((path+"_"+ss.str()+".param").c_str(), "w");
         dnn->save(fout);
         fclose(fout);
@@ -22,13 +22,14 @@ void fineTuneWithCheckpoint(DNN<T> *dnn, DData<T> *data, int ntotal, int ninterv
 
 int main(int argc, char **argv) {
     std::string path = "/projects/grail/jxie/cudnn/log/";
-//    feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
+    //feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
 #ifdef USE_MPI 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_world_rank);
 #endif
 
+#ifndef DISABLE_GPU
     nvmlReturn_t ret;
     unsigned int deviceCount;
 
@@ -75,31 +76,44 @@ int main(int argc, char **argv) {
         printf("Can not find idle device\n");
         exit(-1);
     }
-                                        
+#endif
 
 
-    FILE *param_out = NULL;
     FILE *fin = NULL;
+    char * exp_name = NULL;
+    int resuming = 0;
+    for (int i = 1; i < argc; i++) {
+        if (argv[i][0] == '-') {
+            switch (argv[i][1]) {
+            case 'r': resuming = atoi(argv[i+1]); ++i; break;
+            default: printf("Invalid command line argument \'%c\'!\n", argv[i][1]); break;
+            }
+        }else {
+            exp_name = argv[i];
+        }
+    }
     if (argc >= 2) {
-        flog = fopen((path+argv[1]+".log").c_str(), "w");
-        fin = fopen((path+argv[1]+".hyper").c_str(), "r");
-        printf("%s\n", (path+argv[1]+".hyper").c_str());
+        flog = fopen((path+exp_name+".log").c_str(), "w");
+        fin = fopen((path+exp_name+".hyper").c_str(), "r");
+        printf("Using configuration file %s\n", (path+exp_name+".hyper").c_str());
         if (fin == NULL) exit(-1);
     }
 
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 20;
-    int hidden_dim = 647;
+    int num_layers = 4;
+    int hidden_dim = 2047;
     char unit[255];
-    strcpy(unit, "Logistic");
-    double pt_epochs = 0.2;
+    strcpy(unit, "ReLU");
+    float pt_epochs = 0.0;
     DHyperParams _bp_hyper_params, _pt_hyper_params;
-    //_bp_hyper_params.batch_size = 10;
-    _pt_hyper_params.idrop_out = true;
+    _pt_hyper_params.idrop_out = false;
     _pt_hyper_params.idrop_rate = 0.5;
-    _pt_hyper_params.learning_rate = 0.0001;
+    _pt_hyper_params.hdrop_out = false;
+    _pt_hyper_params.weight_decay = 0.0;
+    _pt_hyper_params.momentum = 0.90;
+    _pt_hyper_params.learning_rate = 0.01;
 
     _bp_hyper_params.check_interval = 10000;
     _bp_hyper_params.learning_rate = 0.1;
@@ -127,6 +141,7 @@ int main(int argc, char **argv) {
 
 
     int input_dim = 351, output_dim = 150;
+    //input_dim = 28*28, output_dim = 10;
     int *layer_dims = new int[num_layers+1];
     layer_dims[0] = input_dim;
     layer_dims[num_layers] = output_dim;
@@ -138,6 +153,7 @@ int main(int argc, char **argv) {
         if (str_unit == "Logistic") {
             neuron[i] = new DLogisticNeuron<float>(handle);
         }else if (str_unit == "Oddroot") {
+            printf("using oddroot\n");
             neuron[i] = new DOddrootNeuron<float>(handle);
         }else if (str_unit == "ReLU") {
             neuron[i] = new DReLUNeuron<float>(handle);
@@ -159,18 +175,40 @@ int main(int argc, char **argv) {
     dnn->fineTune(data, 500);
 
 #else
-    //DMnistData<float> *data = new DMnistData<float>("../data", DData<float>::Train, 50000, false, dnn->handle());
+    //DMnistData<float> *data = new DMnistData<float>("/scratch/jxie", DData<float>::Train, 50000, false, dnn->handle());
     //DData<float> *data = new DDummyData<float>(10,  handle);
     DTimitData<float> *data = new DTimitData<float>("/scratch/jxie/", 10000, false, dnn->handle());
+#ifndef DISABLE_GPU
     data->set_devId(devId);
-    if (pt_epochs > 0) dnn->pretrain(data, pt_epochs);
-    //dnn->fineTune(data, bp_epochs);
-    fineTuneWithCheckpoint(dnn, data, bp_epochs, 10, path+argv[1]);
 #endif
-    if (param_out != NULL) {
-        dnn->save(param_out);
+    if (!resuming && pt_epochs > 0) dnn->pretrain(data, pt_epochs);
+    if (resuming) {
+        printf("Resuming from %d-th epoch.\n", resuming);
+        //std::stringstream ss;
+        //ss << resuming - 10;
+        fin = fopen((path+exp_name+".param").c_str(), "r");
+        if (fin == 0) {
+            printf("Error loading: cannot find file %s!\n", (path+exp_name+".param").c_str());
+            exit(-1);
+        }
+        dnn->layers()[0]->weight()->samplePrint();
+        dnn->load(fin);
+        dnn->layers()[0]->weight()->samplePrint();
+        fclose(fin);
+        _bp_hyper_params.learning_rate *= std::pow(_bp_hyper_params.learning_rate_decay, resuming);
     }
-    DMnistData<float> *test_data;// = new DMnistData<float>("../data", DData<float>::Test, 10000, false, dnn->handle());
+    if (argc >= 2)
+        fineTuneWithCheckpoint(dnn, data, bp_epochs, 10, path+exp_name, resuming);
+    else 
+        dnn->fineTune(data, bp_epochs);
+
+#endif
+    if (exp_name != NULL) {
+        FILE *fout = fopen((path+exp_name+".param").c_str(), "w");
+        dnn->save(fout);
+        fclose(fout);
+    }
+    //DMnistData<float> *test_data;// = new DMnistData<float>("../data", DData<float>::Test, 10000, false, dnn->handle());
     //test_data->set_devId(devId);
     //test_data = new DMnistData<float>("../data", DData<float>::Test, 10000, true, dnn->handle());
     //printf("Testing Error:%f\n", dnn->test(test_data));
