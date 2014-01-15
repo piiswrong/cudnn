@@ -65,6 +65,8 @@ matrices:""")
                 break
             last_size = size
             print 'waiting for write to complete'
+
+        print 'processing '+param_name
             
         os.system('cp %s%s %slearned_dmlp'%(log_path, param_name, tut_path))
         os.system('./dmlpvitcommand')
