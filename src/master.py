@@ -59,7 +59,7 @@ def makeNet():
              'hidden_dim':2000,
              'neuron':'Oddroot',
              'pt_epochs':0.0,
-             'bp_epochs':300
+             'bp_epochs':200
             }, ['num_layers',
              'hidden_dim',
              'neuron',
@@ -81,17 +81,21 @@ def makeExp(exp_name, ntotal_param):
     bpHyper, horder = makeHyper()
     id = 0
     i = 8
-    for i in xrange(5, 20, 3):
-        for rate in [0.05, 0.005, 0.001]:
-            net['num_layers'] = i
-            t = (-501+math.sqrt((501.0+i)**2+4.0*(i-2)*ntotal_param))/(2.0*(i-2))
-            net['hidden_dim'] = int((t+8)/16)*16 - 1
+    for i in xrange(11, 20, 3):
+        for rate in [0.1, 0.5]:
+            for drop in [0.00, 0.02, 0.08]:
+                net['num_layers'] = i
+                net['neuron'] = 'ReLU'
+                net['bp_epochs'] = 100
+                t = (-501+math.sqrt((501.0+i)**2+4.0*(i-2)*ntotal_param))/(2.0*(i-2))
+                net['hidden_dim'] = int((t+8)/16)*16 - 1
 
-            bpHyper['learning_rate'] = rate
-            
-            fout = open('%s%s_%d.hyper'%(log_path,exp_name, id), 'w')
-            writeExp(fout, net, norder, ptHyper, bpHyper, horder)
-            id += 1
+                bpHyper['learning_rate'] = rate
+                bpHyper['hdrop_rate'] = drop
+                
+                fout = open('%s%s_%d.hyper'%(log_path,exp_name, id), 'w')
+                writeExp(fout, net, norder, ptHyper, bpHyper, horder)
+                id += 1
 
 
 def makeReport(exp_name, exps):
@@ -141,15 +145,17 @@ def makeReport(exp_name, exps):
         lines = [ (int(l.strip().split(' ')[0]),float(l.strip().split(' ')[1])) for l in fin ]
         fin.close()
         maxacc = 0.0
+        print 'acc per 10 epochs'
         for e,acc in sorted(lines, key=lambda x: x[0]):
             if acc > maxacc:
                 maxacc = acc
             print '%.2f'%acc + '\t',
-        print '%.2f'%maxacc+'\n'
+        print 'max = %.2f'%maxacc+'\n'
 
-        
-makeReport('oddroot', [0,2,4,6,8])
-#makeExp('oddroot3', 1e7)
+#makeReport('oddroot', [0,2,4,6,8])
+#makeReport('ReLU', xrange(0,15))
+makeReport('ReLUdropout', xrange(0,18))
+#makeExp('ReLUdropout', 1e7)
 
 
 

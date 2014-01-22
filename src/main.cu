@@ -29,41 +29,64 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_world_rank);
 #endif
 
-#ifndef DISABLE_GPU
-    nvmlReturn_t ret;
-    unsigned int deviceCount;
-
-    if ((ret = nvmlInit()) != NVML_SUCCESS)
-    {
-        printf("Could not init NVML: %s\n", nvmlErrorString(ret));
-        return 1;
-    }
-
-    if ((ret = nvmlDeviceGetCount(&deviceCount)) != NVML_SUCCESS)
-    {
-        printf("Could not get device count: %s\n", nvmlErrorString(ret));
-        nvmlShutdown();
-        return 1;
-    }
-    printf("Device count: %d\n", deviceCount);
-
+    FILE *fin = NULL;
+    char * exp_name = NULL;
+    int resuming = 0;
     int devId = -1;
-    for (int i = 0; i < deviceCount; i++) {
-        nvmlDevice_t device;
-        if ((ret = nvmlDeviceGetHandleByIndex(i, &device)) != NVML_SUCCESS)
-        {
-            printf("Skip %d, can not get index\n", i);
-            continue;
-        }
-        nvmlUtilization_t util;
-        if ((ret = nvmlDeviceGetUtilizationRates(device, &util)) != NVML_SUCCESS)
-        {
-            printf("Can not get util rate on %d\n", i);
+    for (int i = 1; i < argc; i++) {
+        if (argv[i][0] == '-') {
+            switch (argv[i][1]) {
+            case 'r': resuming = atoi(argv[i+1]); ++i; break;
+            case 'd': devId = atoi(argv[i+1]); i++; break;
+            default: printf("Invalid command line argument \'%c\'!\n", argv[i][1]); exit(-1); break;
+            }
         }else {
-            if (util.gpu < 5) 
+            exp_name = argv[i];
+        }
+    }
+    if (exp_name != NULL) {
+        flog = fopen((path+exp_name+".log").c_str(), "w");
+        fin = fopen((path+exp_name+".hyper").c_str(), "r");
+        printf("Using configuration file %s\n", (path+exp_name+".hyper").c_str());
+        if (fin == NULL) exit(-1);
+    }
+
+#ifndef DISABLE_GPU
+    if (devId == -1) {
+        nvmlReturn_t ret;
+        unsigned int deviceCount;
+
+        if ((ret = nvmlInit()) != NVML_SUCCESS)
+        {
+            printf("Could not init NVML: %s\n", nvmlErrorString(ret));
+            return 1;
+        }
+
+        if ((ret = nvmlDeviceGetCount(&deviceCount)) != NVML_SUCCESS)
+        {
+            printf("Could not get device count: %s\n", nvmlErrorString(ret));
+            nvmlShutdown();
+            return 1;
+        }
+        printf("Device count: %d\n", deviceCount);
+
+        for (int i = 0; i < deviceCount; i++) {
+            nvmlDevice_t device;
+            if ((ret = nvmlDeviceGetHandleByIndex(i, &device)) != NVML_SUCCESS)
             {
-                devId = i;
-                break;
+                printf("Skip %d, can not get index\n", i);
+                continue;
+            }
+            nvmlUtilization_t util;
+            if ((ret = nvmlDeviceGetUtilizationRates(device, &util)) != NVML_SUCCESS)
+            {
+                printf("Can not get util rate on %d\n", i);
+            }else {
+                if (util.gpu < 5) 
+                {
+                    devId = i;
+                    break;
+                }
             }
         }
     }
@@ -79,31 +102,11 @@ int main(int argc, char **argv) {
 #endif
 
 
-    FILE *fin = NULL;
-    char * exp_name = NULL;
-    int resuming = 0;
-    for (int i = 1; i < argc; i++) {
-        if (argv[i][0] == '-') {
-            switch (argv[i][1]) {
-            case 'r': resuming = atoi(argv[i+1]); ++i; break;
-            default: printf("Invalid command line argument \'%c\'!\n", argv[i][1]); break;
-            }
-        }else {
-            exp_name = argv[i];
-        }
-    }
-    if (argc >= 2) {
-        flog = fopen((path+exp_name+".log").c_str(), "w");
-        fin = fopen((path+exp_name+".hyper").c_str(), "r");
-        printf("Using configuration file %s\n", (path+exp_name+".hyper").c_str());
-        if (fin == NULL) exit(-1);
-    }
-
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 3;
-    int hidden_dim = 2047;
+    int num_layers = 11;
+    int hidden_dim = 1023;
     char unit[255];
     strcpy(unit, "ReLU");
     float pt_epochs = 0.0;
@@ -116,11 +119,11 @@ int main(int argc, char **argv) {
     _pt_hyper_params.learning_rate = 0.01;
 
     _bp_hyper_params.check_interval = 10000;
-    _bp_hyper_params.learning_rate = 1.0;
+    _bp_hyper_params.learning_rate = 0.5;
     _bp_hyper_params.idrop_out = false;
     _bp_hyper_params.idrop_rate = 0.2;
     _bp_hyper_params.hdrop_out = true;
-    _bp_hyper_params.hdrop_rate= 0.2;
+    _bp_hyper_params.hdrop_rate= 0.00;
     _bp_hyper_params.momentum = 0.5;
     _bp_hyper_params.max_momentum = 0.90;
     _bp_hyper_params.step_momentum = 0.04;
@@ -198,7 +201,7 @@ int main(int argc, char **argv) {
         fclose(fin);
         _bp_hyper_params.learning_rate *= std::pow(_bp_hyper_params.learning_rate_decay, resuming);
     }
-    if (argc >= 2)
+    if (exp_name != NULL)
         fineTuneWithCheckpoint(dnn, data, bp_epochs, 10, path+exp_name, resuming);
     else 
         dnn->fineTune(data, bp_epochs);

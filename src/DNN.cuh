@@ -348,6 +348,7 @@ public:
                 _layers[_num_layers-1]->act()->samplePrint();
                 _layers[_num_layers-2]->act()->samplePrint();
                 _layers[0]->weight()->samplePrint();
+                x->samplePrint();
 #ifdef ADMM
                 printf("\nNode%d\tEpoch: %d\tInstance: %d\tError: %f\n", mpi_world_rank, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
 #elif defined(DOWN_POUR_SGD)

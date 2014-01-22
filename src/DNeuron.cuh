@@ -189,11 +189,14 @@ class DOddrootNeuron : public DNeuron<T> {
 public:
     class ForwardOp {
     public:
-        
         HOSTDEVICE T operator() (T act, T drv) {
-            return 0;
+            T x = drv, x0 = 0;
+            do {
+                x0 = x;
+                x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
+            }while (abs((x-x0)/x)>1e-6);
+            return x;
         }
-
     };
 
     class BackwardOp {
@@ -214,6 +217,7 @@ public:
 
 };
 
+/*
 template<>
 HOSTDEVICE float DOddrootNeuron<float>::ForwardOp::operator() (float act, float drv) {
 /*    const unsigned int ebits = 8;
@@ -231,7 +235,6 @@ HOSTDEVICE float DOddrootNeuron<float>::ForwardOp::operator() (float act, float 
     x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
     x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
     return x;
-*/
     float x = drv, x0 = 0;
     do {
         x0 = x;
@@ -240,5 +243,6 @@ HOSTDEVICE float DOddrootNeuron<float>::ForwardOp::operator() (float act, float 
     return x;
 
 }
+*/
 
 #endif //DNEURON_CUH
