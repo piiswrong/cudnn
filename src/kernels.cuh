@@ -28,8 +28,9 @@ __global__ void kApplyBinaryOp(Op op, T* x, const T* y, int m, int n, int ldx, i
         i = blockIdx.x * TILE_DIM + threadIdx.x;
         j = blockIdx.y * TILE_DIM + threadIdx.y;
         if (even_m || i < m) 
-            for (int k = 0; (even_n || j < n) && k < TILE_DIM; k += BLOCK_ROWS, j += BLOCK_ROWS) 
+            for (int k = 0; (even_n || j < n) && k < TILE_DIM; k += BLOCK_ROWS, j += BLOCK_ROWS) {
                 x[i+j*ldx] = op(x[i+j*ldx], y[i+j*ldy]);
+            }
     }
 }
 

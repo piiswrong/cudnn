@@ -141,15 +141,33 @@ def makeReport(exp_name, exps):
         for i in diff:
             v = param[i].strip().split('=')[1]
             print str(v)+'\t',
+
+        fin = open('%s%s_%d.log'%(log_path, exp_name, exp))
+        lines = fin.readlines()
+        fin.close()
+        last_acc = -1
+        train_acc = {}
+        j = 0
+        for i in xrange(len(lines)):
+            if lines[i].startswith('Fine') and last_acc != -1:
+                train_acc[j] = last_acc
+                j += 10
+            if lines[i].startswith('0.'):
+                last_acc = float(lines[i].strip().split(' ')[0])
+        train_acc[j] = last_acc
+
+
         fin = open('%s%s_%d.acc'%(log_path, exp_name, exp))
-        lines = [ (int(l.strip().split(' ')[0]),float(l.strip().split(' ')[1])) for l in fin ]
+        lines = fin.readlines()
+        lines = [ (int(l.strip().split(' ')[0]),float(l.strip().split(' ')[1])) for l in lines ]
         fin.close()
         maxacc = 0.0
         print 'acc per 10 epochs'
         for e,acc in sorted(lines, key=lambda x: x[0]):
             if acc > maxacc:
                 maxacc = acc
-            print '%.2f'%acc + '\t',
+            print '%.2f(%.2f)'%(acc, train_acc[e]) + '\t',
+            i += 1
         print 'max = %.2f'%maxacc+'\n'
 
 #makeReport('oddroot', [0,2,4,6,8])

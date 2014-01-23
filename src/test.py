@@ -81,6 +81,7 @@ matrices:""")
                         acc = float(w.strip()[4:])
                         break
                 break
+        print xx, acc
         fout.write('%d %f\n'%(xx, acc))
         fout.flush()
     fout.close()

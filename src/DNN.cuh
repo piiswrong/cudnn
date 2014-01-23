@@ -254,7 +254,7 @@ public:
             DLayer<T> **layers = new DLayer<T>*[layer+2];
             DMatrix<T> *tmp = new DMatrix<T>(_bp_hyper_params.batch_size, _layer_dims[layer]+1, _handle);
             for (int i = 0; i <= layer; i++) layers[i] = _layers[i];
-            layers[layer+1] = new DLayer<T>(_layer_dims[layer+1], _layer_dims[layer], layer + _num_layers, layer>0?layers[layer-1]->neuron():new DNeuron<T>(_handle), 
+            layers[layer+1] = new DLayer<T>(_layer_dims[layer+1], _layer_dims[layer], layer + _num_layers, /*layer>0?layers[layer-1]->neuron():*/new DNeuron<T>(_handle), 
                                             &_pt_hyper_params, &_bp_hyper_params, _handle);
             while (instances_per_layer > nInstance) {
                 CUDA_CALL(cudaThreadSynchronize());
@@ -347,6 +347,8 @@ public:
             if (lastCheck >= _bp_hyper_params.check_interval) {
                 _layers[_num_layers-1]->act()->samplePrint();
                 _layers[_num_layers-2]->act()->samplePrint();
+                _layers[0]->act()->samplePrint();
+                _layers[0]->drv()->samplePrint();
                 _layers[0]->weight()->samplePrint();
                 x->samplePrint();
 #ifdef ADMM

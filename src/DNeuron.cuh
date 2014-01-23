@@ -201,7 +201,7 @@ public:
 
     class BackwardOp {
     public:
-        HOSTDEVICE T operator() (float delta, float drv, float act) {
+        HOSTDEVICE T operator() (T delta, T drv, T act) {
             return delta/(3.0*act*act+1.0);
         }
     };
