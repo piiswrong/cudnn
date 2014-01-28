@@ -2,7 +2,9 @@
 #include <DNN.cuh>
 #include <DData.cuh>
 
+#ifdef NVML
 #include <nvml_old.h>
+#endif
 #include <sstream>
 
 template<class T>
@@ -52,6 +54,7 @@ int main(int argc, char **argv) {
     }
 
 #ifndef DISABLE_GPU
+#ifdef NVML
     if (devId == -1) {
         nvmlReturn_t ret;
         unsigned int deviceCount;
@@ -99,6 +102,9 @@ int main(int argc, char **argv) {
         printf("Can not find idle device\n");
         exit(-1);
     }
+#else
+    devId = 0;
+#endif
 #endif
 
 
@@ -108,14 +114,14 @@ int main(int argc, char **argv) {
     int num_layers = 8;
     int hidden_dim = 1023;
     char unit[255];
-    strcpy(unit, "Oddroot");
+    strcpy(unit, "Logistic");
     float pt_epochs = 0.2;
     DHyperParams _bp_hyper_params, _pt_hyper_params;
-    _pt_hyper_params.idrop_out = false;
+    _pt_hyper_params.idrop_out = true;
     _pt_hyper_params.idrop_rate = 0.5;
     _pt_hyper_params.hdrop_out = false;
-    _pt_hyper_params.weight_decay = true;
-    _pt_hyper_params.decay_rate = 0.01;
+    _pt_hyper_params.weight_decay = false;
+    _pt_hyper_params.decay_rate = 0.00;
     _pt_hyper_params.momentum = 0.90;
     _pt_hyper_params.learning_rate = 0.01;
 

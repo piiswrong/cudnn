@@ -6,12 +6,15 @@ FLAGS = -O3 -DNDEBUG --use_fast_math
 SUFIX = cu
 #CC = gcc -pthread -std=c++0x
 CC = nvcc --compiler-options="-pthread" 
-LIBS = -lcudart -lcublas -lnvidia-ml
+#FLAGS += -DNVML
+LIBS = -lcudart -lcublas 
+#LIBS += -lnvidia-ml
 LIBS += -L/opt/intel/mkl/lib/intel64 
 LIBS += -L/opt/intel/lib/intel64 
 LIBS += -L/usr/nikola/pkgs/intel/.2011.2.137/mkl/lib/intel64
 LIBS += -L/usr/nikola/pkgs/intel/.2011.2.137/lib/intel64
 LIBS += -L/projects/grail/local/pkg/intel/mkl/lib/em64t
+LIBS += -L/usr/lib
 LIBS += -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5
 LIBS += -lstdc++
 INCLUDE = -I.
