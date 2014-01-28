@@ -8,10 +8,11 @@ if False:
     tut_path = '/s0/jxie/TIMIT_tutorial/'
     log_path = '/s0/jxie/cudnn/log/'
 else:
-    tut_path = '/scratch/jxie/TIMIT_tutorial/'
+    tut_path = '/scratch/jxie/TIMIT_tutorial_new/'
     log_path = '/projects/grail/jxie/cudnn/log/'
 
 def test(name, exp, start, ntotal):
+    flog = open(log_path+'test_%s_%d.log'%(name, exp), 'w')
     os.chdir(tut_path)
     fout = open(log_path+'%s_%d.acc'%(name,exp),'w')
     head = '%s_%d_'%(name,exp)
@@ -48,6 +49,7 @@ matrices:""")
             neuron = 'oddroot'
         else:
             print 'unsupported neuron type:', hypers['neuron']
+            print >> flog, 'unsupported neuron type:', hypers['neuron']
         fdmlp.write('matrix%d:g%d\nsquash%d:%s\n'%(i,i,i,neuron))
     fdmlp.write('END')
     fdmlp.close()
@@ -56,23 +58,33 @@ matrices:""")
         param_name = head+str(xx)+tail
         while not os.path.exists(log_path+param_name):
             print 'waiting for '+param_name
-            time.sleep(5)
+            print >> flog, 'waiting for '+param_name
+            time.sleep(60)
         last_size = os.stat(log_path+param_name).st_size
         while True:
-            time.sleep(5)
+            time.sleep(60)
             size = os.stat(log_path+param_name).st_size
             if size == last_size:
                 break
             last_size = size
             print 'waiting for write to complete'
+            print >> flog, 'waiting for write to complete'
+
 
         print 'processing '+param_name
+        print >> flog, 'processing '+param_name
+
             
-        os.system('cp %s%s %slearned_dmlp'%(log_path, param_name, tut_path))
-        os.system('./dmlpvitcommand')
-        #res = subprocess.check_output(['./dmlpscorecommand'])
-        res = subprocess.Popen(['./dmlpscorecommand'], stdout=subprocess.PIPE).communicate()[0]
+        res = subprocess.Popen(['cp', '-v', log_path+param_name, tut_path+'learned_dmlp'], stdout=subprocess.PIPE).communicate()[0]
         print res
+        print >> flog, res
+        res = subprocess.Popen(['./dmlpvitcommand_updatedBootModel_hyd_devSet'], stdout=subprocess.PIPE).communicate()[0]
+        print res
+        print >> flog, res
+        #res = subprocess.check_output(['./dmlpscorecommand'])
+        res = subprocess.Popen(['./dmlpscorecommand_dev'], stdout=subprocess.PIPE).communicate()[0]
+        print res
+        print >> flog, res
         acc = 0
         for l in res.strip().split('\n'):
             if l.startswith('WORD:'):
@@ -82,6 +94,7 @@ matrices:""")
                         break
                 break
         print xx, acc
+        print >> flog, xx, acc 
         fout.write('%d %f\n'%(xx, acc))
         fout.flush()
     fout.close()

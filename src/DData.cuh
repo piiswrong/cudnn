@@ -391,7 +391,7 @@ public:
         xpath = path+"trainData.bin";
         ypath = path+"trainLabel.bin";
         int soffset = 0;
-        int eoffset = 1373108;
+        int eoffset = 1095254;
         DBinaryData<T, double, double, OpNop<double>, OpNop<double> >::open(xpath.c_str(), ypath.c_str(), 0, 0, soffset, eoffset);
     }
 };

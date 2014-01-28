@@ -80,22 +80,20 @@ def makeExp(exp_name, ntotal_param):
     ptHyper, horder = makeHyper()
     bpHyper, horder = makeHyper()
     id = 0
-    i = 8
-    for i in xrange(11, 20, 3):
-        for rate in [0.1, 0.5]:
-            for drop in [0.00, 0.02, 0.08]:
-                net['num_layers'] = i
-                net['neuron'] = 'ReLU'
-                net['bp_epochs'] = 100
-                t = (-501+math.sqrt((501.0+i)**2+4.0*(i-2)*ntotal_param))/(2.0*(i-2))
-                net['hidden_dim'] = int((t+8)/16)*16 - 1
+    for i in xrange(5, 20, 3):
+        for rate in [ 0.2, 0.1, 0.05]:
+            net['num_layers'] = i
+            net['neuron'] = 'ReLU'
+            net['bp_epochs'] = 1000
+            t = (-501+math.sqrt((501.0+i)**2+4.0*(i-2)*ntotal_param))/(2.0*(i-2))
+            net['hidden_dim'] = int((t+8)/16)*16 - 1
 
-                bpHyper['learning_rate'] = rate
-                bpHyper['hdrop_rate'] = drop
-                
-                fout = open('%s%s_%d.hyper'%(log_path,exp_name, id), 'w')
-                writeExp(fout, net, norder, ptHyper, bpHyper, horder)
-                id += 1
+            bpHyper['learning_rate'] = rate
+            bpHyper['hdrop_rate'] = 0.2 
+            
+            fout = open('%s%s_%d.hyper'%(log_path,exp_name, id), 'w')
+            writeExp(fout, net, norder, ptHyper, bpHyper, horder)
+            id += 1
 
 
 def makeReport(exp_name, exps):
@@ -172,8 +170,11 @@ def makeReport(exp_name, exps):
 
 #makeReport('oddroot', [0,2,4,6,8])
 #makeReport('ReLU', xrange(0,15))
-makeReport('ReLUdropout', xrange(0,18))
+#makeReport('ReLUdropout', xrange(0,18))
 #makeExp('ReLUdropout', 1e7)
+#makeExp('oddrootnew', 1e7)
+makeReport('oddrootnew', xrange(5))
+#makeExp('ReLU', 1e7)
 
 
 
