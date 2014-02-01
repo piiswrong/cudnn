@@ -114,10 +114,50 @@ public:
 template<class T>
 class OpNop {
 public:
+    HOSTDEVICE T operator() (T y) {
+        return y;
+    }
     HOSTDEVICE T operator() (T x, T y) {
         return y;
     }
 };
+
+template<class T>
+class OpMaxReduce {
+public:
+    const T Unit;
+    HOSTDEVICE OpMaxReduce() : Unit(-1e37) {}
+    HOSTDEVICE T operator() (T x, int i, T y, int j, int &ind) {
+        if (x < y) {
+            ind = j;
+            return y;
+        }else {
+            ind = i;
+            return x;
+        }
+    }
+};
+
+template<class T>
+class OpSumReduce {
+public:
+    const T Unit;
+    HOSTDEVICE OpSumReduce() : Unit(0.0) {}
+    HOSTDEVICE T operator() (T x, int i, T y, int j, int &ind) {
+        return x + y;
+    }
+};
+
+template<class T>
+class OpSubExp{
+    const T _shift;
+public:
+    HOSTDEVICE OpSubExp(T shift) : _shift(shift) {}
+    HOSTDEVICE T operator() (T x) {
+        return exp(x-_shift);
+    }
+};
+
 
 
 #endif //DOPERATORS_CUH

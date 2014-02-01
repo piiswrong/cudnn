@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
 
     FILE *fin = NULL;
     char * exp_name = NULL;
-    int resuming = 0;
+    int resuming = -1;
     int devId = -1;
     for (int i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
@@ -105,7 +105,7 @@ int main(int argc, char **argv) {
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 17;
+    int num_layers = 5;
     int hidden_dim = 799;
     char unit[255];
     strcpy(unit, "Oddroot");
@@ -187,8 +187,8 @@ int main(int argc, char **argv) {
 #ifndef DISABLE_GPU
     data->set_devId(devId);
 #endif
-    if (!resuming && pt_epochs > 0) dnn->pretrain(data, pt_epochs);
-    if (resuming) {
+    if (resuming == -1 && pt_epochs > 0) dnn->pretrain(data, pt_epochs);
+    if (resuming != -1) {
         printf("Resuming from %d-th epoch.\n", resuming);
         //std::stringstream ss;
         //ss << resuming - 10;

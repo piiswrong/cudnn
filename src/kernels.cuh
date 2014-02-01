@@ -6,6 +6,7 @@
 #include <cuda.h>
 #include <curand.h>
 #include <curand_kernel.h>
+#include <DOperators.cuh>
 
 
 template<class T, class Op, bool even_m, bool even_n, bool y_trans>
@@ -98,6 +99,60 @@ __global__ void kDropout(T *dest, T *mask, curandState *state, float rate, int m
 }
 
 
+template<class T, int num_thrd, class Op, class OpTrans>
+__device__ T dBatchReduce(Op op, OpTrans opTrans, T *x, T *smem, int *mark, int i, int j, int ld, int fd, int &ind) {
+    T res = op.Unit;
+    int myInd = 0;
+    int k = threadIdx.y;
+    const int n = ld*fd;
+    const int blockSize = ld*num_thrd;
+    while (j < n) {
+        res = op(res, myInd, opTrans(x[j]), k, myInd);
+        k += num_thrd;
+        j += blockSize;
+    }
+    j = threadIdx.y;
+    i = j*WARP_SIZE + threadIdx.x;
+    smem[i] = res;
+    mark[i] = myInd;
+    __syncthreads();
+    if (num_thrd >= 32) {
+        const int step = 16;
+        if (j < step) {
+            smem[i] = res = op(res, myInd, smem[i+step*WARP_SIZE], mark[i+step*WARP_SIZE], myInd);
+            mark[i] = myInd;
+        }
+        __syncthreads();
+    }
+    if (num_thrd >= 16) {
+        const int step = 8;
+        if (j < step) {
+            smem[i] = res = op(res, myInd, smem[i+step*WARP_SIZE], mark[i+step*WARP_SIZE], myInd);
+            mark[i] = myInd;
+        }
+        __syncthreads();
+    }
+    if (num_thrd >= 8) {
+        const int step = 4;
+        if (j < step) {
+            smem[i] = res = op(res, myInd, smem[i+step*WARP_SIZE], mark[i+step*WARP_SIZE], myInd);
+            mark[i] = myInd;
+        }
+        __syncthreads();
+    }
+    if (num_thrd >= 4) {
+        const int step = 2;
+        if (j < step) {
+            smem[i] = res = op(res, myInd, smem[i+step*WARP_SIZE], mark[i+step*WARP_SIZE], myInd);
+            mark[i] = myInd;
+        }
+        __syncthreads();
+    }
+    res = op(smem[threadIdx.x], mark[threadIdx.x], smem[threadIdx.x + WARP_SIZE], mark[threadIdx.x + WARP_SIZE], myInd);
+    ind = myInd;
+    return res;
+}
+
 template<class T, int num_thrd>
 __global__ void kSoftmaxAct(T *act, T *drv, int *res, int ld, int fd) {
     __shared__ T smem[WARP_SIZE*num_thrd];
@@ -108,98 +163,12 @@ __global__ void kSoftmaxAct(T *act, T *drv, int *res, int ld, int fd) {
 
     int n = ld*fd;
     if (i < ld) {
-        T myMax = -1e37;
-        int myMark = 0;
-        int k = threadIdx.y;
-        while (j < n) {
-            if (myMax < drv[j]) {
-                myMax = drv[j];
-                myMark = k;
-            }
-            k += num_thrd;
-            j += blockSize;
-        }
-        j = threadIdx.y;
-        i = j*WARP_SIZE + threadIdx.x;
-        smem[i] = myMax;
-        mark[i] = myMark;
-        __syncthreads();
-        if (num_thrd >= 32) {
-            if (j < 16)
-                if (myMax < smem[i+16*WARP_SIZE]) {
-                    smem[i] = myMax = smem[i+16*WARP_SIZE];
-                    mark[i] = myMark = mark[i+16*WARP_SIZE];
-                }
-             __syncthreads();
-        }
-        if (num_thrd >= 16) {
-            if (j < 8)
-                if (myMax < smem[i+8*WARP_SIZE]) {
-                    smem[i] = myMax = smem[i+8*WARP_SIZE];
-                    mark[i] = myMark = mark[i+8*WARP_SIZE];
-                }
-            __syncthreads();
-        }
-        if (num_thrd >= 8) {
-            if (j < 4)
-                if (myMax < smem[i+4*WARP_SIZE]) {
-                    smem[i] = myMax = smem[i+4*WARP_SIZE];
-                    mark[i] = myMark = mark[i+4*WARP_SIZE];
-                }
-            __syncthreads();
-        }
-        if (num_thrd >= 4) {
-            if (j < 2)
-                if (myMax < smem[i+2*WARP_SIZE]) {
-                    smem[i] = myMax = smem[i+2*WARP_SIZE];
-                    mark[i] = myMark = mark[i+2*WARP_SIZE];
-                }
-            __syncthreads();
-        }
-        if ( smem[threadIdx.x] > smem[threadIdx.x+WARP_SIZE] ) {
-            myMax = smem[threadIdx.x];
-            myMark = mark[threadIdx.x];
-        }else {
-            myMax = smem[threadIdx.x+WARP_SIZE];
-            myMark = mark[threadIdx.x+WARP_SIZE];
-        }
-
-        i = blockIdx.x*WARP_SIZE + threadIdx.x;
+        int myMark;
+        T myMax = dBatchReduce<T, num_thrd, OpMaxReduce<T>, OpNop<T> >(OpMaxReduce<T>(), OpNop<T>(), drv, smem, mark, i, j, ld, fd, myMark);
         if (threadIdx.y == 0) res[i] = myMark;
-        j = threadIdx.y*ld + i;
-        T mySum = 0;
-        while (j < n) {
-            mySum += exp(drv[j]-myMax);
-            j += blockSize;
-        }
-        j = threadIdx.y;
-        i = j*WARP_SIZE + threadIdx.x;
-        __syncthreads();
-        smem[i] = mySum;
-        __syncthreads();
-        if (num_thrd >= 32) {
-            if (j < 16)
-                smem[i] = mySum = mySum + smem[i+16*WARP_SIZE];
-            __syncthreads();
-        }
-        if (num_thrd >= 16) {
-            if (j < 8)
-                smem[i] = mySum = mySum + smem[i+8*WARP_SIZE];
-            __syncthreads();
-        }
-        if (num_thrd >= 8) {
-            if (j < 4)
-                smem[i] = mySum = mySum + smem[i+4*WARP_SIZE];
-            __syncthreads();
-        }
-        if (num_thrd >= 4) {
-            if (j < 2)
-                smem[i] = mySum = mySum + smem[i+2*WARP_SIZE];
-            __syncthreads();
-        }
-        mySum = smem[threadIdx.x] + smem[threadIdx.x+WARP_SIZE];
-        i = blockIdx.x*WARP_SIZE + threadIdx.x;
-        j = threadIdx.y*ld + i;
+
+        T mySum = dBatchReduce<T, num_thrd, OpSumReduce<T>, OpSubExp<T> >(OpSumReduce<T>(), OpSubExp<T>(myMax), drv, smem, mark, i, j, ld, fd, myMark);
+
         while (j < n) {
             act[j] = exp(drv[j]-myMax)/mySum;
             j += blockSize;
@@ -232,6 +201,59 @@ __global__ void kWeightUpdate(T* x, T* y, T decay_rate, int ld, int fd) {
     }
 }
 
+template<class T, int num_thrd>
+__global__ void kUnitLength(T *x, T *y, int ld, int fd) {
+    __shared__ T smem[WARP_SIZE*num_thrd];
+    __shared__ int mark[WARP_SIZE*num_thrd];
+    int i = blockIdx.x*WARP_SIZE + threadIdx.x;
+    int j = threadIdx.y*ld + i;
+    const int blockSize = ld*num_thrd;
 
+    int n = ld*fd;
+    if (i < ld) {
+        int myMark;
+        T mySum = dBatchReduce<T, num_thrd, OpSumReduce<T>, OpSqr<T> >(OpSumReduce<T>(), OpSqr<T>(), x, smem, mark, i, j, ld, fd, myMark);
+        mySum = sqrt(mySum);
+
+        while (j < n) {
+            y[j] = x[j]/mySum;
+            j += blockSize;
+        }
+    }
+
+}
+
+template<class T>
+__global__ void UnitLength(DMatrix<T> *x, DMatrix<T> *y, int fd) {
+    dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
+    dim3 block(WARP_SIZE, 32, 1);
+    kUnitLength<T,32><<<grid, block>>>(x->dev_data(), y->dev_data(), x->ld(), fd);
+    CUDA_KERNEL_CHECK();
+}
+
+template<class T, int num_thrd>
+__global__ void kArgmax(T *x, T *ind, T *res, int ld, int fd) {
+    __shared__ T smem[WARP_SIZE*num_thrd];
+    __shared__ int mark[WARP_SIZE*num_thrd];
+    int i = blockIdx.x*WARP_SIZE + threadIdx.x;
+    int j = threadIdx.y*ld + i;
+    const int blockSize = ld*num_thrd;
+
+    int n = ld*fd;
+    if (i < ld) {
+        int myMark;
+        res[i] = dBatchReduce<T, num_thrd, OpMinReduce<T>, OpNop<T> >(OpMaxReduce<T>(), OpNop<T>(), x, smem, mark, i, j, ld, fd, myMark);
+        ind[i] = myMark;
+    }
+
+}
+
+template<class T>
+__global__ void Argmax(DMatrix<T> *x, DMatrix<T> *ind, DMatrix<T> *res, int fd) {
+    dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
+    dim3 block(WARP_SIZE, 32, 1);
+    kArgmax<T,32><<<grid, block>>>(x->dev_data(), ind->dev_data(), res->dev_data(), x->ld(), fd);
+    CUDA_KERNEL_CHECK();
+}
 #endif //DISABLE_GPU
 #endif //KERNELS_CUH

@@ -397,6 +397,21 @@ public:
 };
 
 template<class T>
+class DPatchData : public DBinaryData<T, float, unsigned int, OpNop<T>, OpNop<unsigned int> > {
+public:
+    DPatchData(std::string path, int buff_dim, bool testing, cublasHandle_t handle) 
+        : DBinaryData<T, float, unsigned int, OpNop<T>, OpNop<unsigned int> >(OpNop<T>(), OpNop<unsigned int>(), 2112, 1, true, false, buff_dim, false, testing, handle) {
+        std::string xpath, ypath;
+        if (path[path.length()-1] != '/') path.append("/");
+        xpath = path+"PatchData.bin";
+        ypath = path+"PatchLabel.bin";
+        int soffset = 0;
+        int eoffset = 100000;
+        DBinaryData<T, float, unsigned int, OpNop<T>, OpNop<unsigned int> >::open(xpath.c_str(), ypath.c_str(), 0, 0, soffset, eoffset);
+    }
+};
+
+template<class T>
 class DDummyData : public DData<T> {
     int _n;
 public:

@@ -245,4 +245,44 @@ HOSTDEVICE float DOddrootNeuron<float>::ForwardOp::operator() (float act, float 
 }
 */
 
+template<class T>
+class DClusterNeuron : public DNeuron<T> {
+    int _batch_size;
+    int _n_centers;
+    int _n_dims;
+    DMatrix<T> *_center, *_distance, *_res, *_margin;
+    DMatrix<int> *_index;
+
+
+public:
+    DClusterNeuron(int batch_size, int n_centers, int n_dims, cublasHandle_t handle) : DNeuron<T>(handle) {
+        _batch_size = batch_size;
+        _n_centers = n_centers;
+        _center = new DMatrix<T>(batch_size, n_dims, DNeuron<T>::_handle);
+        _center->init(DMatrix<T>::Normal);
+        UnitLength(_center, _center, n_dims);
+        _index = new DMatrix<int>(batch_size, 1, DNeuron<T>::_handle);
+        _distance = new DMatrix<T>(batch_size, n_dims, DNeuron<T>::_handle);
+        _res = new DMatrix<int>(batch_size, 1, DNeuron<T>::_handle);
+        _margin = new DMatrix<T>(n_centers, 1);
+    }
+    virtual bool easyDropout() { return false; }
+
+    virtual initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        
+
+    }
+
+    virtual fprop(DMatrix<T> *act, DMatrix<T> *drv) {
+        UnitLength(drv, act, act->fd()-1);
+        DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
+        _distance->update(act_view, false, _center, true, 1.0, 0);
+        Argmax(_distance, _index, _res, _distance->fd());
+    }
+
+    virtual bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {
+
+    }
+};
+
 #endif //DNEURON_CUH
