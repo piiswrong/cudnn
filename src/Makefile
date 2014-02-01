@@ -6,7 +6,7 @@ FLAGS = -O3 -DNDEBUG --use_fast_math
 SUFIX = cu
 #CC = gcc -pthread -std=c++0x
 CC = nvcc --compiler-options="-pthread" 
-#FLAGS += -DNVML
+FLAGS += -DNVML
 LIBS = -lcudart -lcublas 
 #LIBS += -lnvidia-ml
 LIBS += -L/opt/intel/mkl/lib/intel64 
