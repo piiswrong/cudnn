@@ -122,14 +122,10 @@ public:
 template<class T>
 class DSoftmaxNeuron : public DNeuron<T> {
 protected:
-    cudaStream_t _stream;
     DMatrix<int> *res;
     DMatrix<T> *_y;
 public:
     DSoftmaxNeuron(int batch_size, cublasHandle_t handle) : DNeuron<T>(handle) {
-        if (DNeuron<T>::_on_device) {
-            CUDA_CALL(cudaStreamCreate(&_stream));
-        }
         res = new DMatrix<int>(batch_size, 1, handle);
     }
     virtual bool easyDropout() { return false; }
@@ -171,14 +167,11 @@ public:
         return;
     }
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        res->dev2hostAsync(_stream);
         _y = y;
-        //act->applyTenary(OpWeighted<T>(), act, y, act->nrows(), act->ncols());
-        //DNeuron<T>::_loss = act->norm1(act->nelem() - act->ld());
     }
     virtual T getLoss() {
-        CUDA_CALL(cudaStreamSynchronize(_stream));
         T loss = 0;
+        res->dev2host();
         for (int i = 0; i < _y->nrows(); i++) loss += _y->getElem(i, res->getElem(i, 0));
         return loss;
     }
@@ -250,38 +243,55 @@ class DClusterNeuron : public DNeuron<T> {
     int _batch_size;
     int _n_centers;
     int _n_dims;
-    DMatrix<T> *_center, *_distance, *_res, *_margin;
+    T _lambda;
+    DMatrix<T> *_center, *_distance, *_res, *_margin, *_norm, *_scale;
     DMatrix<int> *_index;
+
+    DMatrix<T> *_y, *_acc;
 
 
 public:
-    DClusterNeuron(int batch_size, int n_centers, int n_dims, cublasHandle_t handle) : DNeuron<T>(handle) {
+    DClusterNeuron(int batch_size, int n_centers, int n_dims, T lambda, cublasHandle_t handle) : DNeuron<T>(handle) {
         _batch_size = batch_size;
         _n_centers = n_centers;
+        _n_dims = n_dims;
+        _lambda = lambda;
+
         _center = new DMatrix<T>(batch_size, n_dims, DNeuron<T>::_handle);
         _center->init(DMatrix<T>::Normal);
-        UnitLength(_center, _center, n_dims);
+        UnitLength(_center, _center, _norm, n_dims);
         _index = new DMatrix<int>(batch_size, 1, DNeuron<T>::_handle);
         _distance = new DMatrix<T>(batch_size, n_dims, DNeuron<T>::_handle);
-        _res = new DMatrix<int>(batch_size, 1, DNeuron<T>::_handle);
-        _margin = new DMatrix<T>(n_centers, 1);
+        _res = new DMatrix<T>(batch_size, 1, DNeuron<T>::_handle);
+        _margin = new DMatrix<T>(n_centers, 1, DNeuron<T>::_handle);
+        _norm = new DMatrix<T>(batch_size, 1, DNeuron<T>::_handle);
+        _scale = new DMatrix<T>(batch_size, 1, DNeuron<T>::_handle);
+        _acc = new DMatrix<T>(batch_size, 1, DNeuron<T>::_handle);
     }
     virtual bool easyDropout() { return false; }
 
     virtual initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        
-
+        CluterNeuronDelta(_scale, y, _margin, _res, _index, _lambda);
     }
 
     virtual fprop(DMatrix<T> *act, DMatrix<T> *drv) {
-        UnitLength(drv, act, act->fd()-1);
+        UnitLength(drv, act, _norm, act->fd()-1);
         DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
         _distance->update(act_view, false, _center, true, 1.0, 0);
         Argmax(_distance, _index, _res, _distance->fd());
     }
 
     virtual bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {
+        CluterNeuronBprop(delta, act, _centers, _index, _res, _scale, _norm, delta->fd()-1);
+    }
 
+    virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        _y = y;
+    }
+
+    virtual T getLoss() {
+        CluterNeuronAcc(_acc, _y, _margin, _res, _index);
+        return _acc->norm1(_y->nrows());
     }
 };
 

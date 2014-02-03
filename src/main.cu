@@ -174,7 +174,8 @@ int main(int argc, char **argv) {
             exit(-1);
         }
     }
-    neuron[num_layers-1] = new DSoftmaxNeuron<float>(_bp_hyper_params.batch_size, handle);
+    //neuron[num_layers-1] = new DSoftmaxNeuron<float>(_bp_hyper_params.batch_size, handle);
+    neuron[num_layers-1] = new DClusterNeuron<float>(_bp_hyper_params.batch_size, 1024, 256, 1, handle);
     
     DNN<float> *dnn = new DNN<float>(num_layers, layer_dims, neuron, _pt_hyper_params, _bp_hyper_params, handle);
 #ifdef ADMM
