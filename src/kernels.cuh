@@ -271,6 +271,7 @@ __global__ void kCluterNeuronBprop(T *delta, T *act, T *centers, int *index, T *
     int j = blockIdx.y*TILE_DIM + threadIdx.x;
     for (int k = 0; k < TILE_DIM && i < ld; k += BLOCK_ROWS, i += BLOCK_ROWS) {
         if (threadIdx.x == 0) s_index[threadIdx.y] = index[i];
+        __syncthreads();
         s_centers[threadIdx.y + k][threadIdx.x] = centers[j + s_index[threadIdx.y]*fd];
     }
     i = blockIdx.x*TILE_DIM + threadIdx.x;
@@ -280,6 +281,7 @@ __global__ void kCluterNeuronBprop(T *delta, T *act, T *centers, int *index, T *
         s_norm[threadIdx.x] = norm[i];
         s_res[threadIdx.x] = res[i];
     }
+    __syncthreads();
     for (int k = 0; k < TILE_DIM && j < fd; k += BLOCK_ROWS, j += BLOCK_ROWS) {
         T n = s_norm[threadIdx.x];
         delta[i + j*ld] = s_scale[threadIdx.x]*(s_centers[threadIdx.x][threadIdx.y + k] - s_res[threadIdx.x]*act[i + j*ld]/n)/n;

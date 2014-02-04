@@ -275,18 +275,14 @@ public:
     }
 
     virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) {
-        drv->samplePrint("drv");
         UnitLength(drv, act, _norm, act->fd()-1);
-        act->samplePrint("act");
         DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
         _distance->update(act_view, false, _centers, true, 1.0, 0);
-        _distance->samplePrint("dist");
         Argmax(_distance, _index, _res, _distance->fd());
     }
 
     virtual void bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {
         CluterNeuronBprop(delta, act, _centers, _index, _res, _scale, _norm, delta->fd()-1);
-        delta->samplePrint("delta");
     }
 
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {

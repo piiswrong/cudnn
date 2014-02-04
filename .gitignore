@@ -19,6 +19,7 @@
 data/*
 log/*
 .fuse*
+.nfs*
 
 src/main
 

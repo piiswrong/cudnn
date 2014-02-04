@@ -184,7 +184,8 @@ def makeReport(exp_name, exps):
 #makeExp('ReLU', 1e7)
 #makeExp('sigmoid', 1e7)
 #makeReport('sigmoid', xrange(0,15))
-makeExp('oddrootnew1', 1e7)
+#makeExp('oddrootnew1', 1e7)
+makeReport('oddrootnew1', xrange(0,15))
 
 
 
