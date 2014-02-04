@@ -1,4 +1,5 @@
 import math
+import shutil
 """
 fout = open('test.hyper', 'w')
 
@@ -81,17 +82,23 @@ def makeExp(exp_name, ntotal_param):
     bpHyper, horder = makeHyper()
     id = 0
     for i in xrange(5, 20, 3):
-        for rate in [ 0.2, 0.1, 0.05]:
+        for drop in [ 0.05, 0.10, 0.40 ]:
             net['num_layers'] = i
-            net['neuron'] = 'ReLU'
+            net['neuron'] = 'Oddroot'
             net['bp_epochs'] = 1000
             t = (-501+math.sqrt((501.0+i)**2+4.0*(i-2)*ntotal_param))/(2.0*(i-2))
             net['hidden_dim'] = int((t+8)/16)*16 - 1
 
-            bpHyper['learning_rate'] = rate
-            bpHyper['hdrop_rate'] = 0.2 
+            if i == 5:
+                bpHyper['learning_rate'] = 0.01
+            else:
+                bpHyper['learning_rate'] = 0.1
+
+            bpHyper['hdrop_rate'] = drop
             
             fout = open('%s%s_%d.hyper'%(log_path,exp_name, id), 'w')
+            if net['neuron'] == 'Logistic':
+                shutil.copy2('%slogistic_d%d.param'%(log_path,i), '%s%s_%d.param'%(log_path,exp_name,id))
             writeExp(fout, net, norder, ptHyper, bpHyper, horder)
             id += 1
 
@@ -173,8 +180,11 @@ def makeReport(exp_name, exps):
 #makeReport('ReLUdropout', xrange(0,18))
 #makeExp('ReLUdropout', 1e7)
 #makeExp('oddrootnew', 1e7)
-makeReport('oddrootnew', xrange(5))
+#makeReport('oddrootnew', xrange(5))
 #makeExp('ReLU', 1e7)
+#makeExp('sigmoid', 1e7)
+#makeReport('sigmoid', xrange(0,15))
+makeExp('oddrootnew1', 1e7)
 
 
 

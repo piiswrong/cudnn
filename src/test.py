@@ -47,9 +47,12 @@ matrices:""")
             neuron = 'rectlin'
         elif hypers['neuron'] == 'Oddroot':
             neuron = 'oddroot'
+        elif hypers['neuron'] == 'Logistic':
+            neuron = 'logistic'
         else:
             print 'unsupported neuron type:', hypers['neuron']
             print >> flog, 'unsupported neuron type:', hypers['neuron']
+            flog.flush()
         fdmlp.write('matrix%d:g%d\nsquash%d:%s\n'%(i,i,i,neuron))
     fdmlp.write('END')
     fdmlp.close()
@@ -59,6 +62,7 @@ matrices:""")
         while not os.path.exists(log_path+param_name):
             print 'waiting for '+param_name
             print >> flog, 'waiting for '+param_name
+            flog.flush()
             time.sleep(60)
         last_size = os.stat(log_path+param_name).st_size
         while True:
@@ -69,22 +73,27 @@ matrices:""")
             last_size = size
             print 'waiting for write to complete'
             print >> flog, 'waiting for write to complete'
+            flog.flush()
 
 
         print 'processing '+param_name
         print >> flog, 'processing '+param_name
+        flog.flush()
 
             
         res = subprocess.Popen(['cp', '-v', log_path+param_name, tut_path+'learned_dmlp'], stdout=subprocess.PIPE).communicate()[0]
         print res
         print >> flog, res
+        flog.flush()
         res = subprocess.Popen(['./dmlpvitcommand_updatedBootModel_hyd_devSet'], stdout=subprocess.PIPE).communicate()[0]
         print res
         print >> flog, res
+        flog.flush()
         #res = subprocess.check_output(['./dmlpscorecommand'])
         res = subprocess.Popen(['./dmlpscorecommand_dev'], stdout=subprocess.PIPE).communicate()[0]
         print res
         print >> flog, res
+        flog.flush()
         acc = 0
         for l in res.strip().split('\n'):
             if l.startswith('WORD:'):
