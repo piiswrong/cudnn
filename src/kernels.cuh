@@ -225,38 +225,24 @@ __global__ void kUnitLength(T *x, T *y, T *norm, int ld, int fd) {
     }
 }
 
-template<class T>
-__global__ void UnitLength(DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *norm, int fd) {
-    dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
-    dim3 block(WARP_SIZE, 32, 1);
-    kUnitLength<T,32><<<grid, block>>>(x->dev_data(), y->dev_data(), norm!=NULL?norm->dev_data():NULL, x->ld(), fd);
-    CUDA_KERNEL_CHECK();
-}
+
 
 template<class T, int num_thrd>
-__global__ void kArgmax(T *x, T *ind, T *res, int ld, int fd) {
+__global__ void kArgmax(T *x, int *ind, T *res, int ld, int fd) {
     __shared__ T smem[WARP_SIZE*num_thrd];
     __shared__ int mark[WARP_SIZE*num_thrd];
     int i = blockIdx.x*WARP_SIZE + threadIdx.x;
     int j = threadIdx.y*ld + i;
-    const int blockSize = ld*num_thrd;
 
-    int n = ld*fd;
     if (i < ld) {
-        int myMark;
-        res[i] = dBatchReduce<T, num_thrd, OpMinReduce<T>, OpNop<T> >(OpMaxReduce<T>(), OpNop<T>(), x, smem, mark, i, j, ld, fd, myMark);
+        int myMark = 0;
+        res[i] = dBatchReduce<T, num_thrd, OpMaxReduce<T>, OpNop<T> >(OpMaxReduce<T>(), OpNop<T>(), x, smem, mark, i, j, ld, fd, myMark);
         ind[i] = myMark;
     }
 
 }
 
-template<class T>
-__global__ void Argmax(DMatrix<T> *x, DMatrix<T> *ind, DMatrix<T> *res, int fd) {
-    dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
-    dim3 block(WARP_SIZE, 32, 1);
-    kArgmax<T,32><<<grid, block>>>(x->dev_data(), ind->dev_data(), res->dev_data(), x->ld(), fd);
-    CUDA_KERNEL_CHECK();
-}
+
 
 template<class T>
 __global__ void kCluterNeuronDelta(T *scale, T *y, T *margin, T *res, int *index, T lambda) {
@@ -264,27 +250,15 @@ __global__ void kCluterNeuronDelta(T *scale, T *y, T *margin, T *res, int *index
     T bj = margin[index[i]];
     scale[i] = y[i] * (bj > res[i]) * -1.0 + lambda*(1-y[i]) * (res[i] > bj);
 }
-template<class T>
-void CluterNeuronDelta(DMatrix<T> *scale, DMatrix<T> *y, DMatrix<T> *margin, DMatrix<T> res, DMatrix<int> *index, T lambda) {
-    dim3 grid(1,1,1);
-    dim3 block(y->nrows(), 1, 1);
-    kCluterNeuronDelta<T><<<gird, block>>>(scale->dev_data(), y->dev_data(), margin->dev_data(), res->dev_data(), index->dev_data(), lambda);
-    CUDA_KERNEL_CHECK();
-}
+
 
 template<class T>
-__global__ void kCluterNeuronAcc(T *acc, T *y, T *margin, T *res, int *index, T lambda) {
+__global__ void kCluterNeuronAcc(T *acc, T *y, T *margin, T *res, int *index) {
     int i = threadIdx.x;
     T bj = margin[index[i]];
     acc[i] = y[i] * (bj > res[i]) + (1-y[i]) * (res[i] > bj);
 }
-template<class T>
-void CluterNeuronAcc(DMatrix<T> *acc, DMatrix<T> *y, DMatrix<T> *margin, DMatrix<T> res, DMatrix<int> *index) {
-    dim3 grid(1,1,1);
-    dim3 block(y->nrows(), 1, 1);
-    kCluterNeuronAcc<T><<<gird, block>>>(acc->dev_data(), y->dev_data(), margin->dev_data(), res->dev_data(), index->dev_data());
-    CUDA_KERNEL_CHECK();
-}
+
 
 template<class T> 
 __global__ void kCluterNeuronBprop(T *delta, T *act, T *centers, int *index, T *res, T *scale, T *norm, int ld, int fd) {
@@ -308,20 +282,11 @@ __global__ void kCluterNeuronBprop(T *delta, T *act, T *centers, int *index, T *
     }
     for (int k = 0; k < TILE_DIM && j < fd; k += BLOCK_ROWS, j += BLOCK_ROWS) {
         T n = s_norm[threadIdx.x];
-        delta[i + j*ld] = s_scale[threadIdx.x]*(s_centers[threadIdx.x][threadIdx.y + k] - res[threadIdx.x]*act[i + j*ld]/n)/n;
+        delta[i + j*ld] = s_scale[threadIdx.x]*(s_centers[threadIdx.x][threadIdx.y + k] - s_res[threadIdx.x]*act[i + j*ld]/n)/n;
     }
 }
 
-template<class T>
-void CluterNeuronBprop(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *centers, DMatrix<int> *index, DMatrix<T> *res,
-                        DMatrix<T> *scale, DMatrix<T> *norm, int fd) {
-    assert(!delta->getT());
-    int m = delta->ld();
-    dim3 grid((ld-1)/TILE_DIM+1,(fd-1)/TILE_DIM+1,1);
-    dim3 block(TILE_DIM, BLOCK_ROWS, 1);
-    kCluterNeuronBprop<T><<<grid, block>>>(delta->dev_data(), act->dev_data(), centers->dev_data(), index->dev_data(), res->dev_data(), scale->dev_data(), norm->dev_data(), m, fd);
-    CUDA_KERNEL_CHECK();
-}
+
 
 #endif //DISABLE_GPU
 #endif //KERNELS_CUH

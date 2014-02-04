@@ -244,7 +244,7 @@ class DClusterNeuron : public DNeuron<T> {
     int _n_centers;
     int _n_dims;
     T _lambda;
-    DMatrix<T> *_center, *_distance, *_res, *_margin, *_norm, *_scale;
+    DMatrix<T> *_centers, *_distance, *_res, *_margin, *_norm, *_scale;
     DMatrix<int> *_index;
 
     DMatrix<T> *_y, *_acc;
@@ -257,9 +257,9 @@ public:
         _n_dims = n_dims;
         _lambda = lambda;
 
-        _center = new DMatrix<T>(batch_size, n_dims, DNeuron<T>::_handle);
-        _center->init(DMatrix<T>::Normal);
-        UnitLength(_center, _center, _norm, n_dims);
+        _centers = new DMatrix<T>(batch_size, n_dims, DNeuron<T>::_handle);
+        _centers->init(DMatrix<T>::Normal);
+        UnitLength(_centers, _centers, _norm, n_dims);
         _index = new DMatrix<int>(batch_size, 1, DNeuron<T>::_handle);
         _distance = new DMatrix<T>(batch_size, n_dims, DNeuron<T>::_handle);
         _res = new DMatrix<T>(batch_size, 1, DNeuron<T>::_handle);
@@ -270,19 +270,23 @@ public:
     }
     virtual bool easyDropout() { return false; }
 
-    virtual initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        CluterNeuronDelta(_scale, y, _margin, _res, _index, _lambda);
+    virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        CluterNeuronDelta<T>(_scale, y, _margin, _res, _index, _lambda);
     }
 
-    virtual fprop(DMatrix<T> *act, DMatrix<T> *drv) {
+    virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) {
+        drv->samplePrint("drv");
         UnitLength(drv, act, _norm, act->fd()-1);
+        act->samplePrint("act");
         DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
-        _distance->update(act_view, false, _center, true, 1.0, 0);
+        _distance->update(act_view, false, _centers, true, 1.0, 0);
+        _distance->samplePrint("dist");
         Argmax(_distance, _index, _res, _distance->fd());
     }
 
-    virtual bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {
+    virtual void bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {
         CluterNeuronBprop(delta, act, _centers, _index, _res, _scale, _norm, delta->fd()-1);
+        delta->samplePrint("delta");
     }
 
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {

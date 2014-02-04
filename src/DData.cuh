@@ -399,8 +399,8 @@ public:
 template<class T>
 class DPatchData : public DBinaryData<T, float, unsigned int, OpNop<T>, OpNop<unsigned int> > {
 public:
-    DPatchData(std::string path, int buff_dim, bool testing, cublasHandle_t handle) 
-        : DBinaryData<T, float, unsigned int, OpNop<T>, OpNop<unsigned int> >(OpNop<T>(), OpNop<unsigned int>(), 2112, 1, true, false, buff_dim, false, testing, handle) {
+    DPatchData(std::string path, int input_dim, int buff_dim, bool testing, cublasHandle_t handle) 
+        : DBinaryData<T, float, unsigned int, OpNop<T>, OpNop<unsigned int> >(OpNop<T>(), OpNop<unsigned int>(), input_dim, 1, true, false, buff_dim, false, testing, handle) {
         std::string xpath, ypath;
         if (path[path.length()-1] != '/') path.append("/");
         xpath = path+"PatchData.bin";

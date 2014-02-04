@@ -77,11 +77,22 @@ public:
     }
 };
 
-
 template<class T>
 class OpExp{
 public:
     HOSTDEVICE T operator() (T x, T y) {
+        return y*y;
+    }
+};
+
+
+template<class T>
+class OpSqr{
+public:
+    HOSTDEVICE T operator() (T x, T y) {
+        return exp(y);
+    }
+    HOSTDEVICE T operator() (T y) {
         return exp(y);
     }
 };
@@ -119,6 +130,22 @@ public:
     }
     HOSTDEVICE T operator() (T x, T y) {
         return y;
+    }
+};
+
+template<class T>
+class OpMinReduce {
+public:
+    const T Unit;
+    HOSTDEVICE OpMinReduce() : Unit(1e37) {}
+    HOSTDEVICE T operator() (T x, int i, T y, int j, int &ind) {
+        if (x >= y) {
+            ind = j;
+            return y;
+        }else {
+            ind = i;
+            return x;
+        }
     }
 };
 

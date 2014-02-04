@@ -8,7 +8,7 @@ SUFIX = cu
 CC = nvcc --compiler-options="-pthread" 
 FLAGS += -DNVML
 LIBS = -lcudart -lcublas 
-#LIBS += -lnvidia-ml
+LIBS += -lnvidia-ml
 LIBS += -L/opt/intel/mkl/lib/intel64 
 LIBS += -L/opt/intel/lib/intel64 
 LIBS += -L/usr/nikola/pkgs/intel/.2011.2.137/mkl/lib/intel64

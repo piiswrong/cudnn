@@ -425,6 +425,49 @@ void hDropout(DMatrix<T> *x, DMatrix<T> *mask, curandState *state, float rate, b
     case 7: kDropout<T, true, true, true><<<grid, block>>>(x->dev_data(), save?mask->dev_data():NULL, state, rate, m, n, ld);CUDA_KERNEL_CHECK();break;;
     }
 }
+
+template<class T>
+void UnitLength(DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *norm, int fd) {
+    dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
+    dim3 block(WARP_SIZE, 32, 1);
+    kUnitLength<T,32><<<grid, block>>>(x->dev_data(), y->dev_data(), norm!=NULL?norm->dev_data():NULL, x->ld(), fd);
+    CUDA_KERNEL_CHECK();
+}
+
+template<class T>
+void Argmax(DMatrix<T> *x, DMatrix<int> *ind, DMatrix<T> *res, int fd) {
+    dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
+    dim3 block(WARP_SIZE, 32, 1);
+    kArgmax<T,32><<<grid, block>>>(x->dev_data(), ind->dev_data(), res->dev_data(), x->ld(), fd);
+    CUDA_KERNEL_CHECK();
+}
+
+template<class T>
+void CluterNeuronDelta(DMatrix<T> *scale, DMatrix<T> *y, DMatrix<T> *margin, DMatrix<T> *res, DMatrix<int> *index, T lambda) {
+    dim3 grid(1,1,1);
+    dim3 block(y->nrows(), 1, 1);
+    kCluterNeuronDelta<T><<<grid, block>>>(scale->dev_data(), y->dev_data(), margin->dev_data(), res->dev_data(), index->dev_data(), lambda);
+    CUDA_KERNEL_CHECK();
+}
+
+template<class T>
+void CluterNeuronAcc(DMatrix<T> *acc, DMatrix<T> *y, DMatrix<T> *margin, DMatrix<T> *res, DMatrix<int> *index) {
+    dim3 grid(1,1,1);
+    dim3 block(y->nrows(), 1, 1);
+    kCluterNeuronAcc<T><<<grid, block>>>(acc->dev_data(), y->dev_data(), margin->dev_data(), res->dev_data(), index->dev_data());
+    CUDA_KERNEL_CHECK();
+}
+
+template<class T>
+void CluterNeuronBprop(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *centers, DMatrix<int> *index, DMatrix<T> *res,
+                        DMatrix<T> *scale, DMatrix<T> *norm, int fd) {
+    assert(!delta->getT());
+    int m = delta->ld();
+    dim3 grid((m-1)/TILE_DIM+1,(fd-1)/TILE_DIM+1,1);
+    dim3 block(TILE_DIM, BLOCK_ROWS, 1);
+    kCluterNeuronBprop<T><<<grid, block>>>(delta->dev_data(), act->dev_data(), centers->dev_data(), index->dev_data(), res->dev_data(), scale->dev_data(), norm->dev_data(), m, fd);
+    CUDA_KERNEL_CHECK();
+}
 #else
 template<class T> 
 void hDropout(DMatrix<T> *x, DMatrix<T> *mask, curandState *state, float rate, bool trans, int m, int n, int ld) {
