@@ -99,7 +99,7 @@ __global__ void kDropout(T *dest, T *mask, curandState *state, float rate, int m
 }
 
 
-template<class T, int num_thrd, class Op, class OpTrans>
+template<class T, int num_thrd, bool trans, class Op, class OpTrans>
 __device__ T dBatchReduce(Op op, OpTrans opTrans, T *x, T *smem, int *mark, int i, int j, int ld, int fd, int &ind) {
     T res = op.Unit;
     int myInd = 0;
