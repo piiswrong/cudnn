@@ -257,13 +257,14 @@ public:
         _n_dims = n_dims;
         _lambda = lambda;
 
-        _centers = new DMatrix<T>(batch_size, n_dims, DNeuron<T>::_handle);
-        _centers->init(DMatrix<T>::Normal);
-        UnitLength(_centers, _centers, _norm, n_dims);
+        _centers = new DMatrix<T>(n_dims, n_centers, DNeuron<T>::_handle);
+        _centers->init(DMatrix<T>::Normal, 0.0, 1.0);
+        UnitLength(_centers, _centers, NULL, n_dims);
         _index = new DMatrix<int>(batch_size, 1, DNeuron<T>::_handle);
         _distance = new DMatrix<T>(batch_size, n_dims, DNeuron<T>::_handle);
         _res = new DMatrix<T>(batch_size, 1, DNeuron<T>::_handle);
         _margin = new DMatrix<T>(n_centers, 1, DNeuron<T>::_handle);
+        _margin->init(DMatrix<T>::Uniform, 0.05, 0.05);
         _norm = new DMatrix<T>(batch_size, 1, DNeuron<T>::_handle);
         _scale = new DMatrix<T>(batch_size, 1, DNeuron<T>::_handle);
         _acc = new DMatrix<T>(batch_size, 1, DNeuron<T>::_handle);
@@ -277,7 +278,7 @@ public:
     virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) {
         UnitLength(drv, act, _norm, act->fd()-1);
         DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
-        _distance->update(act_view, false, _centers, true, 1.0, 0);
+        _distance->update(act_view, false, _centers, false, 1.0, 0);
         Argmax(_distance, _index, _res, _distance->fd());
     }
 

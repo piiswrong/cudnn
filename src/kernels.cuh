@@ -288,6 +288,11 @@ __global__ void kCluterNeuronBprop(T *delta, T *act, T *centers, int *index, T *
     }
 }
 
+template<class T>
+__global__ void kCluterNeuronReverseIndex(T *rindex, T *scale, T *index, int ld, int fd) {
+    int i = threadIdx.x;
+    rindex[index[i] + ld*i] = scale[i];
+}
 
 
 #endif //DISABLE_GPU
