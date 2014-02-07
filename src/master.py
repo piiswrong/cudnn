@@ -81,26 +81,27 @@ def makeExp(exp_name, ntotal_param):
     ptHyper, horder = makeHyper()
     bpHyper, horder = makeHyper()
     id = 0
-    for i in xrange(5, 20, 3):
-        for drop in [ 0.05, 0.10, 0.40 ]:
-            net['num_layers'] = i
-            net['neuron'] = 'Oddroot'
-            net['bp_epochs'] = 1000
-            t = (-501+math.sqrt((501.0+i)**2+4.0*(i-2)*ntotal_param))/(2.0*(i-2))
-            net['hidden_dim'] = int((t+8)/16)*16 - 1
+    for neuron in [ 'Logistic', 'Oddroot', 'ReLU' ]:
+        for i in [ 5, 10, 20 ]:
+            for ntotal_param in [ 1e7, 2e7 ]:
+                net['num_layers'] = i
+                net['neuron'] = neuron
+                net['bp_epochs'] = 1000
+                t = (-501+math.sqrt((501.0+i)**2+4.0*(i-2)*ntotal_param))/(2.0*(i-2))
+                net['hidden_dim'] = int((t+8)/16)*16 - 1
 
-            if i == 5:
-                bpHyper['learning_rate'] = 0.01
-            else:
-                bpHyper['learning_rate'] = 0.1
+                if i == 5:
+                    bpHyper['learning_rate'] = 0.01
+                else:
+                    bpHyper['learning_rate'] = 0.1
 
-            bpHyper['hdrop_rate'] = drop
-            
-            fout = open('%s%s_%d.hyper'%(log_path,exp_name, id), 'w')
-            if net['neuron'] == 'Logistic':
-                shutil.copy2('%slogistic_d%d.param'%(log_path,i), '%s%s_%d.param'%(log_path,exp_name,id))
-            writeExp(fout, net, norder, ptHyper, bpHyper, horder)
-            id += 1
+                bpHyper['hdrop_rate'] = 0.2
+                
+                fout = open('%s%s_%d.hyper'%(log_path,exp_name, id), 'w')
+                if net['neuron'] == 'Logistic':
+                    shutil.copy2('%slogistic_d%d_w%d.param'%(log_path,i,net['hidden_dim']), '%s%s_%d.param'%(log_path,exp_name,id))
+                writeExp(fout, net, norder, ptHyper, bpHyper, horder)
+                id += 1
 
 
 def makeReport(exp_name, exps):
@@ -185,7 +186,8 @@ def makeReport(exp_name, exps):
 #makeExp('sigmoid', 1e7)
 #makeReport('sigmoid', xrange(0,15))
 #makeExp('oddrootnew1', 1e7)
-makeReport('oddrootnew1', xrange(0,15))
+#makeExp('all1', [1e7, 2e7])
+makeReport('all1', xrange(0,18))
 
 
 

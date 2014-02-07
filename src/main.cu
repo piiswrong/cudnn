@@ -211,7 +211,8 @@ int main(int argc, char **argv) {
         dnn->layers()[0]->weight()->samplePrint();
         fclose(fin);
         _bp_hyper_params.learning_rate *= std::pow(_bp_hyper_params.learning_rate_decay, resuming);
-    }
+    }else 
+        resuming = 0;
     if (exp_name != NULL)
         fineTuneWithCheckpoint(dnn, data, bp_epochs, 10, path+exp_name, resuming);
     else 

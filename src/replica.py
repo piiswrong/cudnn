@@ -7,10 +7,10 @@ import subprocess
 
 
 
-exps = list(xrange(0,15))
-exp_name = 'oddrootnew1'
-test_only = False 
-resuming = -1 
+exps = list(xrange(0, 6))
+exp_name = 'all1'
+test_only = True 
+resuming = 0 
 
 if len(sys.argv) <= 1:
     nodes = []

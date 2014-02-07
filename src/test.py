@@ -85,7 +85,7 @@ matrices:""")
         print res
         print >> flog, res
         flog.flush()
-        res = subprocess.Popen(['./dmlpvitcommand_updatedBootModel_hyd_devSet'], stdout=subprocess.PIPE).communicate()[0]
+        res = subprocess.Popen(['./dmlpvitcommand_updatedBootModel_hyd_devSet_normalized'], stdout=subprocess.PIPE).communicate()[0]
         print res
         print >> flog, res
         flog.flush()
