@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
 
     FILE *fin = NULL;
     char * exp_name = NULL;
-    int resuming = 0;
+    int resuming = -1;
     int devId = -1;
     for (int i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
@@ -97,13 +97,19 @@ int main(int argc, char **argv) {
     if (devId != -1)
     {
         printf("Selecting device %d\n", devId);
+        LOG(fprintf(flog,"Selecting device %d\n", devId)); 
         CUDA_CALL(cudaSetDevice(devId));
     }else {
         printf("Can not find idle device\n");
+        LOG(fprintf(flog,"Can not find idle device\n"));
         exit(-1);
     }
 #else
-    devId = 0;
+    if (devId != -1)
+    {
+        printf("Selecting device %d\n", devId);
+        CUDA_CALL(cudaSetDevice(devId));
+    }
 #endif
 #endif
 
@@ -193,8 +199,8 @@ int main(int argc, char **argv) {
 #ifndef DISABLE_GPU
     data->set_devId(devId);
 #endif
-    if (!resuming && pt_epochs > 0) dnn->pretrain(data, pt_epochs);
-    if (resuming) {
+    if (resuming == -1 && pt_epochs > 0) dnn->pretrain(data, pt_epochs);
+    if (resuming >= 0) {
         printf("Resuming from %d-th epoch.\n", resuming);
         //std::stringstream ss;
         //ss << resuming - 10;

@@ -7,21 +7,21 @@ import subprocess
 
 
 
-exps = list(xrange(0,15))
-exp_name = 'oddrootnew1'
+exps = list(xrange(6,18))
+exp_name = 'all1'
 test_only = False 
-resuming = -1 
+resuming = -1
 
 if len(sys.argv) <= 1:
     nodes = []
     if not test_only:
         for i in xrange(1,12):
-            if i == 6 or i == 8:
+            if i == 6: 
                 continue
             res = subprocess.Popen(['ssh', 'n%02d'%i, 'nvidia-smi'], stdout=subprocess.PIPE).communicate()[0]
             print res
             res = res.strip().split('\n')
-            if filter(None, res[8].strip().split(' '))[-3] == '0%':
+            if i != 4 and filter(None, res[8].strip().split(' '))[-3] == '0%':
                 nodes.append((i, 0))
             if filter(None, res[11].strip().split(' '))[-3] == '0%':
                 nodes.append((i, 1))
