@@ -8,8 +8,9 @@ import subprocess
 
 
 exps = list(xrange(0,15))
-exp_name = 'sigmoid'
-test_only = True
+exp_name = 'oddrootnew1'
+test_only = False 
+resuming = -1 
 
 if len(sys.argv) <= 1:
     nodes = []
@@ -27,7 +28,7 @@ if len(sys.argv) <= 1:
     print nodes, len(nodes)
 
     nodes2 = []
-    res = list(xrange(40,61))
+    res = list(xrange(14,61))
     res.reverse()
     lines = subprocess.Popen(['qstat', '-f', '-q', 'all.q'], stdout=subprocess.PIPE).communicate()[0].strip().split('\n')
     lines.reverse()
@@ -50,13 +51,16 @@ if len(sys.argv) <= 1:
         exit()
 
     print 'confirm?'
-    #raw_input()
+    raw_input()
 
     for k in xrange(len(exps)):
         n = exps[k]
         if not test_only:
             i,j = nodes[k]
-            cmd = 'source ~/.profile; nohup /projects/grail/jxie/cudnn/src/main -d %d -r 0 %s_%d > /projects/grail/jxie/cudnn/log/%s_%d.o &'%(j, exp_name, n, exp_name, n)
+            if resuming >= 0:
+                cmd = 'source ~/.profile; nohup /projects/grail/jxie/cudnn/src/main -d %d -r %d %s_%d > /projects/grail/jxie/cudnn/log/%s_%d.o &'%(j, resuming, exp_name, n, exp_name, n)
+            else:
+                cmd = 'source ~/.profile; nohup /projects/grail/jxie/cudnn/src/main -d %d %s_%d > /projects/grail/jxie/cudnn/log/%s_%d.o &'%(j, exp_name, n, exp_name, n)
             print cmd
             os.system("ssh n%02d '%s'"%(i,cmd))
         cmd = 'source ~/.profile; nohup python /projects/grail/jxie/cudnn/src/test.py %s %d 0 1000 > /projects/grail/jxie/cudnn/log/test_%s_%d.o &'%(exp_name, n, exp_name, n)

@@ -427,11 +427,18 @@ void hDropout(DMatrix<T> *x, DMatrix<T> *mask, curandState *state, float rate, b
 }
 
 template<class T>
-void UnitLength(DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *norm, int fd) {
-    dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
-    dim3 block(WARP_SIZE, 32, 1);
-    kUnitLength<T,32><<<grid, block>>>(x->dev_data(), y->dev_data(), norm!=NULL?norm->dev_data():NULL, x->ld(), fd);
-    CUDA_KERNEL_CHECK();
+void UnitLength(DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *norm, int n, bool trans) {
+    if (trans) {
+        dim3 grid((x->fd()-1)/WARP_SIZE+1, 1, 1);
+        dim3 block(WARP_SIZE, 32, 1);
+        kUnitLength<T,true,32><<<grid, block>>>(x->dev_data(), y->dev_data(), norm!=NULL?norm->dev_data():NULL, n, x->fd());
+        CUDA_KERNEL_CHECK();
+    }else {
+        dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
+        dim3 block(WARP_SIZE, 32, 1);
+        kUnitLength<T,false,32><<<grid, block>>>(x->dev_data(), y->dev_data(), norm!=NULL?norm->dev_data():NULL, x->ld(), n);
+        CUDA_KERNEL_CHECK();
+    }
 }
 
 template<class T>

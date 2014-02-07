@@ -99,17 +99,22 @@ __global__ void kDropout(T *dest, T *mask, curandState *state, float rate, int m
 }
 
 
-template<class T, int num_thrd, bool trans, class Op, class OpTrans>
-__device__ T dBatchReduce(Op op, OpTrans opTrans, T *x, T *smem, int *mark, int i, int j, int ld, int fd, int &ind) {
+template<class T, bool trans, int num_thrd, class Op, class OpTrans>
+__device__ T dBatchReduce(Op op, OpTrans opTrans, T *x, T *smem, int *mark, int ld, int fd, int &ind) {
     T res = op.Unit;
     int myInd = 0;
-    int k = threadIdx.y;
-    const int n = ld*fd;
-    const int blockSize = ld*num_thrd;
-    while (j < n) {
-        res = op(res, myInd, opTrans(x[j]), k, myInd);
-        k += num_thrd;
-        j += blockSize;
+    int n;
+    int i = blockIdx.x*WARP_SIZE + threadIdx.x;
+    int j = threadIdx.y;
+    if (trans) 
+        n = ld;
+    else 
+        n = fd;
+    for (;j < n; j += num_thrd) {
+        if (trans)
+            res = op(res, myInd, opTrans(x[j+i*ld]), j, myInd);
+        else 
+            res = op(res, myInd, opTrans(x[i+j*ld]), j, myInd);
     }
     j = threadIdx.y;
     i = j*WARP_SIZE + threadIdx.x;
@@ -164,10 +169,10 @@ __global__ void kSoftmaxAct(T *act, T *drv, int *res, int ld, int fd) {
     int n = ld*fd;
     if (i < ld) {
         int myMark;
-        T myMax = dBatchReduce<T, num_thrd, OpMaxReduce<T>, OpNop<T> >(OpMaxReduce<T>(), OpNop<T>(), drv, smem, mark, i, j, ld, fd, myMark);
+        T myMax = dBatchReduce<T, false, num_thrd, OpMaxReduce<T>, OpNop<T> >(OpMaxReduce<T>(), OpNop<T>(), drv, smem, mark, ld, fd, myMark);
         if (threadIdx.y == 0) res[i] = myMark;
 
-        T mySum = dBatchReduce<T, num_thrd, OpSumReduce<T>, OpSubExp<T> >(OpSumReduce<T>(), OpSubExp<T>(myMax), drv, smem, mark, i, j, ld, fd, myMark);
+        T mySum = dBatchReduce<T, false, num_thrd, OpSumReduce<T>, OpSubExp<T> >(OpSumReduce<T>(), OpSubExp<T>(myMax), drv, smem, mark, ld, fd, myMark);
 
         while (j < n) {
             act[j] = exp(drv[j]-myMax)/mySum;
@@ -201,7 +206,7 @@ __global__ void kWeightUpdate(T* x, T* y, T decay_rate, int ld, int fd) {
     }
 }
 
-template<class T, int num_thrd>
+template<class T, bool trans, int num_thrd>
 __global__ void kUnitLength(T *x, T *y, T *norm, int ld, int fd) {
     __shared__ T smem[WARP_SIZE*num_thrd];
     __shared__ int mark[WARP_SIZE*num_thrd];
@@ -209,18 +214,24 @@ __global__ void kUnitLength(T *x, T *y, T *norm, int ld, int fd) {
     int j = threadIdx.y*ld + i;
     const int blockSize = ld*num_thrd;
 
-    int n = ld*fd;
     if (i < ld) {
         int myMark;
-        T mySum = dBatchReduce<T, num_thrd, OpSumReduce<T>, OpSqr<T> >(OpSumReduce<T>(), OpSqr<T>(), x, smem, mark, i, j, ld, fd, myMark);
+        T mySum = dBatchReduce<T, trans, num_thrd, OpSumReduce<T>, OpSqr<T> >(OpSumReduce<T>(), OpSqr<T>(), x, smem, mark, ld, fd, myMark);
         mySum = sqrt(mySum);
-        if (norm != NULL) {
+        if (norm != NULL && threadIdx.y == 0) {
             norm[i] = mySum;
         }
 
-        while (j < n) {
-            y[j] = x[j]/mySum;
-            j += blockSize;
+        if (trans) {
+            for (j = threadIdx.y; j < ld; j += num_thrd) {
+                y[j + i*ld] = x[j + i*ld]/mySum;
+            }
+        }else {
+            int n = ld*fd;
+            while (j < n) {
+                y[j] = x[j]/mySum;
+                j += blockSize;
+            }
         }
     }
 }
@@ -232,12 +243,14 @@ __global__ void kArgmax(T *x, int *ind, T *res, int ld, int fd) {
     __shared__ T smem[WARP_SIZE*num_thrd];
     __shared__ int mark[WARP_SIZE*num_thrd];
     int i = blockIdx.x*WARP_SIZE + threadIdx.x;
-    int j = threadIdx.y*ld + i;
 
     if (i < ld) {
         int myMark = 0;
-        res[i] = dBatchReduce<T, num_thrd, OpMaxReduce<T>, OpNop<T> >(OpMaxReduce<T>(), OpNop<T>(), x, smem, mark, i, j, ld, fd, myMark);
-        ind[i] = myMark;
+        T myMax = dBatchReduce<T, false, num_thrd, OpMaxReduce<T>, OpNop<T> >(OpMaxReduce<T>(), OpNop<T>(), x, smem, mark, ld, fd, myMark);
+        if (threadIdx.y == 0) {
+            ind[i] = myMark;
+            res[i] = myMax;
+        }
     }
 
 }
