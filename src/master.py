@@ -172,6 +172,8 @@ def makeReport(exp_name, exps):
         for e,acc in sorted(lines, key=lambda x: x[0]):
             if acc > maxacc:
                 maxacc = acc
+            if e % 10 != 0:
+                e += 1
             print '%.2f(%.2f)'%(acc, train_acc[e]) + '\t',
             i += 1
         print 'max = %.2f'%maxacc+'\n'
