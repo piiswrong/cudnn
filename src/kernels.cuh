@@ -317,7 +317,7 @@ __global__ void kComputeDistanceKernel(Dist dist, T *x, T *y, T *z, int ldx, int
     int j = by*TILE_DIM + ty;
 
     T c = 0.0;
-    for (int k = 0; k < p; p += TILE_DIM) {
+    for (int k = 0; k < p; k += TILE_DIM) {
         sx[tx][ty] = x[i + (k+threadIdx.y)*ldx];
         sy[tx][ty] = y[k + threadIdx.x + j*ldy];
         __syncthreads();

@@ -301,6 +301,7 @@ class DGMMNeuron : public DNeuron<T> {
     T _lambda;
     DMatrix<T> *_means, *_stds, *_gamma, *_pi, *_coef, *_dist, *_likelyhood;
     DMatrix<T> *_tmpk, *_tmpn;
+    T _loss;
 public:
     DGMMNeuron(int batch_size, int n_centers, int n_dims, T lambda, cublasHandle_t handle) : DNeuron<T>(handle) {
         _lambda = lambda;
@@ -310,8 +311,9 @@ public:
         _stds = new DMatrix<T>(n_centers, 1, handle);
         _stds->init(DMatrix<T>::Uniform, 0.9, 1.1);
         _coef = new DMatrix<T>(batch_size, 1, handle);
-        _dist = new DMatrix<T>(batch_size, n_centers);
+        _dist = new DMatrix<T>(batch_size, n_centers, handle);
         _pi = new DMatrix<T>(n_centers, 1, handle);
+        _pi->init(DMatrix<T>::Uniform, 1.0/n_centers, 1.0/n_centers); 
         _likelyhood = new DMatrix<T>(batch_size, 1, handle);
         _tmpk = new DMatrix<T>(n_centers, 1, handle);
         _tmpn = new DMatrix<T>(batch_size, 1, handle);
@@ -320,11 +322,15 @@ public:
     virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) {
         act->CopyFrom(drv);
         hComputeDistanceKernel<T, DistEuclid<T> >(DistEuclid<T>(), drv, _means, _dist, drv->fd()-1);
+        _dist->samplePrint("dist");
         _dist->diagMul(_dist, _stds, false);
         _dist->applyBinary(OpGaussian<T>(), _dist, _dist->nrows(), _dist->ncols());
+        _dist->samplePrint("dist");
         _tmpk->applyTenary(OpGMMWeight<T>(_tmpk->nrows()), _pi, _stds, _tmpk->nrows(), _tmpk->ncols()); 
         _dist->diagMul(_dist, _tmpk, false);
+        _dist->samplePrint("dist");
         hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpSumReduce<T>(), OpNop<T>(), OpDivide<T>(), _dist, _dist, _likelyhood, _dist->fd(), false);
+        _dist->samplePrint("gamma");
     }
 
     virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
@@ -338,7 +344,21 @@ public:
         delta->update(_dist, false, _means, true, 1.0, -1.0);
         delta->diagMul(delta, _coef, true);
     }
+
+    virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        _coef->applyBinary(OpGMMDelta<T>(_lambda), y, y->nrows(), y->ncols());
+        _likelyhood->samplePrint("likelyhood");
+        _likelyhood->applyBinary(OpLog<T>(), _likelyhood, _likelyhood->nrows(), _likelyhood->ncols());
+        _likelyhood->samplePrint("log likelyhood");
+        _coef->dev2host();
+        _likelyhood->dev2host();
+        _loss = 0.0;
+        for (int i = 0; i < y->nrows(); i++) _loss += _coef->getElem(i, 0) * _likelyhood->getElem(i, 0);
+    }
     
+    virtual T getLoss() {
+        return _loss;
+    }
 };
 
 #endif //DNEURON_CUH

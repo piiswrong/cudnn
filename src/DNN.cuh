@@ -308,7 +308,7 @@ public:
         if (mpi_world_rank >= sgd_num_param_server)
 #endif  
             data->start();
-        int iperEpoch = data->instancesPerEpoch();
+        int iperEpoch = 512;//data->instancesPerEpoch();
 #ifdef DOWN_POUR_SGD
         if (mpi_world_rank < sgd_num_param_server)
            iperEpoch = data->totalInstancesPerEpoch(); 
@@ -345,11 +345,9 @@ public:
             //_layers[0]->weight()->samplePrint();
             //_layers[5]->weight()->samplePrint();
             if (lastCheck >= _bp_hyper_params.check_interval) {
-                /*_layers[_num_layers-1]->act()->samplePrint();
-                _layers[_num_layers-2]->act()->samplePrint();
-                _layers[0]->act()->samplePrint();
-                _layers[0]->drv()->samplePrint();
-                _layers[0]->weight()->samplePrint();*/
+                _layers[_num_layers-1]->act()->samplePrint("top act");
+                _layers[0]->act()->samplePrint("bottom act");
+                _layers[0]->weight()->samplePrint("bottom weight");
                 x->samplePrint("x");
 #ifdef ADMM
                 printf("\nNode%d\tEpoch: %d\tInstance: %d\tError: %f\n", mpi_world_rank, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
