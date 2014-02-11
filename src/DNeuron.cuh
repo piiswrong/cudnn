@@ -237,7 +237,7 @@ HOSTDEVICE float DOddrootNeuron<float>::ForwardOp::operator() (float act, float 
 
 }
 */
-
+/*
 template<class T>
 class DClusterNeuron : public DNeuron<T> {
     int _batch_size;
@@ -295,12 +295,12 @@ public:
         return _acc->norm1(_y->nrows());
     }
 };
-
+*/
 template<class T>
 class DGMMNeuron : public DNeuron<T> {
     T _lambda;
     DMatrix<T> *_means, *_stds, *_gamma, *_pi, *_coef, *_dist, *_likelyhood;
-    DMatrix<T> *_tmpk, *tmpn;
+    DMatrix<T> *_tmpk, *_tmpn;
 public:
     DGMMNeuron(int batch_size, int n_centers, int n_dims, T lambda, cublasHandle_t handle) : DNeuron<T>(handle) {
         _lambda = lambda;
@@ -319,16 +319,16 @@ public:
 
     virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) {
         act->CopyFrom(drv);
-        hComputeDistanceKernel<T, DistEuclid>(DistEuclid(), drv, _means, _dist, drv->fd()-1);
+        hComputeDistanceKernel<T, DistEuclid<T> >(DistEuclid<T>(), drv, _means, _dist, drv->fd()-1);
         _dist->diagMul(_dist, _stds, false);
-        _dist->applyBinary(OpScalExp(-0.5), _dist, _dist->nrows(), _dist->ncols());
-        _tmpk->applyTenary(OpGMMWeight(_tmpk->nrows()), _pi, _stds, _tmpk->nrows(), _tmpk->ncols()); 
+        _dist->applyBinary(OpGaussian<T>(), _dist, _dist->nrows(), _dist->ncols());
+        _tmpk->applyTenary(OpGMMWeight<T>(_tmpk->nrows()), _pi, _stds, _tmpk->nrows(), _tmpk->ncols()); 
         _dist->diagMul(_dist, _tmpk, false);
         hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpSumReduce<T>(), OpNop<T>(), OpDivide<T>(), _dist, _dist, _likelyhood, _dist->fd(), false);
     }
 
     virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        _coef->applyBinary(OpGMMDelta(lambda), y, y->nrows(), y->ncols());
+        _coef->applyBinary(OpGMMDelta<T>(_lambda), y, y->nrows(), y->ncols());
     }
 
     virtual void bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {

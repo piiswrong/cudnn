@@ -200,15 +200,15 @@ class OpGMMDelta{
 public:
     HOSTDEVICE OpGMMDelta(T lambda) : _lambda(lambda) {}
     HOSTDEVICE T operator() (T c, T y) {
-        return lambda*(1-y) - y;
+        return _lambda*(1-y) - y;
     }
 };
 
-template<class T, class scale>
-class OpScaleExp{
+template<class T>
+class OpGaussian{
 public:
     HOSTDEVICE T operator() (T x, T y) {
-        return scale * exp(y);
+        return exp(-0.5*y);
     }
 };
 

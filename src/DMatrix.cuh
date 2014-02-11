@@ -221,7 +221,6 @@ public:
             CUBLAS_CALL(cublasGetVectorAsync(_ld*_fd, sizeof(T), _dev_data, 1, _host_data, 1, stream));
     }
 
-    void CopyFrom
     
 
 #ifdef USE_MPI

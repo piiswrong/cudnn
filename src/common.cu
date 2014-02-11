@@ -70,13 +70,13 @@ cublasStatus_t cublasXgemm(cublasHandle_t handle,
     return cublasDgemm(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
 }
 
-cublasStatust cublasXdgmm(cublasHandle_t handle, cublasSideMode_t mode,
+cublasStatus_t cublasXdgmm(cublasHandle_t handle, cublasSideMode_t mode,
                                         int m, int n,
                                         const float           *A, int lda,
                                         const float           *x, int incx,
                                         float           *C, int ldc)
 {
-    return cublasSdgmm(handle, mode, m, n, A, lda, x, incx, C, ldx);
+    return cublasSdgmm(handle, mode, m, n, A, lda, x, incx, C, ldc);
 }
 
 cublasStatus_t cublasXdgmm(cublasHandle_t handle, cublasSideMode_t mode,
@@ -85,7 +85,7 @@ cublasStatus_t cublasXdgmm(cublasHandle_t handle, cublasSideMode_t mode,
                                         const double          *x, int incx,
                                         double          *C, int ldc)
 {
-    return cublasDdgmm(handle, mode, m, n, A, lda, x, incx, C, ldx);
+    return cublasDdgmm(handle, mode, m, n, A, lda, x, incx, C, ldc);
 }
 
 #endif
