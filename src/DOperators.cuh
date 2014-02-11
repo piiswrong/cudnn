@@ -185,6 +185,48 @@ public:
     }
 };
 
+template<class T>
+class DistEuclid{
+public:
+    HOSTDEVICE T operator() (T x, T y) {
+        T t = x-y;
+        return t*t;
+    }
+};
 
+template<class T>
+class OpGMMDelta{
+    const T _lambda;
+public:
+    HOSTDEVICE OpGMMDelta(T lambda) : _lambda(lambda) {}
+    HOSTDEVICE T operator() (T c, T y) {
+        return lambda*(1-y) - y;
+    }
+};
 
+template<class T, class scale>
+class OpScaleExp{
+public:
+    HOSTDEVICE T operator() (T x, T y) {
+        return scale * exp(y);
+    }
+};
+
+template<class T>
+class OpGMMWeight{
+    const T _k;
+public:
+    HOSTDEVICE OpGMMWeight(T k) : _k(k/2.0) {}
+    HOSTDEVICE T operator() (T x, T y, T z) {
+        return y*pow(z,_k);
+    }
+};
+
+template<class T>
+class OpDivide {
+public:
+    HOSTDEVICE T operator() (T x, T y) {
+        return x/y;
+    }
+};
 #endif //DOPERATORS_CUH

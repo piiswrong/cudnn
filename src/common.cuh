@@ -57,6 +57,7 @@ const int BLOCK_ROWS = 8;
 #define CUDA_KERNEL_CHECK() do { \
                             CUDA_CALL(cudaPeekAtLastError()); \
                             CUDA_CALL(cudaDeviceSynchronize()); \
+                            CUDA_CALL(cudaPeekAtLastError()); \
                             }while(0)
 #endif
                             
@@ -94,6 +95,18 @@ cublasStatus_t cublasXgemm(cublasHandle_t handle,
                                         const double *alpha, double *A, int lda,
                                         double *B, int ldb, const double *beta,
                                         double *C, int ldc);
+
+cublasStatust cublasXdgmm(cublasHandle_t handle, cublasSideMode_t mode,
+                                        int m, int n,
+                                        const float           *A, int lda,
+                                        const float           *x, int incx,
+                                        float           *C, int ldc);
+
+cublasStatus_t cublasXdgmm(cublasHandle_t handle, cublasSideMode_t mode,
+                                        int m, int n,
+                                        const double          *A, int lda,
+                                        const double          *x, int incx,
+                                        double          *C, int ldc)
 #else
 typedef void* cublasHandle_t; 
 typedef void* curandState;

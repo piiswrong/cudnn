@@ -296,4 +296,49 @@ public:
     }
 };
 
+template<class T>
+class DGMMNeuron : public DNeuron<T> {
+    T _lambda;
+    DMatrix<T> *_means, *_stds, *_gamma, *_pi, *_coef, *_dist, *_likelyhood;
+    DMatrix<T> *_tmpk, *tmpn;
+public:
+    DGMMNeuron(int batch_size, int n_centers, int n_dims, T lambda, cublasHandle_t handle) : DNeuron<T>(handle) {
+        _lambda = lambda;
+
+        _means = new DMatrix<T>(n_dims, n_centers, handle);
+        _means->init(DMatrix<T>::Normal, 0.0, 1.0);
+        _stds = new DMatrix<T>(n_centers, 1, handle);
+        _stds->init(DMatrix<T>::Uniform, 0.9, 1.1);
+        _coef = new DMatrix<T>(batch_size, 1, handle);
+        _dist = new DMatrix<T>(batch_size, n_centers);
+        _pi = new DMatrix<T>(n_centers, 1, handle);
+        _likelyhood = new DMatrix<T>(batch_size, 1, handle);
+        _tmpk = new DMatrix<T>(n_centers, 1, handle);
+        _tmpn = new DMatrix<T>(batch_size, 1, handle);
+    }
+
+    virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) {
+        act->CopyFrom(drv);
+        hComputeDistanceKernel<T, DistEuclid>(DistEuclid(), drv, _means, _dist, drv->fd()-1);
+        _dist->diagMul(_dist, _stds, false);
+        _dist->applyBinary(OpScalExp(-0.5), _dist, _dist->nrows(), _dist->ncols());
+        _tmpk->applyTenary(OpGMMWeight(_tmpk->nrows()), _pi, _stds, _tmpk->nrows(), _tmpk->ncols()); 
+        _dist->diagMul(_dist, _tmpk, false);
+        hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpSumReduce<T>(), OpNop<T>(), OpDivide<T>(), _dist, _dist, _likelyhood, _dist->fd(), false);
+    }
+
+    virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        _coef->applyBinary(OpGMMDelta(lambda), y, y->nrows(), y->ncols());
+    }
+
+    virtual void bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {
+        _tmpn->update(_dist, false, _stds, false, 1.0, 0.0);
+        delta->diagMul(drv, _tmpn, true);
+        _dist->diagMul(_dist, _stds, false);
+        delta->update(_dist, false, _means, true, 1.0, -1.0);
+        delta->diagMul(delta, _coef, true);
+    }
+    
+};
+
 #endif //DNEURON_CUH

@@ -206,8 +206,8 @@ __global__ void kWeightUpdate(T* x, T* y, T decay_rate, int ld, int fd) {
     }
 }
 
-template<class T, bool trans, int num_thrd>
-__global__ void kUnitLength(T *x, T *y, T *norm, int ld, int fd) {
+template<class T, bool trans, int num_thrd, class OpElem, class OpReduce, class OpAll, class OpNorm>
+__global__ void kNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm opNorm, T *x, T *y, T *norm, int ld, int fd) {
     __shared__ T smem[WARP_SIZE*num_thrd];
     __shared__ int mark[WARP_SIZE*num_thrd];
     int i = blockIdx.x*WARP_SIZE + threadIdx.x;
@@ -216,20 +216,20 @@ __global__ void kUnitLength(T *x, T *y, T *norm, int ld, int fd) {
 
     if (i < ld) {
         int myMark;
-        T mySum = dBatchReduce<T, trans, num_thrd, OpSumReduce<T>, OpSqr<T> >(OpSumReduce<T>(), OpSqr<T>(), x, smem, mark, ld, fd, myMark);
-        mySum = sqrt(mySum);
+        T mySum = dBatchReduce<T, trans, num_thrd, OpReduce, OpElem>(opReduce, opElem, x, smem, mark, ld, fd, myMark);
+        mySum = opAll(mySum);
         if (norm != NULL && threadIdx.y == 0) {
             norm[i] = mySum;
         }
 
         if (trans) {
             for (j = threadIdx.y; j < ld; j += num_thrd) {
-                y[j + i*ld] = x[j + i*ld]/mySum;
+                y[j + i*ld] = opNorm(x[j + i*ld], mySum);
             }
         }else {
             int n = ld*fd;
             while (j < n) {
-                y[j] = x[j]/mySum;
+                y[j] = opNorm(x[j], mySum);
                 j += blockSize;
             }
         }
@@ -307,6 +307,28 @@ __global__ void kCluterNeuronReverseIndex(T *rindex, T *scale, T *index, int ld,
     rindex[index[i] + ld*i] = scale[i];
 }
 
+template<class T, class Dist>
+__global__ void kComputeDistanceKernel(Dist dist, T *x, T *y, T *z, int ldx, int ldy, int ldz, int p) {
+    __shared__ T sx[TILE_DIM][TILE_DIM];
+    __shared__ T sy[TILE_DIM][TILE_DIM];
+
+    int bx = blockIdx.x, by = blockIdx.y, tx = threadIdx.x, ty = threadIdx.y;
+    int i = bx*TILE_DIM + tx;
+    int j = by*TILE_DIM + ty;
+
+    T c = 0.0;
+    for (int k = 0; k < p; p += TILE_DIM) {
+        sx[tx][ty] = x[i + (k+threadIdx.y)*ldx];
+        sy[tx][ty] = y[k + threadIdx.x + j*ldy];
+        __syncthreads();
+
+        for (int kk = 0; kk < TILE_DIM; kk++) {
+            c += dist(sx[tx][kk], sy[kk][ty]);
+        }
+        __syncthreads();
+    }
+    z[i+j*ldz] = c;
+}
 
 #endif //DISABLE_GPU
 #endif //KERNELS_CUH

@@ -79,8 +79,8 @@ public:
     }
     
     void CopyFrom(DMatrix<T> *src) {
-        _ld = src->_ld;
-        _fd = src->_fd;
+        assert(_ld == src->_ld);
+        assert(_fd == src->_fd);
         _T  = src->_T;
         if (_on_device) 
             CUDA_CALL(cudaMemcpy(_dev_data, src->dev_data(), _size, cudaMemcpyDeviceToDevice));
@@ -221,6 +221,7 @@ public:
             CUBLAS_CALL(cublasGetVectorAsync(_ld*_fd, sizeof(T), _dev_data, 1, _host_data, 1, stream));
     }
 
+    void CopyFrom
     
 
 #ifdef USE_MPI
@@ -319,6 +320,20 @@ public:
                         B->ncols(Tb), A->ncols(Ta), alpha,
                         A->host_data(), A->ld(), B->host_data(), B->ld(),
                         beta, host_data(), ld());
+        }
+    }
+
+    void diagMul(DMatrix<T> *A, DMatrix<T> *x, bool rowWise) {
+        assert(!A->getT());
+        assert(!getT());
+        if (_on_device) {
+            CUBLAS_CALL(cublasXdgmm(_handle, rowWise?CUBLAS_SIDE_LEFT:CUBLAS_SIDE_RIGHT, A->ld(), A->fd(), A->dev_data(),
+                                    A->ld(), x->dev_data(), 1, dev_data(), ld()));
+#ifndef NDEBUG
+            dev2host();
+#endif
+        }else {
+            assert(false);
         }
     }
 
@@ -426,17 +441,17 @@ void hDropout(DMatrix<T> *x, DMatrix<T> *mask, curandState *state, float rate, b
     }
 }
 
-template<class T>
-void UnitLength(DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *norm, int n, bool trans) {
-    if (trans) {
+template<class T, class OpElem, class OpReduce, class OpAll, class OpNorm>
+void hNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm opNorm, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *norm, int n, bool trans) {
+    if (trans) {//TODO:bug here?
         dim3 grid((x->fd()-1)/WARP_SIZE+1, 1, 1);
         dim3 block(WARP_SIZE, 32, 1);
-        kUnitLength<T,true,32><<<grid, block>>>(x->dev_data(), y->dev_data(), norm!=NULL?norm->dev_data():NULL, n, x->fd());
+        kNormalize<T,true,32><<<grid, block>>>(opElem, opReduce, opAll, opNorm, x->dev_data(), y->dev_data(), norm!=NULL?norm->dev_data():NULL, n, x->fd());
         CUDA_KERNEL_CHECK();
     }else {
         dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
         dim3 block(WARP_SIZE, 32, 1);
-        kUnitLength<T,false,32><<<grid, block>>>(x->dev_data(), y->dev_data(), norm!=NULL?norm->dev_data():NULL, x->ld(), n);
+        kNormalize<T,false,32><<<grid, block>>>(opElem, opReduce, opAll, opNorm, x->dev_data(), y->dev_data(), norm!=NULL?norm->dev_data():NULL, x->ld(), n);
         CUDA_KERNEL_CHECK();
     }
 }
@@ -473,6 +488,19 @@ void CluterNeuronBprop(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *centers, 
     dim3 grid((m-1)/TILE_DIM+1,(fd-1)/TILE_DIM+1,1);
     dim3 block(TILE_DIM, BLOCK_ROWS, 1);
     kCluterNeuronBprop<T><<<grid, block>>>(delta->dev_data(), act->dev_data(), centers->dev_data(), index->dev_data(), res->dev_data(), scale->dev_data(), norm->dev_data(), m, fd);
+    CUDA_KERNEL_CHECK();
+}
+
+template<class T, class Dist>
+void hComputeDistanceKernel(Dist dist, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *z, int p) {
+    int m = z->ld(), n = z->fd();
+    assert(m%TILE_DIM == 0);
+    assert(n%TILE_DIM == 0);
+    assert(!x->getT()&&!y->getT()&&!z->getT());
+    
+    dim3 grid(m/TILE_DIM, n/TILE_DIM, 1);
+    dim3 block(TILE_DIM, TILE_DIM, 1);
+    kComputeDistanceKernel<T, Dist><<<grid, block>>>(dist, x->dev_data(), y->dev_data(), z->dev_data(), x->ld(), y->ld(), z->ld(), p);
     CUDA_KERNEL_CHECK();
 }
 #else

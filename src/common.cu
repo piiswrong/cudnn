@@ -70,6 +70,24 @@ cublasStatus_t cublasXgemm(cublasHandle_t handle,
     return cublasDgemm(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
 }
 
+cublasStatust cublasXdgmm(cublasHandle_t handle, cublasSideMode_t mode,
+                                        int m, int n,
+                                        const float           *A, int lda,
+                                        const float           *x, int incx,
+                                        float           *C, int ldc)
+{
+    return cublasSdgmm(handle, mode, m, n, A, lda, x, incx, C, ldx);
+}
+
+cublasStatus_t cublasXdgmm(cublasHandle_t handle, cublasSideMode_t mode,
+                                        int m, int n,
+                                        const double          *A, int lda,
+                                        const double          *x, int incx,
+                                        double          *C, int ldc)
+{
+    return cublasDdgmm(handle, mode, m, n, A, lda, x, incx, C, ldx);
+}
+
 #endif
 
 float cblas_Xasum (const MKL_INT N, const float *X, const MKL_INT incX) {
