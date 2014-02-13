@@ -376,7 +376,7 @@ public:
         }
     }
 
-    bool gradCheck(DHyperParams *hyper, DMatrix<T> *input, DMatrix<T> *output, DLayer<T> *layers, int num_layers, DMatrix<T> **X, DMatrix<T> **dX, int *M, int *N, int L) {
+    bool gradCheck(DHyperParams *hyper, DMatrix<T> *input, DMatrix<T> *output, DLayer<T> **layers, int num_layers, DMatrix<T> **X, DMatrix<T> **dX, int *M, int *N, int L) {
         const float epsilon = 1e-4;
         const float bound = 1e-5;
         DLayer<T> *last_layer = layers[num_layers-1];
@@ -407,10 +407,11 @@ public:
                     double fr = last_layer->neuron()->objective(last_layer->delta(), last_layer->act(), output);
 
                     double ngrad = (fr-fl)/(2.0*epsilon);
-                    if ( abs(grad-ngrad)/ngrad < bound ) {
-                        printf("PASS %d\t%d\t%d: %lf\t%lf\n", i, j, k, grad, ngrad);
+                    double ratio = abs((grad-ngrad)/(ngrad+epsilon/100));
+                    if ( ratio < bound ) {
+                        printf("PASS (%d,%d,%d): %lf\t%lf\t%lf\n", i, j, k, grad, ngrad, ratio);
                     }else {
-                        printf("FAIL %d\t%d\t%d: %lf\t%lf\n", i, j, k, grad, ngrad);
+                        printf("FAIL (%d,%d,%d): %lf\t%lf\t%lf\n", i, j, k, grad, ngrad, ratio);
                         return false;
                     }
                 }
@@ -423,10 +424,11 @@ public:
     
     bool createGradCheck(DData<T> *data) {
         DMatrix<T> *input, *output;
+        data->start();
         data->getData(input, output, _bp_hyper_params.batch_size);
         int L;
         DMatrix<T> **tX, **tdX, **X, **dX;
-        L = _layers[_num_layers]->neuron()->params(tX, tdX);
+        L = _layers[_num_layers-1]->neuron()->params(tX, tdX);
         int *M = new int[L+_num_layers], *N = new int[L+_num_layers];
         X = new DMatrix<T>*[_num_layers+L];
         dX = new DMatrix<T>*[_num_layers+L];
@@ -439,8 +441,12 @@ public:
         for (int i = _num_layers; i < _num_layers+L; i++) {
             X[i] = tX[i-_num_layers];
             dX[i] = tdX[i-_num_layers];
+            M[i] = X[i]->nrows();
+            N[i] = X[i]->ncols();
         }
+        L += _num_layers;
         
+        return gradCheck(&_bp_hyper_params, input, output, _layers, _num_layers, X, dX, M, N, L);
     }
 };
 

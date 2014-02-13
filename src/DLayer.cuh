@@ -145,16 +145,16 @@ public:
 #ifdef DOWN_POUR_SGD
         if (mpi_world_rank >= sgd_num_param_server) {
 #endif
-            _neuron->bprop(delta, _drv, _act);
+            _neuron->bprop(_delta, _drv, _act);
             if (drop_out && !_neuron->easyDropout()) 
-                delta->applyBinary(OpMul<T>(), _mask, delta->nrows(), delta->ncols()-1);
+                _delta->applyBinary(OpMul<T>(), _mask, _delta->nrows(), _delta->ncols()-1);
 
             if (delta)
                 delta->update(_delta, false, _weight, true, 1.0, 0.0);
 #ifdef DOWN_POUR_SGD
-            _momentun->update(pre_act, true, delta, false, -(1.0-mom)*rate/delta->nrows(), 0.0);
+            _momentun->update(pre_act, true, _delta, false, -(1.0-mom)*rate/_delta->nrows(), 0.0);
 #else
-            _momentun->update(pre_act, true, delta, false, -(1.0-mom)*rate/delta->nrows(), mom);
+            _momentun->update(pre_act, true, _delta, false, -(1.0-mom)*rate/_delta->nrows(), mom);
 #endif
 
 #ifdef ADMM

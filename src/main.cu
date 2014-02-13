@@ -35,11 +35,13 @@ int main(int argc, char **argv) {
     char * exp_name = NULL;
     int resuming = -1;
     int devId = -1;
+    bool grad_check = false;
     for (int i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
             switch (argv[i][1]) {
             case 'r': resuming = atoi(argv[i+1]); ++i; break;
             case 'd': devId = atoi(argv[i+1]); i++; break;
+            case 'c': grad_check = true; break;
             default: printf("Invalid command line argument \'%c\'!\n", argv[i][1]); exit(-1); break;
             }
         }else {
@@ -112,10 +114,10 @@ int main(int argc, char **argv) {
     CUBLAS_CALL(cublasCreate(&handle));
 
     int num_layers = 2;
-    int hidden_dim = 1023;
+    int hidden_dim = 32;
     //int input_dim = 351, output_dim = 150;
-    int input_dim = 1568, output_dim = 16;
-    //input_dim = 28*28, output_dim = 10;
+    //int input_dim = 1568, output_dim = 16;
+    int input_dim = 28*28, output_dim = 10;
     char unit[255];
     strcpy(unit, "ReLU");
     float pt_epochs = 0.0;
@@ -175,8 +177,8 @@ int main(int argc, char **argv) {
             exit(-1);
         }
     }
-    //neuron[num_layers-1] = new DSoftmaxNeuron<float>(_bp_hyper_params.batch_size, handle);
-    neuron[num_layers-1] = new DGMMNeuron<float>(_bp_hyper_params.batch_size, 16, output_dim, 1, handle);
+    neuron[num_layers-1] = new DSoftmaxNeuron<float>(_bp_hyper_params.batch_size, handle);
+    //neuron[num_layers-1] = new DGMMNeuron<float>(_bp_hyper_params.batch_size, 16, output_dim, 1, handle);
     
     DNN<float> *dnn = new DNN<float>(num_layers, layer_dims, neuron, _pt_hyper_params, _bp_hyper_params, handle);
 #ifdef ADMM
@@ -189,13 +191,16 @@ int main(int argc, char **argv) {
     dnn->fineTune(data, 500);
 
 #else
-    //DMnistData<float> *data = new DMnistData<float>("/scratch/jxie", DData<float>::Train, 50000, false, dnn->handle());
+    DMnistData<float> *data = new DMnistData<float>("../data/", DData<float>::Train, 50000, false, dnn->handle());
     //DData<float> *data = new DDummyData<float>(10,  handle);
     //DTimitData<float> *data = new DTimitData<float>("/scratch/jxie/", 10000, false, dnn->handle());
-    DPatchData<float> *data = new DPatchData<float>("../data/", input_dim, 10000, false, dnn->handle());
+    //DPatchData<float> *data = new DPatchData<float>("../data/", input_dim, 10000, false, dnn->handle());
 #ifndef DISABLE_GPU
     data->set_devId(devId);
 #endif
+    if (grad_check) {
+        return !dnn->createGradCheck(data);
+    }
     if (resuming == -1 && pt_epochs > 0) dnn->pretrain(data, pt_epochs);
     if (resuming != -1) {
         printf("Resuming from %d-th epoch.\n", resuming);
