@@ -67,6 +67,11 @@ public:
     virtual T getLoss() {
         return _loss;
     }
+    virtual T objective(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        initDelta(delta, act, y);
+        computeLoss(delta, act, y);
+        return getLoss();
+    }
 };
 
 template<class T>
@@ -124,9 +129,11 @@ class DSoftmaxNeuron : public DNeuron<T> {
 protected:
     DMatrix<int> *res;
     DMatrix<T> *_y;
+    DMatrix<T> *obj;
 public:
     DSoftmaxNeuron(int batch_size, cublasHandle_t handle) : DNeuron<T>(handle) {
         res = new DMatrix<int>(batch_size, 1, handle);
+        obj = NULL;
     }
     virtual bool easyDropout() { return false; }
     virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
@@ -174,6 +181,11 @@ public:
         res->dev2host();
         for (int i = 0; i < _y->nrows(); i++) loss += _y->getElem(i, res->getElem(i, 0));
         return loss;
+    }
+    virtual T objective(DMatrix<T> *delta, DMatrix<T> *act, DMatrix *y) {
+        if (obj == NULL) obj = new DMatrix<T>(delta->nrows(), delta->ncols()-1, delta->handle());
+        obj->applyTenary(OpWeightedLog<T>(), act, y, obj->ncols());
+        return obj->norm1(obj->nelem())
     }
 };
 

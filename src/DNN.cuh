@@ -17,7 +17,6 @@ class DNN {
     DHyperParams _pt_hyper_params;
     DHyperParams _bp_hyper_params;
     DLayer<T>** _layers;
-    DMatrix<T>* _delta;
     curandState *_state;
     bool _scaled_weight;
 
@@ -42,8 +41,6 @@ public:
             _layers[i] = new DLayer<T>(layer_dims[i], layer_dims[i+1], i, neurons[i],
                                     &_pt_hyper_params, &_bp_hyper_params, _handle);
         }
-        _delta = new DMatrix<T>(_bp_hyper_params.batch_size, layer_dims[_num_layers]+1, _handle);
-        _delta->init(DMatrix<T>::Zero);
 #ifndef DISABLE_GPU
         if (_on_device) {
             int nstate = (_layer_dims[0]+1)*_bp_hyper_params.batch_size;
@@ -123,37 +120,38 @@ public:
     }
 
     T bprop(DMatrix<T>* x, DMatrix<T>* y, int num_layers, DLayer<T>** layers, DHyperParams *params) {
+        DMatrix<T>* d = layers[num_layers-1]->delta();
 #ifdef DOWN_POUR_SGD
         if (mpi_world_rank >= sgd_num_param_server) 
 #endif
-            layers[num_layers-1]->neuron()->initDelta(_delta, layers[num_layers-1]->act(), y);
-        DMatrix<T>* d = _delta;
+            layers[num_layers-1]->neuron()->initDelta(d, layers[num_layers-1]->act(), y);
         for (int i = num_layers-1; i > 0; i--) {
+            d = layers[i-1]->delta();
             layers[i]->bprop(d, layers[i-1]->act(), params->learning_rate, params->momentum,
                             (i < num_layers-1) && params->hdrop_out, params->weight_decay, params->decay_rate);
-            d = layers[i]->delta();
             //assert(layers[i]->weight()->isSane(1));
             //char buf[256];
             //sprintf(buf, "%d", i);
             //layers[i]->weight()->samplePrint(buf);
             //d->samplePrint("d");
         }
-        layers[0]->bprop(d, x, params->learning_rate, params->momentum,
+        layers[0]->bprop(NULL, x, params->learning_rate, params->momentum,
                             (num_layers>1) && params->hdrop_out, params->weight_decay, params->decay_rate);
+        d = layers[num_layers-1]->delta();
 #ifdef DOWN_POUR_SGD
         if (mpi_world_rank >= sgd_num_param_server) {
-            layers[num_layers-1]->neuron()->computeLoss(_delta, layers[num_layers-1]->act(), y);
+            layers[num_layers-1]->neuron()->computeLoss(d, layers[num_layers-1]->act(), y);
             T loss = layers[num_layers-1]->neuron()->getLoss();
-            MPI_Send(&loss, 1, _delta->mpiDatatype(), 0, SGD_LOSS_TAG, MPI_COMM_WORLD);
+            MPI_Send(&loss, 1, d->mpiDatatype(), 0, SGD_LOSS_TAG, MPI_COMM_WORLD);
             return loss;
         }else if (mpi_world_rank == 0) {
             T loss;
             MPI_Status status;
-            MPI_Recv(&loss, 1, _delta->mpiDatatype(), MPI_ANY_SOURCE, SGD_LOSS_TAG, MPI_COMM_WORLD, &status);
+            MPI_Recv(&loss, 1, d->mpiDatatype(), MPI_ANY_SOURCE, SGD_LOSS_TAG, MPI_COMM_WORLD, &status);
             return loss;
         }
 #else
-        layers[num_layers-1]->neuron()->computeLoss(_delta, layers[num_layers-1]->act(), y);
+        layers[num_layers-1]->neuron()->computeLoss(d, layers[num_layers-1]->act(), y);
         return layers[num_layers-1]->neuron()->getLoss();
 #endif
     }
@@ -188,6 +186,7 @@ public:
         int starting = time(0);
         bool balanced = false;
         int sec = 0;
+        DMatrix<T> dummy(1,1,_handle);
         for (int epoch = 0; epoch < total_epochs; epoch += _bp_hyper_params.reduce_epochs) {
             int last_t = time(0);
             T error = fineTune(data, _bp_hyper_params.reduce_epochs);
@@ -198,7 +197,7 @@ public:
             int total_n;
             error *= n;
             MPI_Reduce(&n, &total_n, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-            MPI_Reduce(&error, &total_error, 1, _delta->mpiDatatype(), MPI_SUM, 0, MPI_COMM_WORLD);
+            MPI_Reduce(&error, &total_error, 1, dummy.mpiDatatype(), MPI_SUM, 0, MPI_COMM_WORLD);
             if (mpi_world_rank == 0) {
                 printf("\n*************************************\n"
                          "Iteration: %d\tError: %f\n"
@@ -228,8 +227,8 @@ public:
         while (true) {
             bool more = data->getData(x, y, _bp_hyper_params.batch_size);
             fprop(x, _num_layers, _layers, &dummy_param, _state);
-            _layers[_num_layers-1]->neuron()->initDelta(_delta, _layers[_num_layers-1]->act(), y);
-            _layers[_num_layers-1]->neuron()->computeLoss(_delta, _layers[_num_layers-1]->act(), y);
+            _layers[_num_layers-1]->neuron()->initDelta(_layers[_num_layers-1]->delta(), _layers[_num_layers-1]->act(), y);
+            _layers[_num_layers-1]->neuron()->computeLoss(_layers[_num_layers-1]->delta(), _layers[_num_layers-1]->act(), y);
             loss += _layers[_num_layers-1]->neuron()->getLoss();
             CUDA_CALL(cudaThreadSynchronize());
             if (!more) break;
@@ -377,6 +376,52 @@ public:
         }
     }
 
+    bool gradientCheck(DHyperParams *hyper, DMatrix<T> *input, DMatrix<T> *output, DLayer<T> *layers, int num_layers, DMatrix<T> **X, DMatrix<T> **dX, int *M, int *N, int L) {
+        const float epsilon = 1e-4;
+        const float bound = 1e-5;
+        DLayer<T> *last_layer = layers[num_layers-1];
+        hyper->idrop_out = hyper->hdrop_out = false;
+        hyper->idrop_rate = hyper->hdrop_rate = 0;
+        hyper->weight_decay = false;
+        hyper->learning_rate = 1;
+        hyper->momentum = 0;
+
+        data->getData(input, output, hyper->batch_size);
+
+        for (int i = 0; i < L; i++) {
+            DMatrix<T> *x = X[i];
+            DMatrix<T> *dx = dX[i];
+            for (int j = 0; j < M[i]; j++) {
+                for (int k = 0; k < N[i]; k++) {
+                    fprop(input, num_layers, layers, hyper, NULL);
+                    double fl = last_layer->neuron()->objective(last_layer->delta(), last_layer->act(), output);
+                    
+                    x->getElem(j, k) += epsilon;
+                    x->host2dev();
+                    fprop(input, num_layers, layers, hyper, NULL);
+                    bprop(input, output, num_layers, layers, hyper);
+                    dx->dev2host();
+                    double grad = -dx->getElem(j, k);
+
+                    x->getElem(j, k) += epsilon;
+                    x->host2dev();
+                    fprop(input, num_layers, layers, hyper, NULL);
+                    double fr = last_layer->neuron()->objective(last_layer->delta(), last_layer->act(), output);
+
+                    double ngrad = (fr-fl)/2.0/epsilon;
+                    if ( abs(grad-ngrad)/ngrad < bound ) {
+                        printf("PASS %d\t%d\t%d: %lf\t%lf\n", i, j, k, grad, ngrad);
+                    }else {
+                        printf("FAIL %d\t%d\t%d: %lf\t%lf\n", i, j, k, grad, ngrad);
+                        return false;
+                    }
+                }
+            }
+
+        }
+        return true;
+
+    }
 };
 
 

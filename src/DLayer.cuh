@@ -60,7 +60,7 @@ public:
         _drv->init(DMatrix<T>::Zero);
         _act = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _act->init(DMatrix<T>::One);
-        _delta = new DMatrix<T>(bp_hyper_params->batch_size, _input_dim+1, _handle);
+        _delta = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _delta->init(DMatrix<T>::Zero);
         _mask = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _mask->init(DMatrix<T>::Zero);
@@ -148,7 +148,8 @@ public:
             if (drop_out && !_neuron->easyDropout()) 
                 delta->applyBinary(OpMul<T>(), _mask, delta->nrows(), delta->ncols()-1);
 
-            _delta->update(delta, false, _weight, true, 1.0, 0.0);
+            if (delta)
+                delta->update(_delta, false, _weight, true, 1.0, 0.0);
 #ifdef DOWN_POUR_SGD
             _momentun->update(pre_act, true, delta, false, -(1.0-mom)*rate/delta->nrows(), 0.0);
 #else
