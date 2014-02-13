@@ -182,10 +182,10 @@ public:
         for (int i = 0; i < _y->nrows(); i++) loss += _y->getElem(i, res->getElem(i, 0));
         return loss;
     }
-    virtual T objective(DMatrix<T> *delta, DMatrix<T> *act, DMatrix *y) {
+    virtual T objective(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
         if (obj == NULL) obj = new DMatrix<T>(delta->nrows(), delta->ncols()-1, delta->handle());
         obj->applyTenary(OpWeightedLog<T>(), act, y, obj->ncols());
-        return obj->norm1(obj->nelem())
+        return obj->norm1(obj->nelem());
     }
 };
 

@@ -108,6 +108,7 @@ public:
     DMatrix<T> *drv() { return _drv; }
     DMatrix<T> *act() { return _act; }
     DMatrix<T> *weight() { return _weight; }
+    DMatrix<T> *momentum() { return _momentun; }
     DNeuron<T> *neuron() { return _neuron; }
     curandState*state() { return _state; }
 

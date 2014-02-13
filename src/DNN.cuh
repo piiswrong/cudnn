@@ -376,7 +376,7 @@ public:
         }
     }
 
-    bool gradientCheck(DHyperParams *hyper, DMatrix<T> *input, DMatrix<T> *output, DLayer<T> *layers, int num_layers, DMatrix<T> **X, DMatrix<T> **dX, int *M, int *N, int L) {
+    bool gradCheck(DHyperParams *hyper, DMatrix<T> *input, DMatrix<T> *output, DLayer<T> *layers, int num_layers, DMatrix<T> **X, DMatrix<T> **dX, int *M, int *N, int L) {
         const float epsilon = 1e-4;
         const float bound = 1e-5;
         DLayer<T> *last_layer = layers[num_layers-1];
@@ -385,8 +385,6 @@ public:
         hyper->weight_decay = false;
         hyper->learning_rate = 1;
         hyper->momentum = 0;
-
-        data->getData(input, output, hyper->batch_size);
 
         for (int i = 0; i < L; i++) {
             DMatrix<T> *x = X[i];
@@ -408,7 +406,7 @@ public:
                     fprop(input, num_layers, layers, hyper, NULL);
                     double fr = last_layer->neuron()->objective(last_layer->delta(), last_layer->act(), output);
 
-                    double ngrad = (fr-fl)/2.0/epsilon;
+                    double ngrad = (fr-fl)/(2.0*epsilon);
                     if ( abs(grad-ngrad)/ngrad < bound ) {
                         printf("PASS %d\t%d\t%d: %lf\t%lf\n", i, j, k, grad, ngrad);
                     }else {
@@ -421,6 +419,28 @@ public:
         }
         return true;
 
+    }
+    
+    bool createGradCheck(DData<T> *data) {
+        DMatrix<T> *input, *output;
+        data->getData(input, output, _bp_hyper_params.batch_size);
+        int L;
+        DMatrix<T> **tX, **tdX, **X, **dX;
+        L = _layers[_num_layers]->neuron()->params(tX, tdX);
+        int *M = new int[L+_num_layers], *N = new int[L+_num_layers];
+        X = new DMatrix<T>*[_num_layers+L];
+        dX = new DMatrix<T>*[_num_layers+L];
+        for (int i = 0; i < _num_layers; i++) {
+            X[i] = _layers[i]->weight();
+            dX[i] = _layers[i]->momentum();
+            M[i] = X[i]->nrows();
+            N[i] = X[i]->ncols();
+        }
+        for (int i = _num_layers; i < _num_layers+L; i++) {
+            X[i] = tX[i-_num_layers];
+            dX[i] = tdX[i-_num_layers];
+        }
+        
     }
 };
 
