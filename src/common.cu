@@ -88,6 +88,21 @@ cublasStatus_t cublasXdgmm(cublasHandle_t handle, cublasSideMode_t mode,
     return cublasDdgmm(handle, mode, m, n, A, lda, x, incx, C, ldc);
 }
 
+cublasStatus_t cublasXdot(cublasHandle_t handle, int n,
+                                        const float           *x, int incx,
+                                        const float           *y, int incy,
+                                        float           *result) 
+{
+    return cublasSdot(handle, n, x, incx, y, incy, result);
+}
+
+cublasStatus_t cublasXdot(cublasHandle_t handle, int n,
+                                        const double          *x, int incx,
+                                        const double          *y, int incy,
+                                        double          *result)
+{
+    return cublasDdot(handle, n, x, incx, y, incy, result);
+}
 #endif
 
 float cblas_Xasum (const MKL_INT N, const float *X, const MKL_INT incX) {

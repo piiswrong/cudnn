@@ -61,8 +61,9 @@ public:
                 }
             }
         }else {
-            _loss = delta->norm2(delta->nelem() - delta->ld());
+            _loss = delta->dot(delta, delta->nelem() - delta->ld());
         }
+        _loss /= 2.0*y->nrows();
     }
     virtual T getLoss() {
         return _loss;
@@ -72,7 +73,7 @@ public:
         computeLoss(delta, act, y);
         return getLoss();
     }
-    virtual int params(DMatrix<T> **&X, DMatrix<T> **&dX) {
+    virtual int params(DMatrix<T> **&X, DMatrix<T> **&dX, int *&M, int *&N) {
         return 0;
     }
 };
@@ -369,6 +370,7 @@ public:
         _likelyhood->dev2host();
         _loss = 0.0;
         for (int i = 0; i < y->nrows(); i++) _loss += _coef->getElem(i, 0) * _likelyhood->getElem(i, 0);
+        _loss /= y->nrows();
     }
     
     virtual T getLoss() {

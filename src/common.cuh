@@ -107,6 +107,16 @@ cublasStatus_t cublasXdgmm(cublasHandle_t handle, cublasSideMode_t mode,
                                         const double          *A, int lda,
                                         const double          *x, int incx,
                                         double          *C, int ldc);
+
+cublasStatus_t cublasXdot(cublasHandle_t handle, int n,
+                                        const float           *x, int incx,
+                                        const float           *y, int incy,
+                                        float           *result);
+
+cublasStatus_t cublasXdot(cublasHandle_t handle, int n,
+                                        const double          *x, int incx,
+                                        const double          *y, int incy,
+                                        double          *result);
 #else
 typedef void* cublasHandle_t; 
 typedef void* curandState;

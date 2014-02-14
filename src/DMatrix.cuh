@@ -84,8 +84,7 @@ public:
         _T  = src->_T;
         if (_on_device) 
             CUDA_CALL(cudaMemcpy(_dev_data, src->dev_data(), _size, cudaMemcpyDeviceToDevice));
-        else
-            memcpy(_host_data, src->host_data(), _size);
+        memcpy(_host_data, src->host_data(), _size);
     }
 
     ~DMatrix() {
@@ -104,7 +103,7 @@ public:
         for (int i = 0; i < nrows(); i++) {
             for (int j = 0; j < ncols(); j++) {
                 T t = getElem(i,j);
-                if( i < 10 && j < 10)printf("%+0.3f ", (float)t);
+                if( i < 10 && j < 10)printf("%+0.4f ", (float)t);
                 if (t > max) max = t;
                 if (t < min) min = t;
             }
@@ -280,6 +279,18 @@ public:
             CUBLAS_CALL(cublasXnrm2(_handle, nelem, _dev_data, 1, &res));
         }else {
             res = cblas_Xnrm2(nelem, host_data(), 1);
+        }
+        return res;
+    }
+
+    T dot(DMatrix<T> *y, int nelem = 0) {
+        if (nelem == 0) nelem = _nelem;
+        T res = 0.0;
+        if (_on_device) {
+            CUBLAS_CALL(cublasXdot(_handle, nelem, _dev_data, 1, y->dev_data(), 1, &res));
+        }else {
+            assert(false);
+            //res = cblas_Xdot(nelem, host_data(), 1, y->host_data(), 1);
         }
         return res;
     }
