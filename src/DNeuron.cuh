@@ -316,6 +316,7 @@ template<class T>
 class DGMMNeuron : public DNeuron<T> {
     T _lambda;
     DMatrix<T> *_means, *_stds, *_gamma, *_pi, *_coef, *_dist, *_likelyhood;
+    DMatrix<T> *_mom_means, *_mom_stds, *_mom_pi; 
     DMatrix<T> *_tmpk, *_tmpn;
     T _loss;
 public:
@@ -326,6 +327,10 @@ public:
         _means->init(DMatrix<T>::Normal, 0.0, 1.0);
         _stds = new DMatrix<T>(n_centers, 1, handle);
         _stds->init(DMatrix<T>::Uniform, 0.9, 1.1);
+        _mom_means = new DMatrix<T>(n_dims, n_centers, handle);
+        _mom_means->init(DMatrix<T>::Zero);
+        _mom_stds = new DMatrix<T>(n_centers, 1, handle);
+        _mom_stds->init(DMatrix<T>::Zero);
         _coef = new DMatrix<T>(batch_size, 1, handle);
         _dist = new DMatrix<T>(batch_size, n_centers, handle);
         _pi = new DMatrix<T>(n_centers, 1, handle);
@@ -335,7 +340,7 @@ public:
         _tmpn = new DMatrix<T>(batch_size, 1, handle);
     }
 
-    virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) {
+    virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) { 
         act->CopyFrom(drv);
         hComputeDistanceKernel<T, DistEuclid<T> >(DistEuclid<T>(), drv, _means, _dist, drv->fd()-1);
         _dist->samplePrint("dist");
@@ -359,6 +364,8 @@ public:
         _dist->diagMul(_dist, _stds, false);
         delta->update(_dist, false, _means, true, 1.0, -1.0);
         delta->diagMul(delta, _coef, true);
+
+        _mom_means->diagMul(_means, 
     }
 
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
