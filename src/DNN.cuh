@@ -14,15 +14,15 @@ class DNN {
     cublasHandle_t _handle;
     int _num_layers;
     int *_layer_dims;
-    DHyperParams _pt_hyper_params;
-    DHyperParams _bp_hyper_params;
+    DHyperParams *_pt_hyper_params;
+    DHyperParams *_bp_hyper_params;
     DLayer<T>** _layers;
     curandState *_state;
     bool _scaled_weight;
 
 public:
     DNN(int num_layers, int *layer_dims, DNeuron<T> **neurons, 
-        DHyperParams& pt_hyper_params, DHyperParams& bp_hyper_params,
+        DHyperParams *pt_hyper_params, DHyperParams *bp_hyper_params,
         cublasHandle_t handle = 0) {
         _handle = handle;
         if (_handle != 0) {
@@ -39,11 +39,11 @@ public:
         _layers = new DLayer<T>*[_num_layers];
         for (int i = 0; i < _num_layers; i++) {
             _layers[i] = new DLayer<T>(layer_dims[i], layer_dims[i+1], i, neurons[i],
-                                    &_pt_hyper_params, &_bp_hyper_params, _handle);
+                                    _pt_hyper_params, _bp_hyper_params, _handle);
         }
 #ifndef DISABLE_GPU
         if (_on_device) {
-            int nstate = (_layer_dims[0]+1)*_bp_hyper_params.batch_size;
+            int nstate = (_layer_dims[0]+1)*_bp_hyper_params->batch_size;
             CUDA_CALL(cudaMalloc((void**)&_state, nstate*sizeof(curandState)));
             dim3 grid((nstate-1)/BLOCK_SIZE+1);
             dim3 block(BLOCK_SIZE);
@@ -96,8 +96,8 @@ public:
     }
 
     T trainOnBatch(DMatrix<T>* x, DMatrix<T>* y) {
-        fprop(x, _num_layers, _layers, &_bp_hyper_params, _state);
-        return bprop(x, y, _num_layers, _layers, &_bp_hyper_params);
+        fprop(x, _num_layers, _layers, _bp_hyper_params, _state);
+        return bprop(x, y, _num_layers, _layers, _bp_hyper_params);
     }
 
     void fprop(DMatrix<T>* x, int num_layers, DLayer<T>** layers, DHyperParams *params, curandState *state) {
@@ -159,18 +159,18 @@ public:
     void scaleWeight(bool scaled_weight) {
         if (scaled_weight == _scaled_weight) return;
         if (!_scaled_weight) {
-            if (_bp_hyper_params.idrop_out)
-                _layers[0]->scaleWeight(1-_bp_hyper_params.idrop_rate);
-            if (_bp_hyper_params.hdrop_out)
+            if (_bp_hyper_params->idrop_out)
+                _layers[0]->scaleWeight(1-_bp_hyper_params->idrop_rate);
+            if (_bp_hyper_params->hdrop_out)
                 for (int i = 1; i < _num_layers; i++)
-                    _layers[i]->scaleWeight(1-_bp_hyper_params.hdrop_rate);
+                    _layers[i]->scaleWeight(1-_bp_hyper_params->hdrop_rate);
             _scaled_weight = true;
         }else {
-            if (_bp_hyper_params.idrop_out)
-                _layers[0]->scaleWeight(1.0/(1-_bp_hyper_params.idrop_rate));
-            if (_bp_hyper_params.hdrop_out)
+            if (_bp_hyper_params->idrop_out)
+                _layers[0]->scaleWeight(1.0/(1-_bp_hyper_params->idrop_rate));
+            if (_bp_hyper_params->hdrop_out)
                 for (int i = 1; i < _num_layers; i++)
-                    _layers[i]->scaleWeight(1.0/(1-_bp_hyper_params.hdrop_rate));
+                    _layers[i]->scaleWeight(1.0/(1-_bp_hyper_params->hdrop_rate));
             _scaled_weight = false;
         }
     }
@@ -187,9 +187,9 @@ public:
         bool balanced = false;
         int sec = 0;
         DMatrix<T> dummy(1,1,_handle);
-        for (int epoch = 0; epoch < total_epochs; epoch += _bp_hyper_params.reduce_epochs) {
+        for (int epoch = 0; epoch < total_epochs; epoch += _bp_hyper_params->reduce_epochs) {
             int last_t = time(0);
-            T error = fineTune(data, _bp_hyper_params.reduce_epochs);
+            T error = fineTune(data, _bp_hyper_params->reduce_epochs);
             sec += time(0) - last_t;
             int n = data->instancesPerEpoch();
             admmReduce();
@@ -201,7 +201,7 @@ public:
             if (mpi_world_rank == 0) {
                 printf("\n*************************************\n"
                          "Iteration: %d\tError: %f\n"
-                         "*************************************\n", epoch/_bp_hyper_params.reduce_epochs, (float)(total_error/total_n));
+                         "*************************************\n", epoch/_bp_hyper_params->reduce_epochs, (float)(total_error/total_n));
                 LOG(fprintf(flog, "%f %d\n", (float)(total_error/total_n), time(0)-starting));
             }
             if (mpi_world_size > 1 && epoch >= 9 && !balanced) {
@@ -221,11 +221,11 @@ public:
         DMatrix<T> *x, *y;
         T loss = 0.0;
         CUDA_CALL(cudaThreadSynchronize());
-        DHyperParams dummy_param(_pt_hyper_params);
-        _pt_hyper_params.idrop_out = _pt_hyper_params.hdrop_out = false;
-        _pt_hyper_params.idrop_rate = _pt_hyper_params.hdrop_rate = false;
+        DHyperParams dummy_param = *_pt_hyper_params;
+        dummy_param.idrop_out = dummy_param.hdrop_out = false;
+        dummy_param.idrop_rate = dummy_param.hdrop_rate = false;
         while (true) {
-            bool more = data->getData(x, y, _bp_hyper_params.batch_size);
+            bool more = data->getData(x, y, _bp_hyper_params->batch_size);
             fprop(x, _num_layers, _layers, &dummy_param, _state);
             _layers[_num_layers-1]->neuron()->initDelta(_layers[_num_layers-1]->delta(), _layers[_num_layers-1]->act(), y);
             _layers[_num_layers-1]->neuron()->computeLoss(_layers[_num_layers-1]->delta(), _layers[_num_layers-1]->act(), y);
@@ -238,7 +238,7 @@ public:
 
     void pretrain(DData<T>* data, double epochs_per_layer) {
         DMatrix<T> *x, *y;
-        DHyperParams dummy_param(_pt_hyper_params);
+        DHyperParams dummy_param = *_pt_hyper_params;
         dummy_param.idrop_out = dummy_param.hdrop_out = false;
         dummy_param.idrop_rate = dummy_param.hdrop_rate = false;
         data->start();
@@ -251,13 +251,13 @@ public:
             int lastCheck = 0;
             T error = 0.0;
             DLayer<T> **layers = new DLayer<T>*[layer+2];
-            DMatrix<T> *tmp = new DMatrix<T>(_bp_hyper_params.batch_size, _layer_dims[layer]+1, _handle);
+            DMatrix<T> *tmp = new DMatrix<T>(_bp_hyper_params->batch_size, _layer_dims[layer]+1, _handle);
             for (int i = 0; i <= layer; i++) layers[i] = _layers[i];
             layers[layer+1] = new DLayer<T>(_layer_dims[layer+1], _layer_dims[layer], layer + _num_layers, /*layer>0?layers[layer-1]->neuron():*/new DNeuron<T>(_handle), 
-                                            &_pt_hyper_params, &_bp_hyper_params, _handle);
+                                            _pt_hyper_params, _bp_hyper_params, _handle);
             while (instances_per_layer > nInstance) {
                 CUDA_CALL(cudaThreadSynchronize());
-                data->getData(x, y, _bp_hyper_params.batch_size);
+                data->getData(x, y, _bp_hyper_params->batch_size);
                 DMatrix<T> *input = x;
                 curandState *state = _state;
                 if (layer > 0) {
@@ -269,21 +269,21 @@ public:
                 //input->samplePrint("input");
                 //if (layer > 2) layers[layer-3]->act()->samplePrint("act");
                 //if (layer > 3) layers[layer-4]->act()->samplePrint("act");
-                fprop(input, 2, layers+layer, &_pt_hyper_params, state);
-                error += bprop(input, tmp, 2, layers+layer, &_pt_hyper_params);
+                fprop(input, 2, layers+layer, _pt_hyper_params, state);
+                error += bprop(input, tmp, 2, layers+layer, _pt_hyper_params);
 
                 //layers[layer+1]->act()->samplePrint("act");
 
-                nInstance += _bp_hyper_params.batch_size;
+                nInstance += _bp_hyper_params->batch_size;
                 while (nEpoch*iperEpoch <= nInstance) {
                     nEpoch++;
-                    _pt_hyper_params.learning_rate *= _pt_hyper_params.learning_rate_decay;
-                    _pt_hyper_params.momentum += _pt_hyper_params.step_momentum;
-                    if (_pt_hyper_params.momentum > _pt_hyper_params.max_momentum)
-                        _pt_hyper_params.momentum = _pt_hyper_params.max_momentum;
+                    _pt_hyper_params->learning_rate *= _pt_hyper_params->learning_rate_decay;
+                    _pt_hyper_params->momentum += _pt_hyper_params->step_momentum;
+                    if (_pt_hyper_params->momentum > _pt_hyper_params->max_momentum)
+                        _pt_hyper_params->momentum = _pt_hyper_params->max_momentum;
                 }
-                lastCheck += _bp_hyper_params.batch_size;
-                if (lastCheck >= _pt_hyper_params.check_interval) {
+                lastCheck += _bp_hyper_params->batch_size;
+                if (lastCheck >= _pt_hyper_params->check_interval) {
                     tmp->samplePrint("input");
                     layers[layer+1]->act()->samplePrint("output");
                     printf("\nLayer: %d\t Epoch: %d\tInstance: %d\tError: %f\n", layer, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
@@ -293,7 +293,7 @@ public:
                 }
                 delete x, y;
             }
-            layers[layer]->scaleWeight(1-_pt_hyper_params.idrop_rate);
+            layers[layer]->scaleWeight(1-_pt_hyper_params->idrop_rate);
             delete tmp;
             delete layers[layer+1];
             delete layers;
@@ -327,23 +327,23 @@ public:
 #ifdef DOWN_POUR_SGD
             if (mpi_world_rank >= sgd_num_param_server)
 #endif  
-                data->getData(x, y, _bp_hyper_params.batch_size);
+                data->getData(x, y, _bp_hyper_params->batch_size);
             error += trainOnBatch(x, y);
             CUDA_CALL(cudaThreadSynchronize());
-            nInstance += _bp_hyper_params.batch_size;
+            nInstance += _bp_hyper_params->batch_size;
             while (nEpoch*iperEpoch <= nInstance) {
                 nEpoch++;
-                _bp_hyper_params.learning_rate *= _bp_hyper_params.learning_rate_decay;
-                _bp_hyper_params.momentum += _bp_hyper_params.step_momentum;
-                if (_bp_hyper_params.momentum > _bp_hyper_params.max_momentum)
-                    _bp_hyper_params.momentum = _bp_hyper_params.max_momentum;
+                _bp_hyper_params->learning_rate *= _bp_hyper_params->learning_rate_decay;
+                _bp_hyper_params->momentum += _bp_hyper_params->step_momentum;
+                if (_bp_hyper_params->momentum > _bp_hyper_params->max_momentum)
+                    _bp_hyper_params->momentum = _bp_hyper_params->max_momentum;
             }
-            lastCheck += _bp_hyper_params.batch_size;
+            lastCheck += _bp_hyper_params->batch_size;
             //printf("%d\n", nInstance);
             //_layers[_num_layers-1]->act()->samplePrint();
             //_layers[0]->weight()->samplePrint();
             //_layers[5]->weight()->samplePrint();
-            if (lastCheck >= _bp_hyper_params.check_interval) {
+            if (lastCheck >= _bp_hyper_params->check_interval) {
                 _layers[_num_layers-1]->act()->samplePrint("top act");
                 _layers[0]->act()->samplePrint("bottom act");
                 _layers[0]->weight()->samplePrint("bottom weight");
@@ -445,7 +445,7 @@ public:
     bool createGradCheck(DData<T> *data) {
         DMatrix<T> *input, *output;
         data->start();
-        data->getData(input, output, _bp_hyper_params.batch_size);
+        data->getData(input, output, _bp_hyper_params->batch_size);
         input->init(DMatrix<T>::Normal, 0.0, 1.0);
         //output->init(DMatrix<T>::Normal, 0.0, 1.0);
         int L;
@@ -469,7 +469,7 @@ public:
         }
         L += _num_layers;
         
-        return gradCheck(&_bp_hyper_params, input, output, _layers, _num_layers, X, dX, M, N, L);
+        return gradCheck(_bp_hyper_params, input, output, _layers, _num_layers, X, dX, M, N, L);
     }
 };
 
