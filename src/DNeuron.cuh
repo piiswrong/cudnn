@@ -314,14 +314,17 @@ public:
 */
 template<class T>
 class DGMMNeuron : public DNeuron<T> {
+    DHyperParams *_hyper_params;
     T _lambda;
     DMatrix<T> *_means, *_stds, *_gamma, *_pi, *_coef, *_dist, *_likelyhood;
     DMatrix<T> *_mom_means, *_mom_stds, *_mom_pi; 
+    DMatrix<T> *_dmeans;
     DMatrix<T> *_tmpk, *_tmpn;
     T _loss;
 public:
-    DGMMNeuron(int batch_size, int n_centers, int n_dims, T lambda, cublasHandle_t handle) : DNeuron<T>(handle) {
+    DGMMNeuron(int batch_size, int n_centers, int n_dims, T lambda, DHyperParams *hyper_params, cublasHandle_t handle) : DNeuron<T>(handle) {
         _lambda = lambda;
+        _hyper_params = hyper_params;
 
         _means = new DMatrix<T>(n_dims, n_centers, handle);
         _means->init(DMatrix<T>::Normal, 0.0, 1.0);
@@ -329,6 +332,7 @@ public:
         _stds->init(DMatrix<T>::Uniform, 0.9, 1.1);
         _mom_means = new DMatrix<T>(n_dims, n_centers, handle);
         _mom_means->init(DMatrix<T>::Zero);
+        _dmeans = new DMatrix<T>(n_dims, n_centers, handle);
         _mom_stds = new DMatrix<T>(n_centers, 1, handle);
         _mom_stds->init(DMatrix<T>::Zero);
         _coef = new DMatrix<T>(batch_size, 1, handle);
@@ -347,7 +351,7 @@ public:
         _dist->diagMul(_dist, _stds, false);
         _dist->applyBinary(OpGaussian<T>(), _dist, _dist->nrows(), _dist->ncols());
         _dist->samplePrint("dist");
-        _tmpk->applyTenary(OpGMMWeight<T>(_tmpk->nrows()), _pi, _stds, _tmpk->nrows(), _tmpk->ncols()); 
+        _tmpk->applyTenary(OpGMMWeight<T>(drv->ncols()), _pi, _stds, _tmpk->nrows(), _tmpk->ncols()); 
         _dist->diagMul(_dist, _tmpk, false);
         _dist->samplePrint("dist");
         hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpSumReduce<T>(), OpNop<T>(), OpDivide<T>(), _dist, _dist, _likelyhood, _dist->fd(), false);
@@ -359,13 +363,27 @@ public:
     }
 
     virtual void bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {
+        //dX
+        _dist->diagMul(_dist, _coef, true);
         _tmpn->update(_dist, false, _stds, false, 1.0, 0.0);
         delta->diagMul(drv, _tmpn, true);
         _dist->diagMul(_dist, _stds, false);
         delta->update(_dist, false, _means, true, 1.0, -1.0);
-        delta->diagMul(delta, _coef, true);
+        //delta->diagMul(delta, _coef, true);
 
-        _mom_means->diagMul(_means, 
+        T rate = -(1.0-_hyper_params->momentum)*_hyper_params->learning_rate/delta->nrows();
+        //dmeans
+        for (int i = 0; i < _tmpn->nrows(); i++) _tmpn->getElem(i, 0) = 1.0;
+        _tmpn->host2dev();
+        _tmpk->update(_tmpn, true, _dist, false, 1.0, 0.0);
+        _dmeans->diagMul(_means, _tmpk, false);
+        _dmeans->update(drv, true, _dist, false, rate, -rate);
+        _mom_means->applyBinary(OpDPSGDMom<T>(_hyper_params->momentum), _dmeans, _mom_means->nrows(), _mom_means->ncols());
+        _means->add(_mom_means, 1.0);
+
+        //dstd
+
+
     }
 
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
