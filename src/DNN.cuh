@@ -377,8 +377,8 @@ public:
     }
 
     bool gradCheck(DHyperParams *hyper, DMatrix<T> *input, DMatrix<T> *output, DLayer<T> **layers, int num_layers, DMatrix<T> **X, DMatrix<T> **dX, int *M, int *N, int L) {
-        const float epsilon = 1e-2;
-        const float bound = 1e-1;
+        const double g_epsilon = 1e-3;
+        const double bound = 1e-1;
         int passed = 0, failed = 0;
         double max_fail = 0.0;
         DLayer<T> *last_layer = layers[num_layers-1];
@@ -395,11 +395,12 @@ public:
             tmpX[i]->CopyFrom(X[i]);
         }
 
-        for (int i = 0; i < L; i++) {
+        for (int i = 2; i < L; i++) {
             DMatrix<T> *x = X[i];
             DMatrix<T> *dx = dX[i];
             for (int j = 0; j < M[i]; j++) {
                 for (int k = 0; k < N[i]; k++) {
+                    double epsilon = x->getElem(j, k) * g_epsilon;
                     fprop(input, num_layers, layers, hyper, NULL);
                     double fl = last_layer->neuron()->objective(last_layer->delta(), last_layer->act(), output);
                     

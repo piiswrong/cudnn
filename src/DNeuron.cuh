@@ -360,11 +360,13 @@ public:
     }
 
     virtual void bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {
-        DMatrix<T> *drv_view = new DMatrix<T>(drv, 0, drv->ld()-1);
-        DMatrix<T> *delta_view = new DMatrix<T>(delta, 0, delta->ld()-1);
+        DMatrix<T> *drv_view = new DMatrix<T>(drv, 0, drv->fd()-1);
+        DMatrix<T> *delta_view = new DMatrix<T>(delta, 0, delta->fd()-1);
         _dist->diagMul(_dist, _coef, true);
         //dX
+        CUDA_KERNEL_CHECK();
         _tmpn->update(_dist, false, _stds, false, 1.0, 0.0);
+        CUDA_KERNEL_CHECK();
         delta_view->diagMul(drv_view, _tmpn, true);
         _dist->diagMul(_dist, _stds, false);
         delta->update(_dist, false, _means, true, 1.0, -1.0);
@@ -381,12 +383,10 @@ public:
         _means->add(_mom_means, 1.0);
 
         //dstd
-
-
     }
 
+
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        printf("%d %d\n", y->nrows(), y->ncols());
         _coef->applyBinary(OpGMMDelta<T>(_lambda), y, y->nrows(), y->ncols());
         _likelyhood->applyBinary(OpLog<T>(), _likelyhood, _likelyhood->nrows(), _likelyhood->ncols());
         _coef->dev2host();
@@ -398,6 +398,20 @@ public:
     
     virtual T getLoss() {
         return _loss;
+    }
+
+    virtual int params(DMatrix<T> **&X, DMatrix<T> **&dX, int *&M, int *&N) {
+        int L = 1;
+        X = new DMatrix<T>*[L];
+        dX = new DMatrix<T>*[L];
+        M = new int[L];
+        N = new int[L];
+
+        X[0] = _means;
+        dX[0] = _mom_means;
+        M[0] = _means->nrows();
+        N[0] = _means->ncols();
+        return L;
     }
 };
 
