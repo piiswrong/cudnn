@@ -317,6 +317,9 @@ public:
             std::swap(Ta, Tb);
             Ta = !Ta; Tb = !Tb;
         }
+        assert(A->nrows(Ta) == ld());
+        assert(A->ncols(Ta) == B->nrows(Tb));
+        assert(B->ncols(Tb) == fd());
         if (_on_device) {
             CUBLAS_CALL(cublasXgemm(_handle, A->Tchar(Ta), B->Tchar(Tb), A->nrows(Ta), 
                                 B->ncols(Tb), A->ncols(Ta), &alpha, 

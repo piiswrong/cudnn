@@ -412,9 +412,11 @@ public:
                     dx->dev2host();
                     double grad = -dx->getElem(j, k);
 
+                    //X[L-1]->samplePrint("mean-1");
                     for (int l = 0; l < L; l++) {
                         X[l]->CopyFrom(tmpX[l]);
                     }
+                    //X[L-1]->samplePrint("mean+1");
                     x->getElem(j, k) += 2.0*epsilon;
                     x->host2dev();
                     fprop(input, num_layers, layers, hyper, NULL);

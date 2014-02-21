@@ -357,6 +357,7 @@ public:
         //_dist->samplePrint("dist");
         hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpSumReduce<T>(), OpNop<T>(), OpDivide<T>(), _dist, _dist, _likelyhood, _dist->fd(), false);
         //_dist->samplePrint("gamma");
+        //_means->samplePrint("mean");
     }
 
     virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
@@ -364,21 +365,22 @@ public:
     }
 
     virtual void bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {
+        DMatrix<T> *drv_view = new DMatrix<T>(drv, 0, drv->fd()-1);
+        DMatrix<T> *delta_view = new DMatrix<T>(delta, 0, delta->fd()-1);
         //_dist->diagMul(_dist, _coef, true);
         //dX
         _tmpn->update(_dist, false, _stds, false, 1.0, 0.0);
-        delta->diagMul(drv, _tmpn, true);
+        delta_view->diagMul(drv_view, _tmpn, true);
         _dist->diagMul(_dist, _stds, false);
-        delta->update(_dist, false, _means, true, 1.0, -1.0);
-        delta->diagMul(delta, _coef, true);
+        delta_view->update(_dist, false, _means, true, 1.0, -1.0);
+        delta_view->diagMul(delta_view, _coef, true);
 
         T rate = -(1.0-_hyper_params->momentum)*_hyper_params->learning_rate/delta->nrows();
         //dmeans
         for (int i = 0; i < _tmpn->nrows(); i++) _tmpn->getElem(i, 0) = 1.0;
         _tmpn->host2dev();
-        _tmpk->update(_tmpn, true, _dist, false, 1.0, 0.0);
+        _tmpk->update(_dist, true, _tmpn, false, 1.0, 0.0);
         _dmeans->diagMul(_means, _tmpk, false);
-        DMatrix<T> *drv_view = new DMatrix<T>(drv, 0, drv->fd()-1);
         _dmeans->update(drv_view, true, _dist, false, rate, -rate);
         _mom_means->applyBinary(OpDPSGDMom<T>(_hyper_params->momentum), _dmeans, _mom_means->nrows(), _mom_means->ncols());
         _means->add(_mom_means, 1.0);
@@ -399,7 +401,7 @@ public:
         dX[0] = _mom_means;
         M[0] = _means->nrows();
         N[0] = _means->ncols();
-        return L;
+        return 1;
     }
 
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
