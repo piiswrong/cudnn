@@ -364,9 +364,7 @@ public:
         DMatrix<T> *delta_view = new DMatrix<T>(delta, 0, delta->fd()-1);
         _dist->diagMul(_dist, _coef, true);
         //dX
-        CUDA_KERNEL_CHECK();
         _tmpn->update(_dist, false, _stds, false, 1.0, 0.0);
-        CUDA_KERNEL_CHECK();
         delta_view->diagMul(drv_view, _tmpn, true);
         _dist->diagMul(_dist, _stds, false);
         delta->update(_dist, false, _means, true, 1.0, -1.0);
