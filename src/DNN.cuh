@@ -377,7 +377,7 @@ public:
     }
 
     bool gradCheck(DHyperParams *hyper, DMatrix<T> *input, DMatrix<T> *output, DLayer<T> **layers, int num_layers, DMatrix<T> **X, DMatrix<T> **dX, int *M, int *N, int L) {
-        const double g_epsilon = 1e-3;
+        const double g_epsilon = 1e-2;
         const double bound = 1e-1;
         int passed = 0, failed = 0;
         double max_fail = 0.0;
@@ -395,7 +395,7 @@ public:
             tmpX[i]->CopyFrom(X[i]);
         }
 
-        for (int i = 2; i < L; i++) {
+        for (int i = 0; i < L; i++) {
             DMatrix<T> *x = X[i];
             DMatrix<T> *dx = dX[i];
             for (int j = 0; j < M[i]; j++) {
@@ -409,7 +409,6 @@ public:
                     x->host2dev();
                     fprop(input, num_layers, layers, hyper, NULL);
                     bprop(input, output, num_layers, layers, hyper);
-                    double tgrad = _layers[_num_layers-2]->act()->getElem(j, 0) * last_layer->delta()->getElem(k, 0);
                     dx->dev2host();
                     double grad = -dx->getElem(j, k);
 
@@ -445,8 +444,11 @@ public:
     
     bool createGradCheck(DData<T> *data) {
         DMatrix<T> *input, *output;
+        printf("1\n");
         data->start();
+        printf("2\n");
         data->getData(input, output, _bp_hyper_params->batch_size);
+        printf("3\n");
         //input->init(DMatrix<T>::Normal, 0.0, 1.0);
         //output->init(DMatrix<T>::Normal, 0.0, 1.0);
         int L;

@@ -374,7 +374,7 @@ public:
         //dmeans
         for (int i = 0; i < _tmpn->nrows(); i++) _tmpn->getElem(i, 0) = 1.0;
         _tmpn->host2dev();
-        _tmpk->update(_tmpn, true, _dist, false, 1.0, 0.0);
+        _tmpk->update(_dist, true, _tmpn, false, 1.0, 0.0);
         _dmeans->diagMul(_means, _tmpk, false);
         _dmeans->update(drv_view, true, _dist, false, rate, -rate);
         _mom_means->applyBinary(OpDPSGDMom<T>(_hyper_params->momentum), _dmeans, _mom_means->nrows(), _mom_means->ncols());
