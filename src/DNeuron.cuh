@@ -348,16 +348,11 @@ public:
     virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) { 
         act->CopyFrom(drv);
         hComputeDistanceKernel<T, DistEuclid<T> >(DistEuclid<T>(), drv, _means, _dist, drv->fd()-1);
-        //_dist->samplePrint("dist");
         _dist->diagMul(_dist, _stds, false);
         _dist->applyBinary(OpGaussian<T>(), _dist, _dist->nrows(), _dist->ncols());
-        //_dist->samplePrint("dist");
         _tmpk->applyTenary(OpGMMWeight<T>(drv->ncols()-1), _pi, _stds, _tmpk->nrows(), _tmpk->ncols()); 
         _dist->diagMul(_dist, _tmpk, false);
-        //_dist->samplePrint("dist");
         hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpSumReduce<T>(), OpNop<T>(), OpDivide<T>(), _dist, _dist, _likelyhood, _dist->fd(), false);
-        //_dist->samplePrint("gamma");
-        //_means->samplePrint("mean");
     }
 
     virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
@@ -367,13 +362,12 @@ public:
     virtual void bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {
         DMatrix<T> *drv_view = new DMatrix<T>(drv, 0, drv->fd()-1);
         DMatrix<T> *delta_view = new DMatrix<T>(delta, 0, delta->fd()-1);
-        //_dist->diagMul(_dist, _coef, true);
+        _dist->diagMul(_dist, _coef, true);
         //dX
         _tmpn->update(_dist, false, _stds, false, 1.0, 0.0);
         delta_view->diagMul(drv_view, _tmpn, true);
         _dist->diagMul(_dist, _stds, false);
         delta_view->update(_dist, false, _means, true, 1.0, -1.0);
-        delta_view->diagMul(delta_view, _coef, true);
 
         T rate = -(1.0-_hyper_params->momentum)*_hyper_params->learning_rate/delta->nrows();
         //dmeans
@@ -386,8 +380,20 @@ public:
         _means->add(_mom_means, 1.0);
 
         //dstd
+    }
 
-
+    virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        _coef->applyBinary(OpGMMDelta<T>(_lambda), y, y->nrows(), y->ncols());
+        _likelyhood->applyBinary(OpLog<T>(), _likelyhood, _likelyhood->nrows(), _likelyhood->ncols());
+        _coef->dev2host();
+        _likelyhood->dev2host();
+        _loss = 0.0;
+        for (int i = 0; i < y->nrows(); i++) _loss += _coef->getElem(i, 0) * _likelyhood->getElem(i, 0);
+        _loss /= y->nrows();
+    }
+    
+    virtual T getLoss() {
+        return _loss;
     }
 
     virtual int params(DMatrix<T> **&X, DMatrix<T> **&dX, int *&M, int *&N) {
@@ -401,23 +407,7 @@ public:
         dX[0] = _mom_means;
         M[0] = _means->nrows();
         N[0] = _means->ncols();
-        return 1;
-    }
-
-    virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        _coef->applyBinary(OpGMMDelta<T>(_lambda), y, y->nrows(), y->ncols());
-        //_likelyhood->samplePrint("likelyhood");
-        _likelyhood->applyBinary(OpLog<T>(), _likelyhood, _likelyhood->nrows(), _likelyhood->ncols());
-        //_likelyhood->samplePrint("log likelyhood");
-        _coef->dev2host();
-        _likelyhood->dev2host();
-        _loss = 0.0;
-        for (int i = 0; i < y->nrows(); i++) _loss += _coef->getElem(i, 0) * _likelyhood->getElem(i, 0);
-        _loss /= y->nrows();
-    }
-    
-    virtual T getLoss() {
-        return _loss;
+        return L;
     }
 };
 

@@ -41,7 +41,7 @@ const int BLOCK_ROWS = 8;
                             exit(EXIT_FAILURE);}} while(0)
 #define CUBLAS_CALL(statment) do { int macroErrorCode = statment; \
                             if((macroErrorCode) != CUBLAS_STATUS_SUCCESS) { \
-                            printf("Cublas Error at %s:%d with code %d(!=%d)\n",__FILE__,__LINE__, macroErrorCode, CUBLAS_STATUS_SUCCESS);\
+                            printf("Cublas Error at %s:%d with code %d(!=%d): %s\n",__FILE__,__LINE__, macroErrorCode, CUBLAS_STATUS_SUCCESS, cudaGetErrorString((cudaError_t)macroErrorCode));\
                             assert(false);\
                             exit(EXIT_FAILURE);}} while(0)
 #define CURAND_CALL(statment) do { int macroErrorCode = statment; \

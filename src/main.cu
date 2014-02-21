@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
     int num_layers = 2;
     int hidden_dim = 32;
     //int input_dim = 351, output_dim = 150;
-    int input_dim = 1568, output_dim = 16;
+    int input_dim = 32, output_dim = 16;
     //int input_dim = 28*28, output_dim = 10;
     char unit[255];
     strcpy(unit, "Linear");
@@ -196,9 +196,9 @@ int main(int argc, char **argv) {
 
 #else
     //DMnistData<float> *data = new DMnistData<float>("../data/", DData<float>::Train, 50000, false, dnn->handle());
-    //DData<float> *data = new DDummyData<float>(10,  handle);
+    DData<float> *data = new DDummyData<float>(input_dim, 1, handle);
     //DTimitData<float> *data = new DTimitData<float>("/scratch/jxie/", 10000, false, dnn->handle());
-    DPatchData<float> *data = new DPatchData<float>("/projects/grail/jxie/paris/", input_dim, 10000, false, dnn->handle());
+    //DPatchData<float> *data = new DPatchData<float>("../data/", input_dim, 10000, false, dnn->handle());
 #ifndef DISABLE_GPU
     data->set_devId(devId);
 #endif

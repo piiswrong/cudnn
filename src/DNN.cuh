@@ -244,7 +244,7 @@ public:
         data->start();
         int iperEpoch = data->instancesPerEpoch();
         int instances_per_layer = iperEpoch * epochs_per_layer;
-        for( int layer = 0 ; layer < _num_layers; layer++) {
+        for( int layer = 0 ; layer < _num_layers-1; layer++) {
             printf("Pretraining layer %d of %d\n", layer, _num_layers);
             int nEpoch = 1;
             int nInstance = 0;
@@ -377,8 +377,8 @@ public:
     }
 
     bool gradCheck(DHyperParams *hyper, DMatrix<T> *input, DMatrix<T> *output, DLayer<T> **layers, int num_layers, DMatrix<T> **X, DMatrix<T> **dX, int *M, int *N, int L) {
-        const float epsilon = 1e-2;
-        const float bound = 1e-1;
+        const double g_epsilon = 1e-2;
+        const double bound = 1e-1;
         int passed = 0, failed = 0;
         double max_fail = 0.0;
         DLayer<T> *last_layer = layers[num_layers-1];
@@ -400,6 +400,7 @@ public:
             DMatrix<T> *dx = dX[i];
             for (int j = 0; j < M[i]; j++) {
                 for (int k = 0; k < N[i]; k++) {
+                    double epsilon = x->getElem(j, k) * g_epsilon;
                     fprop(input, num_layers, layers, hyper, NULL);
                     double fl = last_layer->neuron()->objective(last_layer->delta(), last_layer->act(), output);
                     
@@ -408,7 +409,6 @@ public:
                     x->host2dev();
                     fprop(input, num_layers, layers, hyper, NULL);
                     bprop(input, output, num_layers, layers, hyper);
-                    double tgrad = _layers[_num_layers-2]->act()->getElem(j, 0) * last_layer->delta()->getElem(k, 0);
                     dx->dev2host();
                     double grad = -dx->getElem(j, k);
 
@@ -448,7 +448,7 @@ public:
         DMatrix<T> *input, *output;
         data->start();
         data->getData(input, output, _bp_hyper_params->batch_size);
-        input->init(DMatrix<T>::Normal, 0.0, 1.0);
+        //input->init(DMatrix<T>::Normal, 0.0, 1.0);
         //output->init(DMatrix<T>::Normal, 0.0, 1.0);
         int L;
         DMatrix<T> **tX, **tdX, **X, **dX;
