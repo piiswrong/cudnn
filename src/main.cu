@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
     int num_layers = 2;
     int hidden_dim = 32;
     //int input_dim = 351, output_dim = 150;
-    int input_dim = 1568, output_dim = 16;
+    int input_dim = 1568, output_dim = 1;
     //int input_dim = 28*28, output_dim = 10;
     char unit[255];
     strcpy(unit, "Linear");
@@ -182,9 +182,9 @@ int main(int argc, char **argv) {
         }
     }
     //neuron[num_layers-1] = new DSoftmaxNeuron<float>(_bp_hyper_params.batch_size, handle);
-    neuron[num_layers-1] = new DGMMNeuron<float>(_bp_hyper_params.batch_size, 16, output_dim, 1, handle);
+    neuron[num_layers-1] = new DGMMNeuron<float>(&_bp_hyper_params, 16, output_dim, 1, handle);
     
-    DNN<float> *dnn = new DNN<float>(num_layers, layer_dims, neuron, _pt_hyper_params, _bp_hyper_params, handle);
+    DNN<float> *dnn = new DNN<float>(num_layers, layer_dims, neuron, &_pt_hyper_params, &_bp_hyper_params, handle);
 #ifdef ADMM
     DParallelMnistData<float> *data = new DParallelMnistData<float>("../data", mpi_world_size, mpi_world_rank, _bp_hyper_params.batch_size, dnn->handle());
     data->set_devId(devId);
@@ -196,9 +196,9 @@ int main(int argc, char **argv) {
 
 #else
     //DMnistData<float> *data = new DMnistData<float>("../data/", DData<float>::Train, 50000, false, dnn->handle());
-    //DData<float> *data = new DDummyData<float>(10,  handle);
+    DData<float> *data = new DDummyData<float>(input_dim, output_dim, handle);
     //DTimitData<float> *data = new DTimitData<float>("/scratch/jxie/", 10000, false, dnn->handle());
-    DPatchData<float> *data = new DPatchData<float>("/projects/grail/jxie/paris/", input_dim, 10000, false, dnn->handle());
+    //DPatchData<float> *data = new DPatchData<float>("/projects/grail/jxie/paris/", input_dim, 10000, false, dnn->handle());
 #ifndef DISABLE_GPU
     data->set_devId(devId);
 #endif

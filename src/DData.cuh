@@ -413,23 +413,25 @@ public:
 
 template<class T>
 class DDummyData : public DData<T> {
-    int _n;
+    int _input_dim, _output_dim;
 public:
-    DDummyData(int n, cublasHandle_t handle) : DData<T>(1, n+1, n+1, 1, false, false, handle) {
-        _n = n + 1;
+    DDummyData(int input_dim, int output_dim, cublasHandle_t handle) : DData<T>(1, input_dim+1, output_dim, 1, false, false, handle) {
+        _input_dim = input_dim;
+        _output_dim = output_dim;
     }
     virtual int fetch(T *&x, T *&y) { return false; }  
     virtual void start() {}
     virtual int instancesPerEpoch() { return 256; }
     virtual bool getData(DMatrix<T> *&x, DMatrix<T>*&y, int batch_size) {
-        x = y = new DMatrix<T>(batch_size, _n, DData<T>::_handle);
-        x->init(DMatrix<T>::Zero);
-        T *data = x->host_data();
+        x = new DMatrix<T>(batch_size, _input_dim, DData<T>::_handle);
+        y = new DMatrix<T>(batch_size, _output_dim, DData<T>::_handle);
+        x->init(DMatrix<T>::Normal, 0.0, 1.0);
         for (int i = 0; i < batch_size; i++) {
-            data[i+(i%(_n-1))*batch_size] = 1.0;
-            data[i+(_n-1)*batch_size] = 1.0;
+            x->getElem(i, _input_dim-1) = 1.0;
+            for (int j = 0; j < _output_dim; j++) y->getElem(i, j) = rand()%2;
         }
         x->host2dev();
+        y->host2dev();
         return true;
     }
 };
