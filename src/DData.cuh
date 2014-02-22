@@ -416,7 +416,7 @@ class DDummyData : public DData<T> {
     int _input_dim, _output_dim;
 public:
     DDummyData(int input_dim, int output_dim, cublasHandle_t handle) : DData<T>(1, input_dim+1, output_dim, 1, false, false, handle) {
-        _input_dim = input_dim;
+        _input_dim = input_dim+1;
         _output_dim = output_dim;
     }
     virtual int fetch(T *&x, T *&y) { return false; }  

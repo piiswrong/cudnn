@@ -448,7 +448,7 @@ public:
         DMatrix<T> *input, *output;
         data->start();
         data->getData(input, output, _bp_hyper_params->batch_size);
-        //input->init(DMatrix<T>::Normal, 0.0, 1.0);
+        input->init(DMatrix<T>::Normal, 0.0, 1.0);
         //output->init(DMatrix<T>::Normal, 0.0, 1.0);
         int L;
         DMatrix<T> **tX, **tdX, **X, **dX;

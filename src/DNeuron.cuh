@@ -330,7 +330,7 @@ public:
         _means = new DMatrix<T>(n_dims, n_centers, handle);
         _means->init(DMatrix<T>::Normal, 0.0, 1.0);
         _stds = new DMatrix<T>(n_centers, 1, handle);
-        _stds->init(DMatrix<T>::Uniform, 0.9, 1.1);
+        _stds->init(DMatrix<T>::Uniform, 0.001, 0.001);
         _mom_means = new DMatrix<T>(n_dims, n_centers, handle);
         _mom_means->init(DMatrix<T>::Zero);
         _dmeans = new DMatrix<T>(n_dims, n_centers, handle);
@@ -349,10 +349,13 @@ public:
         act->CopyFrom(drv);
         hComputeDistanceKernel<T, DistEuclid<T> >(DistEuclid<T>(), drv, _means, _dist, drv->fd()-1);
         _dist->diagMul(_dist, _stds, false);
+        _dist->samplePrint("dist");
         _dist->applyBinary(OpGaussian<T>(), _dist, _dist->nrows(), _dist->ncols());
+        _dist->samplePrint("prob");
         _tmpk->applyTenary(OpGMMWeight<T>(drv->ncols()-1), _pi, _stds, _tmpk->nrows(), _tmpk->ncols()); 
         _dist->diagMul(_dist, _tmpk, false);
         hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpSumReduce<T>(), OpNop<T>(), OpDivide<T>(), _dist, _dist, _likelyhood, _dist->fd(), false);
+        _dist->samplePrint("gamma");
     }
 
     virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
