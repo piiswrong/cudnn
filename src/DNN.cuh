@@ -35,7 +35,7 @@ public:
         _layer_dims = layer_dims;
         _pt_hyper_params = pt_hyper_params;
         _bp_hyper_params = bp_hyper_params;
-        _scaled_weight = false;
+        _scaled_weight = true;
 
         _layers = new DLayer<T>*[_num_layers];
         for (int i = 0; i < _num_layers; i++) {

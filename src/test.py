@@ -8,7 +8,7 @@ if False:
     tut_path = '/s0/jxie/TIMIT_tutorial/'
     log_path = '/s0/jxie/cudnn/log/'
 else:
-    tut_path = '/scratch/jxie/TIMIT_tutorial_new/'
+    tut_path = '/scratch/jxie/TIMIT_tutorial_withPrior_noSA_normalized_updatedseq/'
     log_path = '/projects/grail/jxie/cudnn/log/'
 
 def test(name, exp, start, ntotal):
@@ -85,7 +85,7 @@ matrices:""")
         print res
         print >> flog, res
         flog.flush()
-        res = subprocess.Popen(['./dmlpvitcommand_updatedBootModel_hyd_devSet_normalized'], stdout=subprocess.PIPE).communicate()[0]
+        res = subprocess.Popen(['./dmlpvitcommand_dev_normalized'], stdout=subprocess.PIPE).communicate()[0]
         print res
         print >> flog, res
         flog.flush()
