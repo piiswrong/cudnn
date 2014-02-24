@@ -350,9 +350,15 @@ public:
         hComputeDistanceKernel<T, DistEuclid<T> >(DistEuclid<T>(), drv, _means, _dist, drv->fd()-1);
         _dist->diagMul(_dist, _stds, false);
         _dist->samplePrint("dist");
+        hNormalize<T, OpNop<T>, OpMinReduce<T>, OpNop<T>, OpSub<T> >(OpNop<T>(), OpMinReduce<T>(), OpNop<T>(), OpSub<T>(), _dist, _dist, NULL, _dist->fd(), false);
         _dist->applyBinary(OpGaussian<T>(), _dist, _dist->nrows(), _dist->ncols());
         _dist->samplePrint("prob");
-        _tmpk->applyTenary(OpGMMWeight<T>(drv->ncols()-1), _pi, _stds, _tmpk->nrows(), _tmpk->ncols()); 
+        _stds->setT();
+        _tmpk->setT();
+        kNormalize<T, OpNop<T>, OpMaxReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpMaxReduce<T>(), OpNop<T>(), OpDivide<T>(), _stds, _tmpk, NULL, _stds->cols(), false);
+        _stds->setT();
+        _tmpk->setT();
+        _tmpk->applyTenary(OpGMMWeight<T>(drv->ncols()-1), _pi, _tmpk, _tmpk->nrows(), _tmpk->ncols()); 
         _dist->diagMul(_dist, _tmpk, false);
         hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpSumReduce<T>(), OpNop<T>(), OpDivide<T>(), _dist, _dist, _likelyhood, _dist->fd(), false);
         _dist->samplePrint("gamma");
