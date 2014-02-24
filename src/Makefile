@@ -5,7 +5,7 @@ FLAGS = -g -G
 #SUFIX = cpp 
 SUFIX = cu
 #CC = gcc -pthread -std=c++0x
-CC = nvcc --compiler-options="-pthread" 
+CC = nvcc --compiler-options="-pthread"
 FLAGS += -DNVML
 LIBS += -lnvidia-ml
 LIBS += -lcudart -lcublas 

@@ -355,11 +355,16 @@ public:
         _dist->samplePrint("prob");
         _stds->setT();
         _tmpk->setT();
-        kNormalize<T, OpNop<T>, OpMaxReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpMaxReduce<T>(), OpNop<T>(), OpDivide<T>(), _stds, _tmpk, NULL, _stds->cols(), false);
+        hNormalize<T, OpNop<T>, OpMaxReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpMaxReduce<T>(), OpNop<T>(), OpDivide<T>(), _stds, _tmpk, NULL, _stds->ncols(), false);
+        _stds->samplePrint("stds");
+        _tmpk->samplePrint("tmk");
+        _pi->samplePrint("pi");
         _stds->setT();
         _tmpk->setT();
         _tmpk->applyTenary(OpGMMWeight<T>(drv->ncols()-1), _pi, _tmpk, _tmpk->nrows(), _tmpk->ncols()); 
+        _tmpk->samplePrint("tmpk");
         _dist->diagMul(_dist, _tmpk, false);
+        _dist->samplePrint("ngamma");
         hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpSumReduce<T>(), OpNop<T>(), OpDivide<T>(), _dist, _dist, _likelyhood, _dist->fd(), false);
         _dist->samplePrint("gamma");
     }
