@@ -353,14 +353,13 @@ public:
         hNormalize<T, OpNop<T>, OpMinReduce<T>, OpNop<T>, OpSub<T> >(OpNop<T>(), OpMinReduce<T>(), OpNop<T>(), OpSub<T>(), _dist, _dist, NULL, _dist->fd(), false);
         _dist->applyBinary(OpGaussian<T>(), _dist, _dist->nrows(), _dist->ncols());
         _dist->samplePrint("prob");
-        _stds->setT();
-        _tmpk->setT();
-        hNormalize<T, OpNop<T>, OpMaxReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpMaxReduce<T>(), OpNop<T>(), OpDivide<T>(), _stds, _tmpk, NULL, _stds->ncols(), false);
+
+        DMatrix<T> *tmax = new DMatrix<T>(1, 1, DNeuron<T>::_handle);
+        hNormalize<T, OpNop<T>, OpMaxReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpMaxReduce<T>(), OpNop<T>(), OpDivide<T>(), _stds, _tmpk, tmax, _stds->ncols(), true);
+        tmax->samplePrint("tmax");
         _stds->samplePrint("stds");
         _tmpk->samplePrint("tmk");
         _pi->samplePrint("pi");
-        _stds->setT();
-        _tmpk->setT();
         _tmpk->applyTenary(OpGMMWeight<T>(drv->ncols()-1), _pi, _tmpk, _tmpk->nrows(), _tmpk->ncols()); 
         _tmpk->samplePrint("tmpk");
         _dist->diagMul(_dist, _tmpk, false);

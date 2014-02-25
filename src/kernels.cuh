@@ -214,7 +214,7 @@ __global__ void kNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm
     int j = threadIdx.y*ld + i;
     const int blockSize = ld*num_thrd;
 
-    if (i < ld) {
+    if ((!trans && i < ld)||(trans && i < fd)) {
         int myMark;
         T mySum = dBatchReduce<T, trans, num_thrd, OpReduce, OpElem>(opReduce, opElem, x, smem, mark, ld, fd, myMark);
         mySum = opAll(mySum);
