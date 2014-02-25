@@ -117,8 +117,8 @@ int main(int argc, char **argv) {
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 17;
-    int hidden_dim = 799;
+    int num_layers = 5;
+    int hidden_dim = 2495;
     char unit[255];
     strcpy(unit, "Oddroot");
     float pt_epochs = 0.0;

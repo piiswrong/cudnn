@@ -193,8 +193,8 @@ public:
             T x = drv, x0 = 0;
             do {
                 x0 = x;
-                x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(3.0*x*x + 1);
-            }while (abs((x-x0)/x)>1e-6);
+                x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(x*x + 1.0);
+            }while (abs(x0) > abs(x));
             return x;
         }
     };
@@ -202,7 +202,7 @@ public:
     class BackwardOp {
     public:
         HOSTDEVICE T operator() (T delta, T drv, T act) {
-            return delta/(3.0*act*act+1.0);
+            return delta/(act*act+1.0);
         }
     };
 
