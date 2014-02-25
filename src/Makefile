@@ -1,13 +1,13 @@
-#FLAGS = -O3 -DNDEBUG --use_fast_math 
-FLAGS = -g -G
+FLAGS = -O3 -DNDEBUG --use_fast_math 
+#FLAGS = -g -G
 #FLAGS = -O3 -DNDEBUG -DDISABLE_GPU -DWITH_GMTK
 #FLAGS =  -g -DDISABLE_GPU #-DADMM
 #SUFIX = cpp 
 SUFIX = cu
 #CC = gcc -pthread -std=c++0x
 CC = nvcc --compiler-options="-pthread"
-FLAGS += -DNVML
-LIBS += -lnvidia-ml
+#FLAGS += -DNVML
+#LIBS += -lnvidia-ml
 LIBS += -lcudart -lcublas 
 LIBS += -L/opt/intel/mkl/lib/intel64 
 LIBS += -L/opt/intel/lib/intel64 

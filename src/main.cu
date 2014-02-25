@@ -113,18 +113,18 @@ int main(int argc, char **argv) {
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 2;
-    int hidden_dim = 1024;
+    int num_layers = 5;
+    int hidden_dim = 1023;
     //int input_dim = 351, output_dim = 150;
     int input_dim = 1568, output_dim = 256;
     //int input_dim = 28*28, output_dim = 10;
     char unit[255];
     strcpy(unit, "ReLU");
     float pt_epochs = 0.0;
-    int bp_epochs = 1;
+    int bp_epochs = 200;
     DHyperParams _bp_hyper_params, _pt_hyper_params;
-    _pt_hyper_params.idrop_out = true;
-    _pt_hyper_params.idrop_rate = 0.5;
+    _pt_hyper_params.idrop_out = false;
+    _pt_hyper_params.idrop_rate = 0.2;
     _pt_hyper_params.hdrop_out = false;
     _pt_hyper_params.weight_decay = false;
     _pt_hyper_params.decay_rate = 0.00;
@@ -132,10 +132,10 @@ int main(int argc, char **argv) {
     _pt_hyper_params.learning_rate = 0.01;
 
     _bp_hyper_params.check_interval = 128;
-    _bp_hyper_params.learning_rate = 0.001;
+    _bp_hyper_params.learning_rate = 0.00001;
     _bp_hyper_params.idrop_out = false;
     _bp_hyper_params.idrop_rate = 0.2;
-    _bp_hyper_params.hdrop_out = true;
+    _bp_hyper_params.hdrop_out = false;
     _bp_hyper_params.hdrop_rate= 0.2;
     _bp_hyper_params.momentum = 0.5;
     _bp_hyper_params.max_momentum = 0.90;
@@ -143,7 +143,6 @@ int main(int argc, char **argv) {
     _bp_hyper_params.weight_decay = false;
     _bp_hyper_params.decay_rate = 0.000;
 
-    _bp_hyper_params.batch_size = 32;
 #ifdef ADMM
     _bp_hyper_params.decay_rate = 0.001;
 #endif
@@ -182,7 +181,7 @@ int main(int argc, char **argv) {
         }
     }
     //neuron[num_layers-1] = new DSoftmaxNeuron<float>(_bp_hyper_params.batch_size, handle);
-    neuron[num_layers-1] = new DGMMNeuron<float>(&_bp_hyper_params, 256, output_dim, 1, handle);
+    neuron[num_layers-1] = new DGMMNeuron<float>(&_bp_hyper_params, 1024, output_dim, 1, handle);
     
     DNN<float> *dnn = new DNN<float>(num_layers, layer_dims, neuron, &_pt_hyper_params, &_bp_hyper_params, handle);
 #ifdef ADMM
@@ -198,7 +197,7 @@ int main(int argc, char **argv) {
     //DMnistData<float> *data = new DMnistData<float>("../data/", DData<float>::Train, 50000, false, dnn->handle());
     //DData<float> *data = new DDummyData<float>(input_dim, 1, handle);
     //DTimitData<float> *data = new DTimitData<float>("/scratch/jxie/", 10000, false, dnn->handle());
-    DPatchData<float> *data = new DPatchData<float>("/projects/grail/jxie/paris/", input_dim, 10000, false, dnn->handle());
+    DPatchData<float> *data = new DPatchData<float>("../data/", input_dim, 10000, false, dnn->handle());
 #ifndef DISABLE_GPU
     data->set_devId(devId);
 #endif

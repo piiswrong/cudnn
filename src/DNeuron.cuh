@@ -76,6 +76,9 @@ public:
     virtual int params(DMatrix<T> **&X, DMatrix<T> **&dX, int *&M, int *&N) {
         return 0;
     }
+
+    virtual void samplePrint() {
+    }
 };
 
 template<class T>
@@ -319,7 +322,7 @@ class DGMMNeuron : public DNeuron<T> {
     DMatrix<T> *_means, *_stds, *_gamma, *_pi, *_coef, *_dist, *_likelyhood;
     DMatrix<T> *_mom_means, *_mom_stds, *_mom_pi; 
     DMatrix<T> *_dmeans;
-    DMatrix<T> *_tmpk, *_tmpn;
+    DMatrix<T> *_tmpk, *_tmpn, *_min_dist, *_max_std;
     T _loss;
 public:
     DGMMNeuron(DHyperParams *hyper_params, int n_centers, int n_dims, T lambda, cublasHandle_t handle) : DNeuron<T>(handle) {
@@ -330,7 +333,7 @@ public:
         _means = new DMatrix<T>(n_dims, n_centers, handle);
         _means->init(DMatrix<T>::Normal, 0.0, 1.0);
         _stds = new DMatrix<T>(n_centers, 1, handle);
-        _stds->init(DMatrix<T>::Uniform, 0.001, 0.001);
+        _stds->init(DMatrix<T>::Uniform, 1.0, 1.0);
         _mom_means = new DMatrix<T>(n_dims, n_centers, handle);
         _mom_means->init(DMatrix<T>::Zero);
         _dmeans = new DMatrix<T>(n_dims, n_centers, handle);
@@ -343,29 +346,20 @@ public:
         _likelyhood = new DMatrix<T>(batch_size, 1, handle);
         _tmpk = new DMatrix<T>(n_centers, 1, handle);
         _tmpn = new DMatrix<T>(batch_size, 1, handle);
+        _min_dist = new DMatrix<T>(batch_size, 1, handle);
+        _max_std = new DMatrix<T>(1, 1, handle);
     }
 
     virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) { 
         act->CopyFrom(drv);
         hComputeDistanceKernel<T, DistEuclid<T> >(DistEuclid<T>(), drv, _means, _dist, drv->fd()-1);
         _dist->diagMul(_dist, _stds, false);
-        _dist->samplePrint("dist");
-        hNormalize<T, OpNop<T>, OpMinReduce<T>, OpNop<T>, OpSub<T> >(OpNop<T>(), OpMinReduce<T>(), OpNop<T>(), OpSub<T>(), _dist, _dist, NULL, _dist->fd(), false);
+        hNormalize<T, OpNop<T>, OpMinReduce<T>, OpNop<T>, OpSub<T> >(OpNop<T>(), OpMinReduce<T>(), OpNop<T>(), OpSub<T>(), _dist, _dist, _min_dist, _dist->fd(), false);
         _dist->applyBinary(OpGaussian<T>(), _dist, _dist->nrows(), _dist->ncols());
-        _dist->samplePrint("prob");
-
-        DMatrix<T> *tmax = new DMatrix<T>(1, 1, DNeuron<T>::_handle);
-        hNormalize<T, OpNop<T>, OpMaxReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpMaxReduce<T>(), OpNop<T>(), OpDivide<T>(), _stds, _tmpk, tmax, _stds->ncols(), true);
-        tmax->samplePrint("tmax");
-        _stds->samplePrint("stds");
-        _tmpk->samplePrint("tmk");
-        _pi->samplePrint("pi");
+        hNormalize<T, OpNop<T>, OpMaxReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpMaxReduce<T>(), OpNop<T>(), OpDivide<T>(), _stds, _tmpk, _max_std, _stds->nrows(), true);
         _tmpk->applyTenary(OpGMMWeight<T>(drv->ncols()-1), _pi, _tmpk, _tmpk->nrows(), _tmpk->ncols()); 
-        _tmpk->samplePrint("tmpk");
         _dist->diagMul(_dist, _tmpk, false);
-        _dist->samplePrint("ngamma");
         hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpSumReduce<T>(), OpNop<T>(), OpDivide<T>(), _dist, _dist, _likelyhood, _dist->fd(), false);
-        _dist->samplePrint("gamma");
     }
 
     virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
@@ -396,15 +390,22 @@ public:
     }
 
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        _coef->applyBinary(OpGMMDelta<T>(_lambda), y, y->nrows(), y->ncols());
-        _likelyhood->applyBinary(OpLog<T>(), _likelyhood, _likelyhood->nrows(), _likelyhood->ncols());
-        _coef->dev2host();
+        //_coef->applyBinary(OpGMMDelta<T>(_lambda), y, y->nrows(), y->ncols());
+        //_likelyhood->applyBinary(OpLog<T>(), _likelyhood, _likelyhood->nrows(), _likelyhood->ncols());
+        //_coef->dev2host();
         _likelyhood->dev2host();
+        _max_std->dev2host();
+        _min_dist->dev2host();
         _loss = 0.0;
-        for (int i = 0; i < y->nrows(); i++) _loss += _coef->getElem(i, 0) * _likelyhood->getElem(i, 0);
-        _loss /= y->nrows();
+        for (int i = 0; i < y->nrows(); i++) {
+            T coef = y->getElem(i, 0);
+            coef = _lambda*(1.0-coef) - coef;
+            _loss += coef * (log(_likelyhood->getElem(i, 0)) - 0.5*_min_dist->getElem(i, 0));
+        }
+        _loss = _loss/y->nrows() + (delta->ncols()-1)/2.0*log(_max_std->getElem(0,0));
+        if (_loss != _loss) { exit(-1);}
     }
-    
+   
     virtual T getLoss() {
         return _loss;
     }
@@ -421,6 +422,11 @@ public:
         M[0] = _means->nrows();
         N[0] = _means->ncols();
         return L;
+    }
+
+    virtual void samplePrint() {
+        //_means->samplePrint("means");
+        _dist->samplePrint("dist");
     }
 };
 
