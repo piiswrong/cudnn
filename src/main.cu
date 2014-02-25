@@ -197,7 +197,7 @@ int main(int argc, char **argv) {
     //DMnistData<float> *data = new DMnistData<float>("../data/", DData<float>::Train, 50000, false, dnn->handle());
     //DData<float> *data = new DDummyData<float>(input_dim, 1, handle);
     //DTimitData<float> *data = new DTimitData<float>("/scratch/jxie/", 10000, false, dnn->handle());
-    DPatchData<float> *data = new DPatchData<float>("../data/", input_dim, 10000, false, dnn->handle());
+    DPatchData<float> *data = new DPatchData<float>("/projects/grail/jxie/paris/", input_dim, 10000, false, dnn->handle());
 #ifndef DISABLE_GPU
     data->set_devId(devId);
 #endif

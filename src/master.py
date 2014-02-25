@@ -174,7 +174,11 @@ def makeReport(exp_name, exps):
                 maxacc = acc
             if e % 10 != 0:
                 e += 1
-            print '%.2f(%.2f)'%(acc, train_acc[e]) + '\t',
+            try:
+                print '%.2f(%.2f)'%(acc, train_acc[e]) + '\t',
+            except:
+                print '%.2f(N/A)'%(acc)+ '\t',
+
             i += 1
         print 'max = %.2f'%maxacc+'\n'
 
