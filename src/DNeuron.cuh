@@ -193,7 +193,8 @@ public:
             T x = drv, x0 = 0;
             do {
                 x0 = x;
-                x = (2.0/3.0)*x + (drv - (2.0/3.0)*x)/(x*x + 1.0);
+                T xsqr = x*x;
+                x = (2.0/3.0*x*xsqr + drv)/(xsqr + 1.0);
             }while (abs(x0) > abs(x));
             return x;
         }

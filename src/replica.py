@@ -7,10 +7,10 @@ import subprocess
 
 
 
-exps = list(xrange(0, 6))
+exps = list(xrange(3, 6))
 exp_name = 'all2'
 test_only = False 
-resuming = 0 
+resuming = -1 
 
 if len(sys.argv) <= 1:
     nodes = []
