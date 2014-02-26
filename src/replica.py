@@ -64,7 +64,7 @@ if len(sys.argv) <= 1:
             print cmd
             os.system("ssh n%02d '%s'"%(i,cmd))
         cmd = 'source ~/.profile; python /projects/grail/jxie/cudnn/src/test.py %s %d 0 1000 '%(exp_name, n)
-        cmd = "nohup qrsh -q notcuda.q@n%02d -pe orte 32 '%s' > /projects/grail/jxie/cudnn/log/test_%s_%d.o &"%(nodes2[k], cmd, exp_name, n)
+        cmd = "nohup qrsh -q notcuda.q -pe orte 32 '%s' > /projects/grail/jxie/cudnn/log/test_%s_%d.o &"%(cmd, exp_name, n)
         print cmd
         os.system(cmd)
         #time.sleep(20)

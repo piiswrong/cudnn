@@ -216,7 +216,7 @@ int main(int argc, char **argv) {
         _bp_hyper_params.learning_rate *= std::pow(_bp_hyper_params.learning_rate_decay, resuming);
     }
     if (exp_name != NULL)
-        fineTuneWithCheckpoint(dnn, data, bp_epochs, 10, path+exp_name, resuming);
+        fineTuneWithCheckpoint(dnn, data, bp_epochs, 10, path+exp_name, resuming>0?resuming:0);
     else 
         dnn->fineTune(data, bp_epochs);
 
