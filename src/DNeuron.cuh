@@ -341,6 +341,7 @@ public:
         _mom_stds->init(DMatrix<T>::Zero);
         _coef = new DMatrix<T>(batch_size, 1, handle);
         _dist = new DMatrix<T>(batch_size, n_centers, handle);
+        _gamma = new DMatrix<T>(batch_size, n_centers, handle);
         _pi = new DMatrix<T>(n_centers, 1, handle);
         _pi->init(DMatrix<T>::Uniform, 1.0/n_centers, 1.0/n_centers); 
         _likelyhood = new DMatrix<T>(batch_size, 1, handle);
@@ -353,13 +354,13 @@ public:
     virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) { 
         act->CopyFrom(drv);
         hComputeDistanceKernel<T, DistEuclid<T> >(DistEuclid<T>(), drv, _means, _dist, drv->fd()-1);
-        _dist->diagMul(_dist, _stds, false);
-        hNormalize<T, OpNop<T>, OpMinReduce<T>, OpNop<T>, OpSub<T> >(OpNop<T>(), OpMinReduce<T>(), OpNop<T>(), OpSub<T>(), _dist, _dist, _min_dist, _dist->fd(), false);
-        _dist->applyBinary(OpGaussian<T>(), _dist, _dist->nrows(), _dist->ncols());
+        _gamma->diagMul(_dist, _stds, false);
+        hNormalize<T, OpNop<T>, OpMinReduce<T>, OpNop<T>, OpSub<T> >(OpNop<T>(), OpMinReduce<T>(), OpNop<T>(), OpSub<T>(), _gamma, _gamma, _min_dist, _gamma->fd(), false);
+        _gamma->applyBinary(OpGaussian<T>(), _gamma, _gamma->nrows(), _gamma->ncols());
         hNormalize<T, OpNop<T>, OpMaxReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpMaxReduce<T>(), OpNop<T>(), OpDivide<T>(), _stds, _tmpk, _max_std, _stds->nrows(), true);
         _tmpk->applyTenary(OpGMMWeight<T>(drv->ncols()-1), _pi, _tmpk, _tmpk->nrows(), _tmpk->ncols()); 
-        _dist->diagMul(_dist, _tmpk, false);
-        hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpSumReduce<T>(), OpNop<T>(), OpDivide<T>(), _dist, _dist, _likelyhood, _dist->fd(), false);
+        _gamma->diagMul(_gamma, _tmpk, false);
+        hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpSumReduce<T>(), OpNop<T>(), OpDivide<T>(), _gamma, _gamma, _likelyhood, _gamma->fd(), false);
     }
 
     virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
@@ -369,20 +370,22 @@ public:
     virtual void bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {
         DMatrix<T> *drv_view = new DMatrix<T>(drv, 0, drv->fd()-1);
         DMatrix<T> *delta_view = new DMatrix<T>(delta, 0, delta->fd()-1);
-        _dist->diagMul(_dist, _coef, true);
+        _gamma->diagMul(_gamma, _coef, true);
         //dX
-        _tmpn->update(_dist, false, _stds, false, 1.0, 0.0);
+        _tmpn->update(_gamma, false, _stds, false, 1.0, 0.0);
         delta_view->diagMul(drv_view, _tmpn, true);
-        _dist->diagMul(_dist, _stds, false);
-        delta_view->update(_dist, false, _means, true, 1.0, -1.0);
+        _gamma->diagMul(_gamma, _stds, false);
+        delta_view->update(_gamma, false, _means, true, 1.0, -1.0);
+
+        delta->add(act, 1.0, delta->nelem() - delta->ld());
 
         T rate = -(1.0-_hyper_params->momentum)*_hyper_params->learning_rate/delta->nrows();
         //dmeans
         for (int i = 0; i < _tmpn->nrows(); i++) _tmpn->getElem(i, 0) = 1.0;
         _tmpn->host2dev();
-        _tmpk->update(_dist, true, _tmpn, false, 1.0, 0.0);
+        _tmpk->update(_gamma, true, _tmpn, false, 1.0, 0.0);
         _dmeans->diagMul(_means, _tmpk, false);
-        _dmeans->update(drv_view, true, _dist, false, rate, -rate);
+        _dmeans->update(drv_view, true, _gamma, false, rate, -rate);
         _mom_means->applyBinary(OpDPSGDMom<T>(_hyper_params->momentum), _dmeans, _mom_means->nrows(), _mom_means->ncols());
         _means->add(_mom_means, 1.0);
 
@@ -425,8 +428,9 @@ public:
     }
 
     virtual void samplePrint() {
-        //_means->samplePrint("means");
+        _means->samplePrint("means");
         _dist->samplePrint("dist");
+        
     }
 };
 
