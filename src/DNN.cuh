@@ -346,7 +346,7 @@ public:
             if (lastCheck >= _bp_hyper_params->check_interval) {
                 _layers[_num_layers-1]->neuron()->samplePrint();
                 _layers[_num_layers-1]->act()->samplePrint("top act");
-                _layers[_num_layers-1]->delta()->samplePrint("top delta");
+                _layers[_num_layers-1]->momentum()->samplePrint("top delta");
                 //_layers[_num_layers-1]->weight()->samplePrint("top weight");
                 //_layers[0]->act()->samplePrint("bottom act");
                 //_layers[0]->weight()->samplePrint("bottom weight");

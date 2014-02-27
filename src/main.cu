@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
     _pt_hyper_params.learning_rate = 0.01;
 
     _bp_hyper_params.check_interval = 10000;
-    _bp_hyper_params.learning_rate = 0.01;
+    _bp_hyper_params.learning_rate = 0.1;
     _bp_hyper_params.idrop_out = false;
     _bp_hyper_params.idrop_rate = 0.2;
     _bp_hyper_params.hdrop_out = true;
@@ -181,7 +181,7 @@ int main(int argc, char **argv) {
         }
     }
     //neuron[num_layers-1] = new DSoftmaxNeuron<float>(_bp_hyper_params.batch_size, handle);
-    neuron[num_layers-1] = new DGMMNeuron<float>(&_bp_hyper_params, 1024, output_dim, 0.0, handle);
+    neuron[num_layers-1] = new DGMMNeuron<float>(&_bp_hyper_params, 256, output_dim, 0.1, handle);
     
     DNN<float> *dnn = new DNN<float>(num_layers, layer_dims, neuron, &_pt_hyper_params, &_bp_hyper_params, handle);
 #ifdef ADMM

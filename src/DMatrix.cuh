@@ -103,7 +103,7 @@ public:
         for (int i = 0; i < nrows(); i++) {
             for (int j = 0; j < ncols(); j++) {
                 T t = getElem(i,j);
-                if( i < 10 && j < 10)printf("%+0.4f ", (float)t);
+                if( i < 10 && j < 16)printf("%+0.4f ", (float)t);
                 if (t > max) max = t;
                 if (t < min) min = t;
             }

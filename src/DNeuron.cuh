@@ -377,7 +377,7 @@ public:
         _gamma->diagMul(_gamma, _stds, false);
         delta_view->update(_gamma, false, _means, true, 1.0, -1.0);
 
-        delta->add(act, 1.0, delta->nelem() - delta->ld());
+        //delta->add(act, 1.0, delta->nelem() - delta->ld());
 
         T rate = -(1.0-_hyper_params->momentum)*_hyper_params->learning_rate/delta->nrows();
         //dmeans
@@ -430,6 +430,7 @@ public:
     virtual void samplePrint() {
         _means->samplePrint("means");
         _dist->samplePrint("dist");
+        _gamma->samplePrint("gamma");
         
     }
 };
