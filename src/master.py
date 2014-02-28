@@ -80,8 +80,8 @@ def makeExp(exp_name, ntotal_param):
     net, norder = makeNet()
     ptHyper, horder = makeHyper()
     bpHyper, horder = makeHyper()
-    id = 0
-    for neuron in [ 'Logistic', 'Oddroot']:
+    id = 6
+    for neuron in [ 'ReLU' ]:#'Logistic', 'Oddroot']:
         for i in [ 5, 10, 20 ]:
             for ntotal_param in [ 2e7 ]:
                 net['num_layers'] = i
@@ -183,7 +183,8 @@ def makeReport(exp_name, exps):
 #makeReport('sigmoid', xrange(0,15))
 #makeExp('oddrootnew1', 1e7)
 #makeExp('all1', [1e7, 2e7])
-makeExp('all2', [2e7])
+#makeExp('all2', [2e7])
+makeReport('all2', xrange(0,9))
 
 
 

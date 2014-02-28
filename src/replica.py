@@ -9,8 +9,8 @@ import subprocess
 
 exps = list(xrange(3, 6))
 exp_name = 'all2'
-test_only = False 
-resuming = -1 
+test_only = True 
+resuming = 0 
 
 if len(sys.argv) <= 1:
     nodes = []
@@ -27,6 +27,7 @@ if len(sys.argv) <= 1:
                 nodes.append((i, 1))
     print nodes, len(nodes)
 
+    """
     nodes2 = []
     res = list(xrange(14,61))
     res.reverse()
@@ -41,12 +42,12 @@ if len(sys.argv) <= 1:
             if len(nodes2) >= len(exps):
                 break
 
-
     
     print nodes2, len(nodes2)
     #nodes2 = list(xrange(1,15))
+    """
 
-    if ((not test_only) and len(nodes) < len(exps)) or len(nodes2) < len(exps):
+    if (not test_only) and len(nodes) < len(exps):
         print 'not enough nodes!\n'
         exit()
 
@@ -63,8 +64,9 @@ if len(sys.argv) <= 1:
                 cmd = 'source ~/.profile; nohup /projects/grail/jxie/cudnn/src/main -d %d %s_%d > /projects/grail/jxie/cudnn/log/%s_%d.o &'%(j, exp_name, n, exp_name, n)
             print cmd
             os.system("ssh n%02d '%s'"%(i,cmd))
-        cmd = 'source ~/.profile; python /projects/grail/jxie/cudnn/src/test.py %s %d 0 1000 '%(exp_name, n)
-        cmd = "nohup qrsh -q notcuda.q -pe orte 32 '%s' > /projects/grail/jxie/cudnn/log/test_%s_%d.o &"%(cmd, exp_name, n)
+        scriptfile = '/projects/grail/jxie/cudnn/src/test.py'
+        outfile = "/projects/grail/jxie/cudnn/log/test_%s_%d.o"%(exp_name, n)
+        cmd = "qsub -S /usr/bin/python -V -q notcuda.q -pe orte 32 -j y -o %s %s %s %d 0 1000"%(outfile, scriptfile, exp_name, n)
         print cmd
         os.system(cmd)
         #time.sleep(20)
