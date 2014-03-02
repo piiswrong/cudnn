@@ -193,7 +193,7 @@ def makeReport(exp_name, exps):
 #makeReport('sigmoid', xrange(0,15))
 #makeExp('oddrootnew1', 1e7)
 #makeExp('all1', [1e7, 2e7])
-makeReport('all2', xrange(0,6))
+makeReport('all2', xrange(0,9))
 
 
 
