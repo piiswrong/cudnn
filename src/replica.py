@@ -7,17 +7,15 @@ import subprocess
 
 
 
-exps = list(xrange(3, 6))
-exp_name = 'all2'
-test_only = True 
-resuming = 0 
+exps = list(xrange(0, 6))
+exp_name = 'oddrootresume'
+test_only = False
+resuming = 0
 
 if len(sys.argv) <= 1:
     nodes = []
     if not test_only:
         for i in xrange(1,12):
-            if i == 6: 
-                continue
             res = subprocess.Popen(['ssh', 'n%02d'%i, 'nvidia-smi'], stdout=subprocess.PIPE).communicate()[0]
             print res
             res = res.strip().split('\n')
@@ -27,25 +25,14 @@ if len(sys.argv) <= 1:
                 nodes.append((i, 1))
     print nodes, len(nodes)
 
-    """
     nodes2 = []
-    res = list(xrange(14,61))
-    res.reverse()
-    lines = subprocess.Popen(['qstat', '-f', '-q', 'all.q'], stdout=subprocess.PIPE).communicate()[0].strip().split('\n')
-    lines.reverse()
-    res = [ int(i[7:9]) for i in lines if i.startswith('all.q') and int(i[7:9]) in res and i.strip().split(' ')[-1] == 'lx26-amd64' ]
-    for i in res:
-        res = subprocess.Popen(['ssh', 'n%02d'%i, "ps -U jxie -f | grep 'test.py'"], stdout=subprocess.PIPE).communicate()[0]
-        if len(res.strip().split('\n')) < 3:
-            print i
-            nodes2.append(i)
-            if len(nodes2) >= len(exps):
-                break
-
-    
+    for i in xrange(1, 12):
+        for dev in [0, 1]:
+            res = subprocess.Popen(['ssh', 'n%02d'%i, "ps -U jxie -f | grep 'test.py %d'"%dev], stdout=subprocess.PIPE).communicate()[0]
+            if len(res.strip().split('\n')) < 3:
+                print i,dev
+                nodes2.append((i,dev))
     print nodes2, len(nodes2)
-    #nodes2 = list(xrange(1,15))
-    """
 
     if (not test_only) and len(nodes) < len(exps):
         print 'not enough nodes!\n'
@@ -64,11 +51,12 @@ if len(sys.argv) <= 1:
                 cmd = 'source ~/.profile; nohup /projects/grail/jxie/cudnn/src/main -d %d %s_%d > /projects/grail/jxie/cudnn/log/%s_%d.o &'%(j, exp_name, n, exp_name, n)
             print cmd
             os.system("ssh n%02d '%s'"%(i,cmd))
+        i, dev = nodes2[k]
         scriptfile = '/projects/grail/jxie/cudnn/src/test.py'
         outfile = "/projects/grail/jxie/cudnn/log/test_%s_%d.o"%(exp_name, n)
-        cmd = "qsub -S /usr/bin/python -V -q notcuda.q -pe orte 32 -j y -o %s %s %s %d 0 1000"%(outfile, scriptfile, exp_name, n)
+        cmd = "source ~/.profile; nohup python %s %d %s %d 0 1000 > %s &"%(scriptfile, dev, exp_name, n, outfile)
         print cmd
-        os.system(cmd)
+        os.system("ssh n%02d '%s'"%(i,cmd))
         #time.sleep(20)
 else:
     for i in xrange(int(sys.argv[1]), int(sys.argv[2])+1):

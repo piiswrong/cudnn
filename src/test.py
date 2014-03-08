@@ -8,7 +8,7 @@ if False:
     tut_path = '/s0/jxie/TIMIT_tutorial/'
     log_path = '/s0/jxie/cudnn/log/'
 else:
-    tut_path = '/scratch/jxie/TIMIT_tutorial_withPrior_noSA_normalized_updatedseq/'
+    tut_path = '/scratch/jxie/TIMIT_tutorial_withPrior_noSA_normalized_updatedseq_%s/'%sys.argv[1]
     log_path = '/projects/grail/jxie/cudnn/log/'
 
 def test(name, exp, start, ntotal):
@@ -109,4 +109,4 @@ matrices:""")
     fout.close()
 
 
-test(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]))
+test(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5]))

@@ -134,7 +134,9 @@ public:
         //printf("%f\n", _weight->getElem(0,0));
 #endif
         _drv->update(dev_data, false, _weight, false);
+        //_drv->samplePrint("drv");
         _neuron->fprop(_act, _drv);
+        //_act->samplePrint("act");
         if (drop_out) 
             hDropout(_act, _neuron->easyDropout()?NULL:_mask, _state, drop_rate, _act->getT(), _act->nrows(), _act->ncols() - 1, _act->ld());
     }

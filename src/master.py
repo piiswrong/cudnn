@@ -80,10 +80,10 @@ def makeExp(exp_name, ntotal_param):
     net, norder = makeNet()
     ptHyper, horder = makeHyper()
     bpHyper, horder = makeHyper()
-    id = 6
-    for neuron in [ 'ReLU' ]:#'Logistic', 'Oddroot']:
+    id = 0
+    for neuron in [ 'Oddroot']:
         for i in [ 5, 10, 20 ]:
-            for ntotal_param in [ 2e7 ]:
+            for ntotal_param in [ 1e7 , 2e7]:
                 net['num_layers'] = i
                 net['neuron'] = neuron
                 net['bp_epochs'] = 1000
@@ -95,8 +95,8 @@ def makeExp(exp_name, ntotal_param):
                 bpHyper['hdrop_rate'] = 0.2
                 
                 fout = open('%s%s_%d.hyper'%(log_path,exp_name, id), 'w')
-                shutil.copy2('%s%s_d%d_w%d.pre'%(log_path, neuron,i,net['hidden_dim']), '%s%s_%d.param'%(log_path,exp_name,id))
                 writeExp(fout, net, norder, ptHyper, bpHyper, horder)
+                shutil.copy2('%s%s_d%d_w%d.pre'%(log_path, neuron,i,net['hidden_dim']), '%s%s_%d.param'%(log_path,exp_name,id))
                 id += 1
 
 
@@ -168,7 +168,11 @@ def makeReport(exp_name, exps):
         for e,acc in sorted(lines, key=lambda x: x[0]):
             if acc > maxacc:
                 maxacc = acc
-            print '%.2f(%.2f)'%(acc, train_acc[e]) + '\t',
+            try:
+                te = "%.2f"%train_acc[e]
+            except:
+                te = "N/A"
+            print '%.2f(%s)'%(acc, te) + '\t',
             i += 1
         print 'max = %.2f'%maxacc+'\n'
 
@@ -184,7 +188,9 @@ def makeReport(exp_name, exps):
 #makeExp('oddrootnew1', 1e7)
 #makeExp('all1', [1e7, 2e7])
 #makeExp('all2', [2e7])
-makeReport('all2', xrange(0,9))
+#makeReport('all2', xrange(0,18))
+#makeExp('oddrootresume', [])
+makeReport('oddrootresume', xrange(0,6))
 
 
 

@@ -107,9 +107,9 @@ public:
 #ifdef DOWN_POUR_SGD
         if (mpi_world_rank >= sgd_num_param_server) {
 #endif
+            //x->init(DMatrix<T>::Uniform, 1.0, 1.0);
             if (params->idrop_out) hDropout<T>(x, NULL, state, params->idrop_rate, x->getT(), x->nrows(), x->ncols() - 1, x->ld());
             layers[0]->fprop(x, (num_layers > 1) && params->hdrop_out, params->hdrop_rate);
-            //x->samplePrint("x");
             //layers[0]->act()->samplePrint("0");
             for (int i = 1; i < num_layers; i++) {
                 layers[i]->fprop(layers[i-1]->act(), (i < num_layers - 1) && params->hdrop_out, params->hdrop_rate);
@@ -117,6 +117,7 @@ public:
                 //sprintf(buf, "%d", i);
                 //layers[i]->act()->samplePrint(buf);
             }
+            //exit(0);
 #ifdef DOWN_POUR_SGD
         }
 #endif
