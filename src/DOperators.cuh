@@ -6,8 +6,8 @@
 template<class T>
 class OpMul{
 public:
-    HOSTDEVICE T operator() (T x, T y) {
-        return x*y;
+    HOSTDEVICE T operator() (T x, T y, T z) {
+        return y*z;
     }
 };
 
@@ -81,19 +81,44 @@ template<class T>
 class OpExp{
 public:
     HOSTDEVICE T operator() (T x, T y) {
-        return y*y;
+        return exp(y);
+    }
+    HOSTDEVICE T operator() (T y) {
+        return exp(y);
     }
 };
 
 
 template<class T>
+class OpSqrt{
+public:
+    HOSTDEVICE T operator() (T x, T y) {
+        return sqrt(y);
+    }
+    HOSTDEVICE T operator() (T y) {
+        return sqrt(y);
+    }
+};
+
+template<class T>
+class OpCube{
+public:
+    HOSTDEVICE T operator() (T x, T y) {
+        return y*y*y;
+    }
+    HOSTDEVICE T operator() (T y) {
+        return y*y*y;
+    }
+};
+
+template<class T>
 class OpSqr{
 public:
     HOSTDEVICE T operator() (T x, T y) {
-        return exp(y);
+        return y*y;
     }
     HOSTDEVICE T operator() (T y) {
-        return exp(y);
+        return y*y;
     }
 };
 

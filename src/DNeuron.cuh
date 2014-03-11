@@ -256,65 +256,123 @@ HOSTDEVICE float DOddrootNeuron<float>::ForwardOp::operator() (float act, float 
 
 }
 */
-/*
+
 template<class T>
-class DClusterNeuron : public DNeuron<T> {
-    int _batch_size;
-    int _n_centers;
-    int _n_dims;
+class DvMFNeuron : public DNeuron<T> {
+    DHyperParams *_hyper_params;
     T _lambda;
-    DMatrix<T> *_centers, *_distance, *_res, *_margin, *_norm, *_scale;
-    DMatrix<int> *_index;
-
-    DMatrix<T> *_y, *_acc;
-
-
+    DMatrix<T> *_means, *_kappa, *_gamma, *_pi, *_coef, *_dist, *_likelyhood, *_norm;
+    DMatrix<T> *_mom_means, *_mom_kappa, *_mom_pi; 
+    DMatrix<T> *_dmeans;
+    DMatrix<T> *_tmpk, *_tmpn, *_tmpnl, *_max_dist, *_max_kappa;
+    T _loss;
 public:
-    DClusterNeuron(int batch_size, int n_centers, int n_dims, T lambda, cublasHandle_t handle) : DNeuron<T>(handle) {
-        _batch_size = batch_size;
-        _n_centers = n_centers;
-        _n_dims = n_dims;
+    DvMFNeuron(DHyperParams *hyper_params, int n_centers, int n_dims, T lambda, cublasHandle_t handle) : DNeuron<T>(handle) {
+        int batch_size = hyper_params->batch_size;
         _lambda = lambda;
+        _hyper_params = hyper_params;
 
-        _centers = new DMatrix<T>(n_dims, n_centers, DNeuron<T>::_handle);
-        _centers->init(DMatrix<T>::Normal, 0.0, 1.0);
-        UnitLength<T>(_centers, _centers, NULL, n_dims, true);
-        _index = new DMatrix<int>(batch_size, 1, DNeuron<T>::_handle);
-        _distance = new DMatrix<T>(batch_size, n_dims, DNeuron<T>::_handle);
-        _res = new DMatrix<T>(batch_size, 1, DNeuron<T>::_handle);
-        _margin = new DMatrix<T>(n_centers, 1, DNeuron<T>::_handle);
-        _margin->init(DMatrix<T>::Uniform, 0.05, 0.05);
-        _norm = new DMatrix<T>(batch_size, 1, DNeuron<T>::_handle);
-        _scale = new DMatrix<T>(batch_size, 1, DNeuron<T>::_handle);
-        _acc = new DMatrix<T>(batch_size, 1, DNeuron<T>::_handle);
+        _means = new DMatrix<T>(n_dims, n_centers, handle);
+        _means->init(DMatrix<T>::Normal, 0.0, 1.0);
+        _kappa = new DMatrix<T>(n_centers, 1, handle);
+        _kappa->init(DMatrix<T>::Uniform, 1.0, 1.0);
+        _mom_means = new DMatrix<T>(n_dims, n_centers, handle);
+        _mom_means->init(DMatrix<T>::Zero);
+        _dmeans = new DMatrix<T>(n_dims, n_centers, handle);
+        _mom_kappa = new DMatrix<T>(n_centers, 1, handle);
+        _mom_kappa->init(DMatrix<T>::Zero);
+        _norm = new DMatrix<T>(batch_size, 1, handle);
+        _coef = new DMatrix<T>(batch_size, 1, handle);
+        _dist = new DMatrix<T>(batch_size, n_centers, handle);
+        _gamma = new DMatrix<T>(batch_size, n_centers, handle);
+        _pi = new DMatrix<T>(n_centers, 1, handle);
+        _pi->init(DMatrix<T>::Uniform, 1.0/n_centers, 1.0/n_centers); 
+        _likelyhood = new DMatrix<T>(batch_size, 1, handle);
+        _tmpk = new DMatrix<T>(n_centers, 1, handle);
+        _tmpn = new DMatrix<T>(batch_size, 1, handle);
+        _tmpnl = new DMatrix<T>(batch_size, n_dims, handle);
+        _max_dist = new DMatrix<T>(batch_size, 1, handle);
+        _max_kappa = new DMatrix<T>(1, 1, handle);
     }
-    virtual bool easyDropout() { return false; }
+
+    virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) { 
+        hNormalize<T, OpSqr<T>, OpSumReduce<T>, OpSqrt<T>, OpDivide<T> >(OpSqr<T>(), OpSumReduce<T>(), OpSqrt<T>(), OpDivide<T>(), drv, act, _norm, drv->fd()-1, false);
+        _dist->update(drv, false, _means, false, 1.0, 0.0);
+        _gamma->diagMul(_dist, _kappa, false);
+        hNormalize<T, OpNop<T>, OpMaxReduce<T>, OpNop<T>, OpSub<T> >(OpNop<T>(), OpMaxReduce<T>(), OpNop<T>(), OpSub<T>(), _gamma, _gamma, _max_dist, _gamma->fd(), false);
+        _gamma->applyBinary(OpExp<T>(), _gamma, _gamma->nrows(), _gamma->ncols());
+        //hNormalize<T, OpNop<T>, OpMaxReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpMaxReduce<T>(), OpNop<T>(), OpDivide<T>(), _stds, _tmpk, _max_std, _stds->nrows(), true);
+        //_tmpk->applyTenary(OpGMMWeight<T>(drv->ncols()-1), _pi, _tmpk, _tmpk->nrows(), _tmpk->ncols()); 
+        //_gamma->diagMul(_gamma, _tmpk, false);
+        hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpSumReduce<T>(), OpNop<T>(), OpDivide<T>(), _gamma, _gamma, _likelyhood, _gamma->fd(), false);
+    }
 
     virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        CluterNeuronDelta<T>(_scale, y, _margin, _res, _index, _lambda);
-    }
-
-    virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) {
-        UnitLength<T>(drv, act, _norm, act->fd()-1, false);
-        DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
-        _distance->update(act_view, false, _centers, false, 1.0, 0);
-        Argmax(_distance, _index, _res, _distance->fd());
+        _coef->applyBinary(OpGMMDelta<T>(_lambda), y, y->nrows(), y->ncols());
     }
 
     virtual void bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {
-        CluterNeuronBprop(delta, act, _centers, _index, _res, _scale, _norm, delta->fd()-1);
+        DMatrix<T> *drv_view = new DMatrix<T>(drv, 0, drv->fd()-1);
+        DMatrix<T> *delta_view = new DMatrix<T>(delta, 0, delta->fd()-1);
+        _gamma->diagMul(_gamma, _coef, true);
+        _gamma->diagMul(_gamma, _kappa, false);
+        //dX
+        delta_view->update(_gamma, false, _means, true);
+        _tmpnl->applyTenary(OpMul<T>(), delta_view, drv_view, delta_view->nrows(), delta_view->ncols())
+        hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpNop<T> >(OpNop<T>(), OpSumReduce<T>, OpNop<T>(), OpNop<T>(), _tmpnl, _tmpnl, _tmpn, _tmpnl->fd(), false);
+        tmpnl->diagMul(drv, _tmpn, true);
+        _tmpn->applyBinary(OpSqr<T>(), _norm, _tmpn->nrows(), _tmpn->ncols());
+        delta_view->diagMul(delta_view, _tmpn, true);
+        delta_view->applyTenary(OpSub<T>(), delta_view, _tmpnl, delta_view->nrows(), delta_view->ncols());
+        _tmpn->applyBinary(OpCube<T>(), _norm, _tmpn->nrows(), _tmpn->ncols());
+        delta_view->diagMul(delta_view, _tmpn, true);
     }
 
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        _y = y;
+        //_coef->applyBinary(OpGMMDelta<T>(_lambda), y, y->nrows(), y->ncols());
+        //_likelyhood->applyBinary(OpLog<T>(), _likelyhood, _likelyhood->nrows(), _likelyhood->ncols());
+        //_coef->dev2host();
+        _likelyhood->dev2host();
+        _max_std->dev2host();
+        _min_dist->dev2host();
+        _loss = 0.0;
+        for (int i = 0; i < y->nrows(); i++) {
+            T coef = y->getElem(i, 0);
+            coef = _lambda*(1.0-coef) - coef;
+            _loss += coef * (log(_likelyhood->getElem(i, 0)) - 0.5*_min_dist->getElem(i, 0));
+        }
+        _loss = _loss/y->nrows() + (delta->ncols()-1)/2.0*log(_max_std->getElem(0,0));
+        if (_loss != _loss) { exit(-1);}
+    }
+   
+    virtual T getLoss() {
+        return _loss;
     }
 
-    virtual T getLoss() {
-        CluterNeuronAcc(_acc, _y, _margin, _res, _index);
-        return _acc->norm1(_y->nrows());
+    virtual int params(DMatrix<T> **&X, DMatrix<T> **&dX, int *&M, int *&N) {
+        int L = 1;
+        X = new DMatrix<T>*[L];
+        dX = new DMatrix<T>*[L];
+        M = new int[L];
+        N = new int[L];
+
+        X[0] = _means;
+        dX[0] = _mom_means;
+        M[0] = _means->nrows();
+        N[0] = _means->ncols();
+        return L;
+    }
+
+    virtual void samplePrint() {
+        _means->samplePrint("means");
+        _dist->samplePrint("dist");
+        _gamma->samplePrint("gamma");
+        
     }
 };
-*/
+
+
+
 template<class T>
 class DGMMNeuron : public DNeuron<T> {
     DHyperParams *_hyper_params;
