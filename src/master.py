@@ -1,6 +1,7 @@
 import math
 import shutil
 from sets import Set
+import os
 import matplotlib.pyplot as plt
 """
 fout = open('test.hyper', 'w')
@@ -26,7 +27,7 @@ fout.write('batch_size=' + str(128) + '\n')
 fout.write('check_interval=' + str(10000) + '\n')
 """
 
-log_path = '/projects/grail/jxie/cudnn/log/'
+log_path = '../log/'
 
 
 def makeHyper():
@@ -199,6 +200,8 @@ def makeReport(exp_name, exps):
             i += 1
         print 'max = %.2f'%maxacc+'\n'
 
+    if not os.path.exists(log_path+exp_name+'_plots'):
+        os.mkdir(log_path+exp_name+'_plots')
     for i in xrange(len(hyper_name)):
         groups = Set()
         for j in xrange(len(hyper_value)):
@@ -214,7 +217,11 @@ def makeReport(exp_name, exps):
                         continue
                     label += hyper_name[k] + '=' + str(hyper_value[j][k]) + ' '
                 plt.plot(xrange(10, len(acc_list[j])*10+1, 10), acc_list[j], label=label)
-            plt.savefig(hyper_name[i] + '-' + str(v) + '.png')
+            plt.title(hyper_name[i] + '=' + str(v))
+            plt.xlabel('number of epochs')
+            plt.ylabel('accuracy')
+            plt.legend(loc = 'lower right')
+            plt.savefig(log_path+exp_name+'_plots/'+hyper_name[i] + '-' + str(v) + '.png')
             plt.clf()
             
 
