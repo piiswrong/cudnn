@@ -1,5 +1,7 @@
 import math
 import shutil
+from sets import Set
+import matplotlib.pyplot as plt
 """
 fout = open('test.hyper', 'w')
 
@@ -81,7 +83,7 @@ def makeExp(exp_name, ntotal_param):
     ptHyper, horder = makeHyper()
     bpHyper, horder = makeHyper()
     id = 0
-    for neuron in [ 'Oddroot']:
+    for neuron in [ 'Logistic', 'Oddroot', 'ReLU']:
         for i in [ 5, 10, 20 ]:
             for ntotal_param in [ 1e7 , 2e7]:
                 net['num_layers'] = i
@@ -96,7 +98,17 @@ def makeExp(exp_name, ntotal_param):
                 
                 fout = open('%s%s_%d.hyper'%(log_path,exp_name, id), 'w')
                 writeExp(fout, net, norder, ptHyper, bpHyper, horder)
-                shutil.copy2('%s%s_d%d_w%d.pre'%(log_path, neuron,i,net['hidden_dim']), '%s%s_%d.param'%(log_path,exp_name,id))
+
+                if neuron != 'ReLU':
+                    pre = '%s%s_d%d_w%d.pre'%(log_path, neuron,i,net['hidden_dim'])
+                    param = '%s%s_%d.param'%(log_path,exp_name,id)
+                    #shutil.copy2(pre, param)
+                    fpre = open(pre)
+                    lines = fpre.readlines()
+                    fpre.close()
+                    fparam = open(param, 'w')
+                    fparam.writelines(lines[2:])
+                    fparam.close()
                 id += 1
 
 
@@ -133,15 +145,24 @@ def makeReport(exp_name, exps):
 
 
 
+    hyper_name = []
     for i in diff:
         s = params[0][i].strip().split('=')[0]
         if i >= nnet and i < nnet+nhyper:
             s = 'pt_'+s
+        hyper_name.append(s)
         print s+'\t',
     print '\n'
-    for exp,param in zip(exps, params):
+    
+    
+    hyper_value = []
+    acc_list = []
+    for exp,param,id in zip(exps, params, xrange(len(exps))):
+        print '%d:'%id
+        hyper_value.append([])
         for i in diff:
             v = param[i].strip().split('=')[1]
+            hyper_value[-1].append(v)
             print str(v)+'\t',
 
         fin = open('%s%s_%d.log'%(log_path, exp_name, exp))
@@ -165,6 +186,7 @@ def makeReport(exp_name, exps):
         fin.close()
         maxacc = 0.0
         print 'acc per 10 epochs'
+        acc_list.append([])
         for e,acc in sorted(lines, key=lambda x: x[0]):
             if acc > maxacc:
                 maxacc = acc
@@ -172,9 +194,29 @@ def makeReport(exp_name, exps):
                 te = "%.2f"%train_acc[e]
             except:
                 te = "N/A"
+            acc_list[-1].append(acc)
             print '%.2f(%s)'%(acc, te) + '\t',
             i += 1
         print 'max = %.2f'%maxacc+'\n'
+
+    for i in xrange(len(hyper_name)):
+        groups = Set()
+        for j in xrange(len(hyper_value)):
+            groups.add(hyper_value[j][i])
+        for v in groups:
+            plt.hold(True)
+            for j in xrange(len(hyper_value)):
+                if hyper_value[j][i] != v:
+                    continue
+                label = ''
+                for k in xrange(len(hyper_name)):
+                    if k == i:
+                        continue
+                    label += hyper_name[k] + '=' + str(hyper_value[j][k]) + ' '
+                plt.plot(xrange(10, len(acc_list[j])*10+1, 10), acc_list[j], label=label)
+            plt.savefig(hyper_name[i] + '-' + str(v) + '.png')
+            plt.clf()
+            
 
 #makeReport('oddroot', [0,2,4,6,8])
 #makeReport('ReLU', xrange(0,15))
@@ -190,7 +232,9 @@ def makeReport(exp_name, exps):
 #makeExp('all2', [2e7])
 #makeReport('all2', xrange(0,18))
 #makeExp('oddrootresume', [])
-makeReport('oddrootresume', xrange(0,6))
+#makeReport('oddrootresume', xrange(0,6))
+#makeExp('all3', [] )
+makeReport('all3', xrange(0, 18))
 
 
 

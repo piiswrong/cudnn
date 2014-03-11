@@ -8,9 +8,9 @@ import subprocess
 
 
 exps = list(xrange(0, 6))
-exp_name = 'oddrootresume'
+exp_name = 'oddrootfinal'
 test_only = False
-resuming = 0
+resuming = -1
 
 if len(sys.argv) <= 1:
     nodes = []
@@ -19,7 +19,7 @@ if len(sys.argv) <= 1:
             res = subprocess.Popen(['ssh', 'n%02d'%i, 'nvidia-smi'], stdout=subprocess.PIPE).communicate()[0]
             print res
             res = res.strip().split('\n')
-            if i != 4 and filter(None, res[8].strip().split(' '))[-3] == '0%':
+            if filter(None, res[8].strip().split(' '))[-3] == '0%':
                 nodes.append((i, 0))
             if filter(None, res[11].strip().split(' '))[-3] == '0%':
                 nodes.append((i, 1))
