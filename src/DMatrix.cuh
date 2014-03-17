@@ -455,16 +455,17 @@ void hDropout(DMatrix<T> *x, DMatrix<T> *mask, curandState *state, float rate, b
 }
 
 template<class T, class OpElem, class OpReduce, class OpAll, class OpNorm>
-void hNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm opNorm, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *norm, int n, bool trans) {
-    if (trans) {//TODO:bug here?
-        dim3 grid((x->fd()-1)/WARP_SIZE+1, 1, 1);
-        dim3 block(WARP_SIZE, 32, 1);
-        kNormalize<T,true,32><<<grid, block>>>(opElem, opReduce, opAll, opNorm, x->dev_data(), y->dev_data(), norm!=NULL?norm->dev_data():NULL, n, x->fd());
+void hNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm opNorm, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *norm, int n, bool colWise) {
+    assert(x->getT() == y->getT());
+    if (colWise ^ x->getT()) {
+        dim3 grid(1, (x->fd()-1)/WARP_SIZE+1, 1);
+        dim3 block(32, WARP_SIZE, 1);
+        kNormalize<T,true,32><<<grid, block>>>(opElem, opReduce, opAll, opNorm, x->dev_data(), y->dev_data(), norm!=NULL?norm->dev_data():NULL, x->ld(), x->fd(), n);
         CUDA_KERNEL_CHECK();
     }else {
         dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
         dim3 block(WARP_SIZE, 32, 1);
-        kNormalize<T,false,32><<<grid, block>>>(opElem, opReduce, opAll, opNorm, x->dev_data(), y->dev_data(), norm!=NULL?norm->dev_data():NULL, x->ld(), n);
+        kNormalize<T,false,32><<<grid, block>>>(opElem, opReduce, opAll, opNorm, x->dev_data(), y->dev_data(), norm!=NULL?norm->dev_data():NULL, x->ld(), x->fd(), n);
         CUDA_KERNEL_CHECK();
     }
 }

@@ -99,61 +99,99 @@ __global__ void kDropout(T *dest, T *mask, curandState *state, float rate, int m
 }
 
 
-template<class T, bool trans, int num_thrd, class Op, class OpTrans>
-__device__ T dBatchReduce(Op op, OpTrans opTrans, T *x, T *smem, int *mark, int ld, int fd, int &ind) {
+template<class T, bool colWise, int num_thrd, class Op, class OpTrans>
+__device__ T dBatchReduce(Op op, OpTrans opTrans, T *x, T *smem, int *mark, int ld, int fd, int n, int &ind) {
     T res = op.Unit;
     int myInd = 0;
-    int n;
-    int i = blockIdx.x*WARP_SIZE + threadIdx.x;
-    int j = threadIdx.y;
-    if (trans) 
-        n = ld;
-    else 
-        n = fd;
-    for (;j < n; j += num_thrd) {
-        if (trans)
-            res = op(res, myInd, opTrans(x[j+i*ld]), j, myInd);
-        else 
+    if (!colWise) {
+        int i = blockIdx.x*WARP_SIZE + threadIdx.x;
+        int j = threadIdx.y;
+        for (;j < n; j += num_thrd) {
             res = op(res, myInd, opTrans(x[i+j*ld]), j, myInd);
-    }
-    j = threadIdx.y;
-    i = j*WARP_SIZE + threadIdx.x;
-    smem[i] = res;
-    mark[i] = myInd;
-    __syncthreads();
-    if (num_thrd >= 32) {
-        const int step = 16;
-        if (j < step) {
-            smem[i] = res = op(res, myInd, smem[i+step*WARP_SIZE], mark[i+step*WARP_SIZE], myInd);
-            mark[i] = myInd;
         }
+        j = threadIdx.y;
+        i = j*WARP_SIZE + threadIdx.x;
+        smem[i] = res;
+        mark[i] = myInd;
         __syncthreads();
-    }
-    if (num_thrd >= 16) {
-        const int step = 8;
-        if (j < step) {
-            smem[i] = res = op(res, myInd, smem[i+step*WARP_SIZE], mark[i+step*WARP_SIZE], myInd);
-            mark[i] = myInd;
+        if (num_thrd >= 32) {
+            const int step = 16;
+            if (j < step) {
+                smem[i] = res = op(res, myInd, smem[i+step*WARP_SIZE], mark[i+step*WARP_SIZE], myInd);
+                mark[i] = myInd;
+            }
+            __syncthreads();
         }
-        __syncthreads();
-    }
-    if (num_thrd >= 8) {
-        const int step = 4;
-        if (j < step) {
-            smem[i] = res = op(res, myInd, smem[i+step*WARP_SIZE], mark[i+step*WARP_SIZE], myInd);
-            mark[i] = myInd;
+        if (num_thrd >= 16) {
+            const int step = 8;
+            if (j < step) {
+                smem[i] = res = op(res, myInd, smem[i+step*WARP_SIZE], mark[i+step*WARP_SIZE], myInd);
+                mark[i] = myInd;
+            }
+            __syncthreads();
         }
-        __syncthreads();
-    }
-    if (num_thrd >= 4) {
-        const int step = 2;
-        if (j < step) {
-            smem[i] = res = op(res, myInd, smem[i+step*WARP_SIZE], mark[i+step*WARP_SIZE], myInd);
-            mark[i] = myInd;
+        if (num_thrd >= 8) {
+            const int step = 4;
+            if (j < step) {
+                smem[i] = res = op(res, myInd, smem[i+step*WARP_SIZE], mark[i+step*WARP_SIZE], myInd);
+                mark[i] = myInd;
+            }
+            __syncthreads();
         }
+        if (num_thrd >= 4) {
+            const int step = 2;
+            if (j < step) {
+                smem[i] = res = op(res, myInd, smem[i+step*WARP_SIZE], mark[i+step*WARP_SIZE], myInd);
+                mark[i] = myInd;
+            }
+            __syncthreads();
+        }
+        res = op(smem[threadIdx.x], mark[threadIdx.x], smem[threadIdx.x + WARP_SIZE], mark[threadIdx.x + WARP_SIZE], myInd);
+    }else {
+        int j = blockIdx.y*WARP_SIZE + threadIdx.y;
+        int i = threadIdx.x;
+        for (;i < ld; i += num_thrd) {
+            res = op(res, myInd, opTrans(x[i+j*ld]), i, myInd);
+        }
+        j = threadIdx.y;
+        i = j*num_thrd+ threadIdx.x;
+        smem[i] = res;
+        mark[i] = myInd;
         __syncthreads();
+        if (num_thrd >= 32) {
+            const int step = 16;
+            if (threadIdx.x < step) {
+                smem[i] = res = op(res, myInd, smem[i+step], mark[i+step], myInd);
+                mark[i] = myInd;
+            }
+            __syncthreads();
+        }
+        if (num_thrd >= 16) {
+            const int step = 8;
+            if (threadIdx.x < step) {
+                smem[i] = res = op(res, myInd, smem[i+step], mark[i+step], myInd);
+                mark[i] = myInd;
+            }
+            __syncthreads();
+        }
+        if (num_thrd >= 8) {
+            const int step = 4;
+            if (threadIdx.x < step) {
+                smem[i] = res = op(res, myInd, smem[i+step], mark[i+step], myInd);
+                mark[i] = myInd;
+            }
+            __syncthreads();
+        }
+        if (num_thrd >= 4) {
+            const int step = 2;
+            if (threadIdx.x < step) {
+                smem[i] = res = op(res, myInd, smem[i+step], mark[i+step], myInd);
+                mark[i] = myInd;
+            }
+            __syncthreads();
+        }
+        res = op(smem[j*num_thrd], mark[j*num_thrd], smem[j*num_thrd + 1], mark[j*num_thrd + 1], myInd);
     }
-    res = op(smem[threadIdx.x], mark[threadIdx.x], smem[threadIdx.x + WARP_SIZE], mark[threadIdx.x + WARP_SIZE], myInd);
     ind = myInd;
     return res;
 }
@@ -206,31 +244,44 @@ __global__ void kWeightUpdate(T* x, T* y, T decay_rate, int ld, int fd) {
     }
 }
 
-template<class T, bool trans, int num_thrd, class OpElem, class OpReduce, class OpAll, class OpNorm>
-__global__ void kNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm opNorm, T *x, T *y, T *norm, int ld, int fd) {
+template<class T, bool colWise, int num_thrd, class OpElem, class OpReduce, class OpAll, class OpNorm>
+__global__ void kNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm opNorm, T *x, T *y, T *norm, int ld, int fd, int n) {
     __shared__ T smem[WARP_SIZE*num_thrd];
     __shared__ int mark[WARP_SIZE*num_thrd];
-    int i = blockIdx.x*WARP_SIZE + threadIdx.x;
-    int j = threadIdx.y*ld + i;
-    const int blockSize = ld*num_thrd;
 
-    if ((!trans && i < ld)||(trans && i < fd)) {
-        int myMark;
-        T mySum = dBatchReduce<T, trans, num_thrd, OpReduce, OpElem>(opReduce, opElem, x, smem, mark, ld, fd, myMark);
-        mySum = opAll(mySum);
-        if (norm != NULL && threadIdx.y == 0) {
-            norm[i] = mySum;
-        }
-
-        if (trans) {
-            for (j = threadIdx.y; j < ld; j += num_thrd) {
-                y[j + i*ld] = opNorm(x[j + i*ld], mySum);
+    if (!colWise) {
+        int i = blockIdx.x*WARP_SIZE + threadIdx.x;
+        int j = threadIdx.y*ld + i;
+        const int blockSize = ld*num_thrd;
+        if (i < ld) {
+            int myMark;
+            T mySum = dBatchReduce<T, false, num_thrd, OpReduce, OpElem>(opReduce, opElem, x, smem, mark, ld, fd, n, myMark);
+            mySum = opAll(mySum);
+            if (norm != NULL && threadIdx.y == 0) {
+                norm[i] = mySum;
             }
-        }else {
-            int n = ld*fd;
-            while (j < n) {
+
+            int nelem = ld*fd;
+            while (j < nelem) {
                 y[j] = opNorm(x[j], mySum);
                 j += blockSize;
+            }
+        }
+    }else{
+        int j = blockIdx.y*WARP_SIZE + threadIdx.y;
+        int i = threadIdx.x + j*ld;
+
+        if (j < fd) {
+            int myMark;
+            T mySum = dBatchReduce<T, true, num_thrd, OpReduce, OpElem>(opReduce, opElem, x, smem, mark, ld, fd, n, myMark);
+            mySum = opAll(mySum);
+            if (norm != NULL && threadIdx.x == 0) {
+                norm[j] = mySum;
+            }
+
+            int nelem = ld*(j+1);
+            for (; i < nelem; i+=num_thrd) {
+                y[i] = opNorm(x[i], mySum);
             }
         }
     }

@@ -274,6 +274,7 @@ public:
 
         _means = new DMatrix<T>(n_dims, n_centers, handle);
         _means->init(DMatrix<T>::Normal, 0.0, 1.0);
+        hNormalize<T, OpSqr<T>, OpSumReduce<T>, OpSqrt<T>, OpDivide<T> >(OpSqr<T>(), OpSumReduce<T>(), OpSqrt<T>(), OpDivide<T>(), _means, _means, NULL, _means->nrows(), true);
         _kappa = new DMatrix<T>(n_centers, 1, handle);
         _kappa->init(DMatrix<T>::Uniform, 1.0, 1.0);
         _mom_means = new DMatrix<T>(n_dims, n_centers, handle);
@@ -301,9 +302,6 @@ public:
         _gamma->diagMul(_dist, _kappa, false);
         hNormalize<T, OpNop<T>, OpMaxReduce<T>, OpNop<T>, OpSub<T> >(OpNop<T>(), OpMaxReduce<T>(), OpNop<T>(), OpSub<T>(), _gamma, _gamma, _max_dist, _gamma->fd(), false);
         _gamma->applyBinary(OpExp<T>(), _gamma, _gamma->nrows(), _gamma->ncols());
-        //hNormalize<T, OpNop<T>, OpMaxReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpMaxReduce<T>(), OpNop<T>(), OpDivide<T>(), _stds, _tmpk, _max_std, _stds->nrows(), true);
-        //_tmpk->applyTenary(OpGMMWeight<T>(drv->ncols()-1), _pi, _tmpk, _tmpk->nrows(), _tmpk->ncols()); 
-        //_gamma->diagMul(_gamma, _tmpk, false);
         hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpDivide<T> >(OpNop<T>(), OpSumReduce<T>(), OpNop<T>(), OpDivide<T>(), _gamma, _gamma, _likelyhood, _gamma->fd(), false);
     }
 
@@ -326,23 +324,26 @@ public:
         delta_view->applyTenary(OpSub<T>(), delta_view, _tmpnl, delta_view->nrows(), delta_view->ncols());
         _tmpn->applyBinary(OpCube<T>(), _norm, _tmpn->nrows(), _tmpn->ncols());
         delta_view->diagMul(delta_view, _tmpn, true);
+
+        //dmu
+        _mom_means->update(gamma, true, act, false, -_hyper_params->learning_rate/act->nrows(), _hyper_params->momentum);
+
     }
 
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
-        //_coef->applyBinary(OpGMMDelta<T>(_lambda), y, y->nrows(), y->ncols());
-        //_likelyhood->applyBinary(OpLog<T>(), _likelyhood, _likelyhood->nrows(), _likelyhood->ncols());
-        //_coef->dev2host();
         _likelyhood->dev2host();
-        _max_std->dev2host();
-        _min_dist->dev2host();
+        _max_dist->dev2host();
         _loss = 0.0;
         for (int i = 0; i < y->nrows(); i++) {
             T coef = y->getElem(i, 0);
             coef = _lambda*(1.0-coef) - coef;
-            _loss += coef * (log(_likelyhood->getElem(i, 0)) - 0.5*_min_dist->getElem(i, 0));
+            _loss += coef * (log(_likelyhood->getElem(i, 0)) + _min_dist->getElem(i, 0));
         }
-        _loss = _loss/y->nrows() + (delta->ncols()-1)/2.0*log(_max_std->getElem(0,0));
-        if (_loss != _loss) { exit(-1);}
+        _loss = _loss/y->nrows() ;
+        if (_loss != _loss) { 
+            printf("Error: nan encontered during training!\n");
+            exit(-1);
+        }
     }
    
     virtual T getLoss() {
@@ -350,16 +351,17 @@ public:
     }
 
     virtual int params(DMatrix<T> **&X, DMatrix<T> **&dX, int *&M, int *&N) {
-        int L = 1;
+        int L = 0;
+/*
         X = new DMatrix<T>*[L];
         dX = new DMatrix<T>*[L];
         M = new int[L];
         N = new int[L];
-
         X[0] = _means;
         dX[0] = _mom_means;
         M[0] = _means->nrows();
         N[0] = _means->ncols();
+*/
         return L;
     }
 
@@ -367,7 +369,6 @@ public:
         _means->samplePrint("means");
         _dist->samplePrint("dist");
         _gamma->samplePrint("gamma");
-        
     }
 };
 
