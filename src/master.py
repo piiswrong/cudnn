@@ -1,7 +1,6 @@
 import math
 import shutil
 from sets import Set
-import matplotlib.pyplot as plt
 """
 fout = open('test.hyper', 'w')
 
@@ -83,12 +82,12 @@ def makeExp(exp_name, ntotal_param):
     ptHyper, horder = makeHyper()
     bpHyper, horder = makeHyper()
     id = 0
-    for neuron in [ 'Logistic', 'Oddroot', 'ReLU']:
-        for i in [ 5, 10, 20 ]:
-            for ntotal_param in [ 1e7 , 2e7]:
+    for neuron in [ 'Oddroot', 'ReLU', 'Logistic']:
+        for ntotal_param in [ 1e7 , 2e7, 4e7, 8e7 ]:
+            for i in [ 5, 10, 20, 40, 80 ]:
                 net['num_layers'] = i
                 net['neuron'] = neuron
-                net['bp_epochs'] = 1000
+                net['bp_epochs'] = 200
                 t = (-501+math.sqrt((501.0+i)**2+4.0*(i-2)*ntotal_param))/(2.0*(i-2))
                 net['hidden_dim'] = int((t+8)/16)*16 - 1
 
@@ -99,7 +98,7 @@ def makeExp(exp_name, ntotal_param):
                 fout = open('%s%s_%d.hyper'%(log_path,exp_name, id), 'w')
                 writeExp(fout, net, norder, ptHyper, bpHyper, horder)
 
-                if neuron != 'ReLU':
+                if neuron == 'Logistic':
                     pre = '%s%s_d%d_w%d.pre'%(log_path, neuron,i,net['hidden_dim'])
                     param = '%s%s_%d.param'%(log_path,exp_name,id)
                     #shutil.copy2(pre, param)
@@ -199,6 +198,7 @@ def makeReport(exp_name, exps):
             i += 1
         print 'max = %.2f'%maxacc+'\n'
 
+    import matplotlib.pyplot as plt
     for i in xrange(len(hyper_name)):
         groups = Set()
         for j in xrange(len(hyper_value)):
@@ -234,7 +234,9 @@ def makeReport(exp_name, exps):
 #makeExp('oddrootresume', [])
 #makeReport('oddrootresume', xrange(0,6))
 #makeExp('all3', [] )
-makeReport('all3', xrange(0, 18))
+makeReport('final', xrange(0, 59))
+#makeExp('final', [] )
+
 
 
 
