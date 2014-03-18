@@ -9,7 +9,7 @@ import subprocess
 #change to resume after 40
 #afailed: 44 49 54 59
 #pretrain again :53 52
-exps = list(xrange(52, 54))
+exps = [ 59 ]
 exp_name = 'final'
 test_only = False
 resuming = 0
