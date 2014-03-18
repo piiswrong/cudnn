@@ -1,11 +1,7 @@
 import math
 import shutil
 from sets import Set
-<<<<<<< HEAD
-=======
 import os
-import matplotlib.pyplot as plt
->>>>>>> FETCH_HEAD
 """
 fout = open('test.hyper', 'w')
 
@@ -211,6 +207,7 @@ def makeReport(exp_name, exps):
         for j in xrange(len(hyper_value)):
             groups.add(hyper_value[j][i])
         for v in groups:
+            fig = plt.figure(figsize=(18,9))
             plt.hold(True)
             for j in xrange(len(hyper_value)):
                 if hyper_value[j][i] != v:
@@ -224,7 +221,11 @@ def makeReport(exp_name, exps):
             plt.title(hyper_name[i] + '=' + str(v))
             plt.xlabel('number of epochs')
             plt.ylabel('accuracy')
-            plt.legend(loc = 'lower right')
+            ax = plt.subplot(111)
+            box = ax.get_position()
+            ax.set_position([box.x0, box.y0 + box.height*0.5, box.width * 0.8, box.height*0.5])
+
+            plt.legend(loc = 'upper left', bbox_to_anchor=(1, 1.0))
             plt.savefig(log_path+exp_name+'_plots/'+hyper_name[i] + '-' + str(v) + '.png')
             plt.clf()
             
