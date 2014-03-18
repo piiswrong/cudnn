@@ -1,11 +1,7 @@
 import math
 import shutil
 from sets import Set
-<<<<<<< HEAD
-=======
 import os
-import matplotlib.pyplot as plt
->>>>>>> FETCH_HEAD
 """
 fout = open('test.hyper', 'w')
 
@@ -103,7 +99,7 @@ def makeExp(exp_name, ntotal_param):
                 fout = open('%s%s_%d.hyper'%(log_path,exp_name, id), 'w')
                 writeExp(fout, net, norder, ptHyper, bpHyper, horder)
 
-                if neuron == 'Logistic':
+                if neuron == 'Logistic' and id in [44, 49, 52, 53, 54 , 59]:
                     pre = '%s%s_d%d_w%d.pre'%(log_path, neuron,i,net['hidden_dim'])
                     param = '%s%s_%d.param'%(log_path,exp_name,id)
                     #shutil.copy2(pre, param)
@@ -162,7 +158,7 @@ def makeReport(exp_name, exps):
     hyper_value = []
     acc_list = []
     for exp,param,id in zip(exps, params, xrange(len(exps))):
-        print '%d:'%id
+        print '%d:'%exp
         hyper_value.append([])
         for i in diff:
             v = param[i].strip().split('=')[1]
@@ -202,6 +198,10 @@ def makeReport(exp_name, exps):
             print '%.2f(%s)'%(acc, te) + '\t',
             i += 1
         print 'max = %.2f'%maxacc+'\n'
+
+    table = [ [ 'N/A' for i in xrange(3*4) ] for j in xrange(5) ]
+    for hv,accs in zip(hyper_value, acc_list):
+        i = hv
 
     import matplotlib.pyplot as plt
     if not os.path.exists(log_path+exp_name+'_plots'):
@@ -245,7 +245,7 @@ def makeReport(exp_name, exps):
 #makeExp('oddrootresume', [])
 #makeReport('oddrootresume', xrange(0,6))
 #makeExp('all3', [] )
-makeReport('final', xrange(0, 59))
+makeReport('final', [ i for i in xrange(0, 60) if i != 59 ] )
 #makeExp('final', [] )
 
 
