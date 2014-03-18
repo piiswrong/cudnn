@@ -316,9 +316,9 @@ public:
         _gamma->diagMul(_gamma, _kappa, false);
         //dX
         delta_view->update(_gamma, false, _means, true);
-        _tmpnl->applyTenary(OpMul<T>(), delta_view, drv_view, delta_view->nrows(), delta_view->ncols())
-        hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpNop<T> >(OpNop<T>(), OpSumReduce<T>, OpNop<T>(), OpNop<T>(), _tmpnl, _tmpnl, _tmpn, _tmpnl->fd(), false);
-        tmpnl->diagMul(drv, _tmpn, true);
+        _tmpnl->applyTenary(OpMul<T>(), delta_view, drv_view, delta_view->nrows(), delta_view->ncols());
+        hNormalize<T, OpNop<T>, OpSumReduce<T>, OpNop<T>, OpNop<T> >(OpNop<T>(), OpSumReduce<T>(), OpNop<T>(), OpNop<T>(), _tmpnl, _tmpnl, _tmpn, _tmpnl->fd(), false);
+        _tmpnl->diagMul(drv, _tmpn, true);
         _tmpn->applyBinary(OpSqr<T>(), _norm, _tmpn->nrows(), _tmpn->ncols());
         delta_view->diagMul(delta_view, _tmpn, true);
         delta_view->applyTenary(OpSub<T>(), delta_view, _tmpnl, delta_view->nrows(), delta_view->ncols());
@@ -337,7 +337,7 @@ public:
         for (int i = 0; i < y->nrows(); i++) {
             T coef = y->getElem(i, 0);
             coef = _lambda*(1.0-coef) - coef;
-            _loss += coef * (log(_likelyhood->getElem(i, 0)) + _min_dist->getElem(i, 0));
+            _loss += coef * (log(_likelyhood->getElem(i, 0)) + _max_dist->getElem(i, 0));
         }
         _loss = _loss/y->nrows() ;
         if (_loss != _loss) { 

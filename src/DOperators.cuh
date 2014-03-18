@@ -6,6 +6,9 @@
 template<class T>
 class OpMul{
 public:
+    HOSTDEVICE T operator() (T y, T z) {
+        return y*z;
+    }
     HOSTDEVICE T operator() (T x, T y, T z) {
         return y*z;
     }
