@@ -97,12 +97,29 @@ public:
         }   
     }
 
+    bool stat(T &min, T &max, T &mean, int m, int n) {
+        dev2host();
+        min = max = getElem(0, 0); 
+        mean = 0;
+        for (int j = 0; j < n; j++) {
+            for (int i = 0; i < m; i++) {
+                T t = getElem(i,j);
+                if (t!= t) return false;
+                if (t > max) max = t;
+                else if (t < min) min = t;
+                mean += t;
+            }
+        }
+        mean /= m*n;
+        return true;
+    }
+
     void samplePrint(const char * title = NULL) {
         dev2host();
         if (title != NULL) printf("%s\n", title);
         T max = getElem(0,0), min = getElem(0,0);
-        for (int i = 0; i < nrows(); i++) {
-            for (int j = 0; j < ncols(); j++) {
+        for (int i = 0; i < nrows()-1; i++) {
+            for (int j = 0; j < ncols()-1; j++) {
                 T t = getElem(i,j);
                 if( i < 10 && j < 10)printf("%+0.3f ", (float)t);
                 if (t > max) max = t;

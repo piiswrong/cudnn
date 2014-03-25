@@ -325,6 +325,9 @@ public:
         
         CUDA_CALL(cudaThreadSynchronize());
         LOG(fprintf(flog, "Fine Tuning\n"));
+        
+        //FILE *fstat = fopen("Logistic.mom", "w");
+
         while ( nEpoch <= total_epochs ) {
 #ifdef DOWN_POUR_SGD
             if (mpi_world_rank >= sgd_num_param_server)
@@ -345,6 +348,56 @@ public:
             //_layers[_num_layers-1]->act()->samplePrint();
             //_layers[0]->weight()->samplePrint();
             //_layers[5]->weight()->samplePrint();
+            /*bool nan_flag = false;
+            for (int l = 0; l < _num_layers; l++) {
+                T min, max, mean;
+                DMatrix<T> *act = _layers[l]->act();
+                if (act->stat(min, max, mean, act->nrows(), act->ncols()-1)) {
+                    fprintf(fstat, "%f %f %f ", min, max, mean);
+                }else {
+                    nan_flag = true;
+                }
+            }
+            fprintf(fstat, "\n");
+            for (int l = 0; l < _num_layers; l++) {
+                T min, max, mean;
+                DMatrix<T> *act = _layers[l]->weight();
+                if (act->stat(min, max, mean, act->nrows(), act->ncols()-1)) {
+                    fprintf(fstat, "%f %f %f ", min, max, mean);
+                }else {
+                    nan_flag = true;
+                }
+            }
+            fprintf(fstat, "\n");
+            for (int l = 0; l < _num_layers; l++) {
+                T min, max, mean;
+                DMatrix<T> *act = _layers[l]->momentum();
+                if (act->stat(min, max, mean, act->nrows(), act->ncols()-1)) {
+                    fprintf(fstat, "%f %f %f ", min, max, mean);
+                }else {
+                    nan_flag = true;
+                }
+            }
+            fprintf(fstat, "\n");
+            fflush(fstat);
+            if (nan_flag) {
+                fclose(fstat);
+                exit(-1);
+            }
+            for (int l = 0; l < _num_layers; l++) {
+                DMatrix<T> *mom = _layers[l]->momentum();
+                mom->dev2host();
+                mom->samplePrint("mom");
+                _layers[l]->act()->samplePrint("act");
+                _layers[l]->drv()->samplePrint("drv");
+                _layers[l]->delta()->samplePrint("delta");
+                for (int i = 0; i < mom->nrows()-1; i++) 
+                    for (int j = 0; j < mom->ncols()-1; j++) 
+                        fprintf(fstat, "%f ", mom->getElem(i, j));
+                fprintf(fstat, "\n");
+            }
+            fclose(fstat);
+            exit(-1);*/
             if (lastCheck >= _bp_hyper_params.check_interval) {
                 _layers[_num_layers-1]->act()->samplePrint();
                 _layers[_num_layers-2]->act()->samplePrint();

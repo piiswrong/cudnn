@@ -9,9 +9,9 @@ import subprocess
 #change to resume after 40
 #afailed: 44 49 54 59
 #pretrain again :53 52
-exps = [ 59 ]
+exps = list(xrange(0,60))
 exp_name = 'final'
-test_only = False
+test_only = True
 resuming = 0
 
 if len(sys.argv) <= 1:
@@ -29,6 +29,7 @@ if len(sys.argv) <= 1:
                 nodes.append((i, 1))
     print nodes, len(nodes)
 
+    """
     nodes2 = []
     for i in xrange(1, 13):
         if i == 12:
@@ -39,6 +40,7 @@ if len(sys.argv) <= 1:
                 print i,dev
                 nodes2.append((i,dev))
     print nodes2, len(nodes2)
+    """
 
     if (not test_only) and len(nodes) < len(exps):
         print 'not enough nodes!\n'
@@ -57,12 +59,12 @@ if len(sys.argv) <= 1:
                 cmd = 'source ~/.profile; nohup /projects/grail/jxie/cudnn/src/main -d %d %s_%d > /projects/grail/jxie/cudnn/log/%s_%d.o &'%(j, exp_name, n, exp_name, n)
             print cmd
             os.system("ssh n%02d '%s'"%(i,cmd))
-        i, dev = nodes2[k]
+        #i, dev = nodes2[k]
         scriptfile = '/projects/grail/jxie/cudnn/src/test.py'
-        outfile = "/projects/grail/jxie/cudnn/log/test_%s_%d.o"%(exp_name, n)
-        cmd = "source ~/.profile; nohup python %s %d %s %d 0 200 > %s &"%(scriptfile, dev, exp_name, n, outfile)
+        outfile = "/projects/grail/jxie/cudnn/log/test_%s_%d"%(exp_name, n)
+        cmd = "qsub -V -S /usr/bin/python -e %s.error -o %s.o -q notcuda.q -pe orte 17 %s %d %s %d 0 200"%(outfile, outfile, scriptfile, 0, exp_name, n)
         print cmd
-        os.system("ssh n%02d '%s'"%(i,cmd))
+        os.system(cmd)
         #time.sleep(20)
 else:
     for i in xrange(int(sys.argv[1]), int(sys.argv[2])+1):

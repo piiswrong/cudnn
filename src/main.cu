@@ -117,10 +117,10 @@ int main(int argc, char **argv) {
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 5;
-    int hidden_dim = 2495;
+    int num_layers = 40;
+    int hidden_dim = 511;
     char unit[255];
-    strcpy(unit, "Oddroot");
+    strcpy(unit, "ReLU");
     float pt_epochs = 0.0;
     DHyperParams _bp_hyper_params, _pt_hyper_params;
     _pt_hyper_params.idrop_out = true;
@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
     _bp_hyper_params.learning_rate = 0.1;
     _bp_hyper_params.idrop_out = false;
     _bp_hyper_params.idrop_rate = 0.2;
-    _bp_hyper_params.hdrop_out = true;
+    _bp_hyper_params.hdrop_out = false;
     _bp_hyper_params.hdrop_rate= 0.2;
     _bp_hyper_params.momentum = 0.5;
     _bp_hyper_params.max_momentum = 0.90;
@@ -175,6 +175,8 @@ int main(int argc, char **argv) {
             neuron[i] = new DOddrootNeuron<float>(handle);
         }else if (str_unit == "ReLU") {
             neuron[i] = new DReLUNeuron<float>(handle);
+        }else if (str_unit == "Linear") {
+            neuron[i] = new DNeuron<float>(handle);
         }else {
             printf("ERROR: \"%s\" is not a supported neuron type\n", unit);
             exit(-1);
