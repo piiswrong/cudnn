@@ -118,8 +118,8 @@ public:
         dev2host();
         if (title != NULL) printf("%s\n", title);
         T max = getElem(0,0), min = getElem(0,0);
-        for (int i = 0; i < nrows()-1; i++) {
-            for (int j = 0; j < ncols()-1; j++) {
+        for (int i = 0; i < nrows(); i++) {
+            for (int j = 0; j < ncols(); j++) {
                 T t = getElem(i,j);
                 if( i < 10 && j < 10)printf("%+0.3f ", (float)t);
                 if (t > max) max = t;
