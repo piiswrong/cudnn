@@ -8,13 +8,13 @@ if False:
     tut_path = '/s0/jxie/TIMIT_tutorial/'
     log_path = '/s0/jxie/cudnn/log/'
 else:
-    tut_path = '/scratch/jxie/TIMIT_tutorial_withPrior_noSA_normalized_updatedseq_grail_orig_setting/'
+    tut_path = '/scratch/jxie/TIMIT_tutorial_withPrior_noSA_normalized_updatedseq_grail_orig_setting_%s/'%sys.argv[1]
     log_path = '/projects/grail/jxie/cudnn/log/'
 
 def test(name, exp, start, ntotal):
     flog = open(log_path+'test_%s_%d.log'%(name, exp), 'w')
     os.chdir(tut_path)
-    fout = open(log_path+'%s_%d.acc'%(name,exp),'w')
+    fout = open(log_path+'%s_%d.acc'%(name,exp),'a+')
     head = '%s_%d_'%(name,exp)
     tail = '.param'
     fdmlp = open(tut_path+'PARAMS/dmlp.nn', 'w')
