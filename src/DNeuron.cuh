@@ -327,6 +327,7 @@ public:
 
         //dmu
         _mom_means->update(gamma, true, act, false, -_hyper_params->learning_rate/act->nrows(), _hyper_params->momentum);
+        _means->add(_mom_means, 1.0, _means->nelem());
 
     }
 
@@ -351,8 +352,7 @@ public:
     }
 
     virtual int params(DMatrix<T> **&X, DMatrix<T> **&dX, int *&M, int *&N) {
-        int L = 0;
-/*
+        int L = 1;
         X = new DMatrix<T>*[L];
         dX = new DMatrix<T>*[L];
         M = new int[L];
@@ -361,8 +361,17 @@ public:
         dX[0] = _mom_means;
         M[0] = _means->nrows();
         N[0] = _means->ncols();
-*/
         return L;
+    }
+
+    virtual void init(DData<T> *data) {
+        data->stop();
+        data->start();
+        DMatrix<T> *x;
+        DMatrix<T> *y;
+        for (int i = 0; i < _means->ncols(); i++) {
+            data->getBatch(x, y, 1);
+        }
     }
 
     virtual void samplePrint() {
