@@ -297,8 +297,9 @@ public:
     }
 
     virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) { 
-        hNormalize<T, OpSqr<T>, OpSumReduce<T>, OpSqrt<T>, OpDivide<T> >(OpSqr<T>(), OpSumReduce<T>(), OpSqrt<T>(), OpDivide<T>(), drv, act, _norm, drv->fd()-1, false);
-        _dist->update(drv, false, _means, false, 1.0, 0.0);
+        DMatrix<T> *drv_view = new DMatrix<T>(drv, 0, drv->fd()-1);
+        hNormalize<T, OpSqr<T>, OpSumReduce<T>, OpSqrt<T>, OpDivide<T> >(OpSqr<T>(), OpSumReduce<T>(), OpSqrt<T>(), OpDivide<T>(), drv_view, act, _norm, drv_view->fd(), false);
+        _dist->update(drv_view, false, _means, false, 1.0, 0.0);
         _gamma->diagMul(_dist, _kappa, false);
         hNormalize<T, OpNop<T>, OpMaxReduce<T>, OpNop<T>, OpSub<T> >(OpNop<T>(), OpMaxReduce<T>(), OpNop<T>(), OpSub<T>(), _gamma, _gamma, _max_dist, _gamma->fd(), false);
         _gamma->applyBinary(OpExp<T>(), _gamma, _gamma->nrows(), _gamma->ncols());
@@ -311,6 +312,7 @@ public:
 
     virtual void bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {
         DMatrix<T> *drv_view = new DMatrix<T>(drv, 0, drv->fd()-1);
+        DMatrix<T> *act_view= new DMatrix<T>(act, 0, act->fd()-1);
         DMatrix<T> *delta_view = new DMatrix<T>(delta, 0, delta->fd()-1);
         _gamma->diagMul(_gamma, _coef, true);
         _gamma->diagMul(_gamma, _kappa, false);
@@ -326,9 +328,8 @@ public:
         delta_view->diagMul(delta_view, _tmpn, true);
 
         //dmu
-        _mom_means->update(gamma, true, act, false, -_hyper_params->learning_rate/act->nrows(), _hyper_params->momentum);
+        _mom_means->update(act_view, true, _gamma, false, -_hyper_params->learning_rate/act->nrows(), _hyper_params->momentum);
         _means->add(_mom_means, 1.0, _means->nelem());
-
     }
 
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
@@ -369,9 +370,15 @@ public:
         data->start();
         DMatrix<T> *x;
         DMatrix<T> *y;
-        for (int i = 0; i < _means->ncols(); i++) {
-            data->getBatch(x, y, 1);
+        int i = 0;
+        while (i < _means->ncols()) {
+            data->getData(x, y, 1);
+            if (y->getElem(0,0)) {
+                for (int j = 0; j < _means->nrows(); j++) _means->getElem(j, i) = x->getElem(0, j);
+                i++;
+            }
         }
+        data->stop();
     }
 
     virtual void samplePrint() {

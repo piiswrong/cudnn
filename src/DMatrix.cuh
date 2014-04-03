@@ -320,6 +320,7 @@ public:
         assert(A->nrows(Ta) == ld());
         assert(A->ncols(Ta) == B->nrows(Tb));
         assert(B->ncols(Tb) == fd());
+        //printf("A:%dx%d\t B:%dx%d C:%dx%d\n", A->nrows(Ta), A->ncols(Ta), B->nrows(Tb), B->ncols(Tb), ld(), fd());
         if (_on_device) {
             CUBLAS_CALL(cublasXgemm(_handle, A->Tchar(Ta), B->Tchar(Tb), A->nrows(Ta), 
                                 B->ncols(Tb), A->ncols(Ta), &alpha, 
