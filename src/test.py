@@ -14,7 +14,7 @@ else:
 def test(name, exp, start, ntotal):
     flog = open(log_path+'test_%s_%d.log'%(name, exp), 'w')
     os.chdir(tut_path)
-    fout = open(log_path+'%s_%d.acc'%(name,exp),'a+')
+    fout = open(log_path+'%s_%d.acc'%(name,exp),'w')
     head = '%s_%d_'%(name,exp)
     tail = '.param'
     fdmlp = open(tut_path+'PARAMS/dmlp.nn', 'w')

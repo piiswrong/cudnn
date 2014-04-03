@@ -11,7 +11,7 @@ import subprocess
 #pretrain again :53 52
 exps = list(xrange(0,20))
 exp_name = 'final'
-test_only = False
+test_only = True
 resuming = 200
 
 if len(sys.argv) <= 1:
@@ -60,7 +60,7 @@ if len(sys.argv) <= 1:
         i, dev = nodes2[k]
         scriptfile = '/projects/grail/jxie/cudnn/src/test.py'
         outfile = "/projects/grail/jxie/cudnn/log/test_%s_%d.o"%(exp_name, n)
-        cmd = "source ~/.profile; nohup python %s %d %s %d 200 1000 > %s &"%(scriptfile, dev, exp_name, n, outfile)
+        cmd = "source ~/.profile; nohup python %s %d %s %d 0 400 > %s &"%(scriptfile, dev, exp_name, n, outfile)
         print cmd
         os.system("ssh n%02d '%s'"%(i,cmd))
         #time.sleep(20)
