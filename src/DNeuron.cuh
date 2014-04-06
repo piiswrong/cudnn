@@ -316,6 +316,7 @@ public:
         DMatrix<T> *delta_view = new DMatrix<T>(delta, 0, delta->fd()-1);
         _gamma->diagMul(_gamma, _coef, true);
         _gamma->diagMul(_gamma, _kappa, false);
+        _gamma->samplePrint("gamma");
         //dX
         delta_view->update(_gamma, false, _means, true);
         _tmpnl->applyTenary(OpMul<T>(), delta_view, drv_view, delta_view->nrows(), delta_view->ncols());
@@ -326,6 +327,8 @@ public:
         delta_view->applyTenary(OpSub<T>(), delta_view, _tmpnl, delta_view->nrows(), delta_view->ncols());
         _tmpn->applyBinary(OpCube<T>(), _norm, _tmpn->nrows(), _tmpn->ncols());
         delta_view->diagMul(delta_view, _tmpn, true);
+
+        delta->samplePrint("delta");
 
         //dmu
         _mom_means->update(act_view, true, _gamma, false, -_hyper_params->learning_rate/act->nrows(), _hyper_params->momentum);

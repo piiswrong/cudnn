@@ -113,11 +113,12 @@ int main(int argc, char **argv) {
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 2;
+    int num_layers = 1;
     int hidden_dim = 32;
     //int input_dim = 351, output_dim = 150;
-    int input_dim = 1568, output_dim = 256;
+    //int input_dim = 1568, output_dim = 256;
     //int input_dim = 28*28, output_dim = 10;
+    int input_dim = 32, output_dim = 32;
     char unit[255];
     strcpy(unit, "ReLU");
     float pt_epochs = 0.0;
@@ -191,16 +192,16 @@ int main(int argc, char **argv) {
 
 #else
     //DMnistData<float> *data = new DMnistData<float>("../data/", DData<float>::Train, 50000, false, dnn->handle());
-    //DData<float> *data = new DDummyData<float>(input_dim, 1, handle);
+    DData<float> *data = new DDummyData<float>(input_dim, 1, handle);
     //DTimitData<float> *data = new DTimitData<float>("/scratch/jxie/", 10000, false, dnn->handle());
-    DData<float> *data = new DPatchData<float>("/projects/grail/jxie/paris/", input_dim, 10000, false, handle);
+    //DData<float> *data = new DPatchData<float>("/projects/grail/jxie/paris/", input_dim, 10000, false, handle);
 #ifndef DISABLE_GPU
     data->set_devId(devId);
 #endif
 
     //neuron[num_layers-1] = new DSoftmaxNeuron<float>(_bp_hyper_params.batch_size, handle);
     //neuron[num_layers-1] = new DGMMNeuron<float>(&_bp_hyper_params, 256, output_dim, 0.1, handle);
-    DvMFNeuron<float> *last_neuron = new DvMFNeuron<float>(&_bp_hyper_params, 256, output_dim, 0.1, handle);
+    DvMFNeuron<float> *last_neuron = new DvMFNeuron<float>(&_bp_hyper_params, 32, output_dim, 0.1, handle);
     last_neuron->init(data);
     neuron[num_layers-1] = last_neuron;
     
