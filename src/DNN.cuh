@@ -380,7 +380,7 @@ public:
     }
 
     bool gradCheck(DHyperParams *hyper, DMatrix<T> *input, DMatrix<T> *output, DLayer<T> **layers, int num_layers, DMatrix<T> **X, DMatrix<T> **dX, int *M, int *N, int L) {
-        const double g_epsilon = 1e-2;
+        const double g_epsilon = 1e-1;
         const double bound = 1e-1;
         int passed = 0, failed = 0;
         double max_fail = 0.0;
@@ -403,7 +403,7 @@ public:
             DMatrix<T> *dx = dX[i];
             for (int j = 0; j < M[i]; j++) {
                 for (int k = 0; k < N[i]; k++) {
-                    double epsilon = x->getElem(j, k) * g_epsilon;
+                    double epsilon = g_epsilon;//max(1e-5, abs(x->getElem(j, k))) * g_epsilon;
                     fprop(input, num_layers, layers, hyper, NULL);
                     double fl = last_layer->neuron()->objective(last_layer->delta(), last_layer->act(), output);
                     
@@ -428,7 +428,7 @@ public:
                     x->getElem(j, k) -= 2.0*epsilon;
                     x->host2dev();
 
-                    double ngrad = (fr-fl)/(2.0*epsilon);
+                    double ngrad = (fr-fl)/(2.0*epsilon+1e-30);
                     double ratio = abs(grad-ngrad)/max(abs(ngrad)+1e-10, abs(grad)+1e-10);
                     if ( ratio < bound ) {
                         printf("PASS (%d,%d,%d): \tgrad:%lf ngrad:%lf ratio%lf\n", i, j, k, grad, ngrad, ratio);

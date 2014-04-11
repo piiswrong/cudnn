@@ -104,13 +104,13 @@ public:
 };
 
 template<class T>
-class OpCube{
+class OpInvCube{
 public:
     HOSTDEVICE T operator() (T x, T y) {
-        return y*y*y;
+        return 1.0/(y*y*y);
     }
     HOSTDEVICE T operator() (T y) {
-        return y*y*y;
+        return 1.0/(y*y*y);
     }
 };
 

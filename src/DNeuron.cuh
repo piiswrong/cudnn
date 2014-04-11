@@ -272,11 +272,14 @@ public:
         _lambda = lambda;
         _hyper_params = hyper_params;
 
+        _tmpk = new DMatrix<T>(n_centers, 1, handle);
+        _tmpn = new DMatrix<T>(batch_size, 1, handle);
+        _tmpnl = new DMatrix<T>(batch_size, n_dims, handle);
         _means = new DMatrix<T>(n_dims, n_centers, handle);
         _means->init(DMatrix<T>::Normal, 0.0, 1.0);
         hNormalize<T, OpSqr<T>, OpSumReduce<T>, OpSqrt<T>, OpDivide<T> >(OpSqr<T>(), OpSumReduce<T>(), OpSqrt<T>(), OpDivide<T>(), _means, _means, NULL, _means->nrows(), true);
         _kappa = new DMatrix<T>(n_centers, 1, handle);
-        _kappa->init(DMatrix<T>::Uniform, 1.0, 1.0);
+        _kappa->init(DMatrix<T>::Uniform, 10.0, 10.0);
         _mom_means = new DMatrix<T>(n_dims, n_centers, handle);
         _mom_means->init(DMatrix<T>::Zero);
         _dmeans = new DMatrix<T>(n_dims, n_centers, handle);
@@ -289,17 +292,15 @@ public:
         _pi = new DMatrix<T>(n_centers, 1, handle);
         _pi->init(DMatrix<T>::Uniform, 1.0/n_centers, 1.0/n_centers); 
         _likelyhood = new DMatrix<T>(batch_size, 1, handle);
-        _tmpk = new DMatrix<T>(n_centers, 1, handle);
-        _tmpn = new DMatrix<T>(batch_size, 1, handle);
-        _tmpnl = new DMatrix<T>(batch_size, n_dims, handle);
         _max_dist = new DMatrix<T>(batch_size, 1, handle);
         _max_kappa = new DMatrix<T>(1, 1, handle);
     }
 
     virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) { 
         DMatrix<T> *drv_view = new DMatrix<T>(drv, 0, drv->fd()-1);
-        hNormalize<T, OpSqr<T>, OpSumReduce<T>, OpSqrt<T>, OpDivide<T> >(OpSqr<T>(), OpSumReduce<T>(), OpSqrt<T>(), OpDivide<T>(), drv_view, act, _norm, drv_view->fd(), false);
-        _dist->update(drv_view, false, _means, false, 1.0, 0.0);
+        DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
+        hNormalize<T, OpSqr<T>, OpSumReduce<T>, OpSqrt<T>, OpDivide<T> >(OpSqr<T>(), OpSumReduce<T>(), OpSqrt<T>(), OpDivide<T>(), drv_view, act_view, _norm, drv_view->fd(), false);
+        _dist->update(act_view, false, _means, false, 1.0, 0.0);
         _gamma->diagMul(_dist, _kappa, false);
         hNormalize<T, OpNop<T>, OpMaxReduce<T>, OpNop<T>, OpSub<T> >(OpNop<T>(), OpMaxReduce<T>(), OpNop<T>(), OpSub<T>(), _gamma, _gamma, _max_dist, _gamma->fd(), false);
         _gamma->applyBinary(OpExp<T>(), _gamma, _gamma->nrows(), _gamma->ncols());
@@ -316,7 +317,6 @@ public:
         DMatrix<T> *delta_view = new DMatrix<T>(delta, 0, delta->fd()-1);
         _gamma->diagMul(_gamma, _coef, true);
         _gamma->diagMul(_gamma, _kappa, false);
-        _gamma->samplePrint("gamma");
         //dX
         delta_view->update(_gamma, false, _means, true);
         _tmpnl->applyTenary(OpMul<T>(), delta_view, drv_view, delta_view->nrows(), delta_view->ncols());
@@ -325,14 +325,13 @@ public:
         _tmpn->applyBinary(OpSqr<T>(), _norm, _tmpn->nrows(), _tmpn->ncols());
         delta_view->diagMul(delta_view, _tmpn, true);
         delta_view->applyTenary(OpSub<T>(), delta_view, _tmpnl, delta_view->nrows(), delta_view->ncols());
-        _tmpn->applyBinary(OpCube<T>(), _norm, _tmpn->nrows(), _tmpn->ncols());
+        _tmpn->applyBinary(OpInvCube<T>(), _norm, _tmpn->nrows(), _tmpn->ncols());
         delta_view->diagMul(delta_view, _tmpn, true);
-
-        delta->samplePrint("delta");
 
         //dmu
         _mom_means->update(act_view, true, _gamma, false, -_hyper_params->learning_rate/act->nrows(), _hyper_params->momentum);
-        _means->add(_mom_means, 1.0, _means->nelem());
+        _means->add(_mom_means, 0.0, _means->nelem());
+        hNormalize<T, OpSqr<T>, OpSumReduce<T>, OpSqrt<T>, OpDivide<T> >(OpSqr<T>(), OpSumReduce<T>(), OpSqrt<T>(), OpDivide<T>(), _means, _means, NULL, _means->nrows(), true);
     }
 
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
@@ -382,6 +381,8 @@ public:
             }
         }
         data->stop();
+        hNormalize<T, OpSqr<T>, OpSumReduce<T>, OpSqrt<T>, OpDivide<T> >(OpSqr<T>(), OpSumReduce<T>(), OpSqrt<T>(), OpDivide<T>(), _means, _means, NULL, _means->nrows(), true);
+        _means->samplePrint("initial means");
     }
 
     virtual void samplePrint() {
