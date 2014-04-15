@@ -472,10 +472,10 @@ void hNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm opNorm, DM
 }
 
 template<class T>
-void Argmax(DMatrix<T> *x, DMatrix<int> *ind, DMatrix<T> *res, int fd) {
+void Argmax(DMatrix<T> *x, DMatrix<int> *ind, DMatrix<T> *res, int n) {
     dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
     dim3 block(WARP_SIZE, 32, 1);
-    kArgmax<T,32><<<grid, block>>>(x->dev_data(), ind->dev_data(), res->dev_data(), x->ld(), fd);
+    kArgmax<T,32><<<grid, block>>>(x->dev_data(), ind->dev_data(), res->dev_data(), x->ld(), n);
     CUDA_KERNEL_CHECK();
 }
 

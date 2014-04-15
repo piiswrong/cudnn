@@ -398,7 +398,7 @@ public:
             tmpX[i]->CopyFrom(X[i]);
         }
 
-        for (int i = L-1; i >= 0; i--) {
+        for (int i = 0; i < L ; i++) {
             DMatrix<T> *x = X[i];
             DMatrix<T> *dx = dX[i];
             for (int j = 0; j < M[i]; j++) {

@@ -148,7 +148,7 @@ public:
         if (DNeuron<T>::_on_device) {
             dim3 grid((act->ld()-1)/WARP_SIZE+1, 1, 1);
             dim3 block(WARP_SIZE, 32, 1);
-            kSoftmaxAct<T,32><<<grid, block>>>(act->dev_data(), drv->dev_data(), res->dev_data(), act->ld(), act->fd()-1);
+            kSoftmaxAct<T,32><<<grid, block>>>(act->dev_data(), drv->dev_data(), res->dev_data(), act->ld(), act->fd(), act->fd()-1);
             CUDA_KERNEL_CHECK();
 #ifndef NDEBUG
             act->dev2host();

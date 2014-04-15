@@ -150,7 +150,7 @@ __device__ T dBatchReduce(Op op, OpTrans opTrans, T *x, T *smem, int *mark, int 
     }else {
         int j = blockIdx.y*WARP_SIZE + threadIdx.y;
         int i = threadIdx.x;
-        for (;i < ld; i += num_thrd) {
+        for (;i < n; i += num_thrd) {
             res = op(res, myInd, opTrans(x[i+j*ld]), i, myInd);
         }
         j = threadIdx.y;
@@ -197,22 +197,21 @@ __device__ T dBatchReduce(Op op, OpTrans opTrans, T *x, T *smem, int *mark, int 
 }
 
 template<class T, int num_thrd>
-__global__ void kSoftmaxAct(T *act, T *drv, int *res, int ld, int fd) {
+__global__ void kSoftmaxAct(T *act, T *drv, int *res, int ld, int fd, int n) {
     __shared__ T smem[WARP_SIZE*num_thrd];
     __shared__ int mark[WARP_SIZE*num_thrd];
     int i = blockIdx.x*WARP_SIZE + threadIdx.x;
     int j = threadIdx.y*ld + i;
     const int blockSize = ld*num_thrd;
 
-    int n = ld*fd;
     if (i < ld) {
         int myMark;
-        T myMax = dBatchReduce<T, false, num_thrd, OpMaxReduce<T>, OpNop<T> >(OpMaxReduce<T>(), OpNop<T>(), drv, smem, mark, ld, fd, myMark);
+        T myMax = dBatchReduce<T, false, num_thrd, OpMaxReduce<T>, OpNop<T> >(OpMaxReduce<T>(), OpNop<T>(), drv, smem, mark, ld, fd, n, myMark);
         if (threadIdx.y == 0) res[i] = myMark;
 
-        T mySum = dBatchReduce<T, false, num_thrd, OpSumReduce<T>, OpSubExp<T> >(OpSumReduce<T>(), OpSubExp<T>(myMax), drv, smem, mark, ld, fd, myMark);
+        T mySum = dBatchReduce<T, false, num_thrd, OpSumReduce<T>, OpSubExp<T> >(OpSumReduce<T>(), OpSubExp<T>(myMax), drv, smem, mark, ld, fd, n, myMark);
 
-        while (j < n) {
+        while (j < n*ld) {
             act[j] = exp(drv[j]-myMax)/mySum;
             j += blockSize;
         }
@@ -290,14 +289,14 @@ __global__ void kNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm
 
 
 template<class T, int num_thrd>
-__global__ void kArgmax(T *x, int *ind, T *res, int ld, int fd) {
+__global__ void kArgmax(T *x, int *ind, T *res, int ld, int fd, int n) {
     __shared__ T smem[WARP_SIZE*num_thrd];
     __shared__ int mark[WARP_SIZE*num_thrd];
     int i = blockIdx.x*WARP_SIZE + threadIdx.x;
 
     if (i < ld) {
         int myMark = 0;
-        T myMax = dBatchReduce<T, false, num_thrd, OpMaxReduce<T>, OpNop<T> >(OpMaxReduce<T>(), OpNop<T>(), x, smem, mark, ld, fd, myMark);
+        T myMax = dBatchReduce<T, false, num_thrd, OpMaxReduce<T>, OpNop<T> >(OpMaxReduce<T>(), OpNop<T>(), x, smem, mark, ld, fd, n, myMark);
         if (threadIdx.y == 0) {
             ind[i] = myMark;
             res[i] = myMax;
