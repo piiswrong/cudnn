@@ -126,6 +126,14 @@ public:
 };
 
 template<class T>
+class OpRectify{
+public:
+    HOSTDEVICE T operator() (T x, T y) {
+        return y * (y>(T)0.0);
+    }
+};
+
+template<class T>
 class OpAdd{
 public:
     HOSTDEVICE T operator() (T x, T y, T z) {

@@ -63,7 +63,7 @@ public:
         }else {
             _loss = delta->dot(delta, delta->nelem() - delta->ld());
         }
-        _loss /= 2.0*y->nrows();
+        _loss /= 2.0;
     }
     virtual T getLoss() {
         return _loss;
@@ -71,7 +71,7 @@ public:
     virtual T objective(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
         initDelta(delta, act, y);
         computeLoss(delta, act, y);
-        return getLoss();
+        return getLoss()/y->nrows();
     }
     virtual int params(DMatrix<T> **&X, DMatrix<T> **&dX, int *&M, int *&N) {
         return 0;
@@ -343,7 +343,7 @@ public:
             coef = _lambda*(1.0-coef) - coef;
             _loss += coef * (log(_likelyhood->getElem(i, 0)) + _max_dist->getElem(i, 0));
         }
-        _loss = _loss/y->nrows() ;
+        _loss = _loss;
         if (_loss != _loss) { 
             printf("Error: nan encontered during training!\n");
             exit(-1);
@@ -484,7 +484,7 @@ public:
             coef = _lambda*(1.0-coef) - coef;
             _loss += coef * (log(_likelyhood->getElem(i, 0)) - 0.5*_min_dist->getElem(i, 0));
         }
-        _loss = _loss/y->nrows() + (delta->ncols()-1)/2.0*log(_max_std->getElem(0,0));
+        _loss = _loss + y->nrows() * (delta->ncols()-1)/2.0*log(_max_std->getElem(0,0));
         if (_loss != _loss) { exit(-1);}
     }
    

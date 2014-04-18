@@ -140,7 +140,7 @@ public:
             hDropout(_act, _neuron->easyDropout()?NULL:_mask, _state, drop_rate, _act->getT(), _act->nrows(), _act->ncols() - 1, _act->ld());
     }
     
-    void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, float rate, float mom, bool drop_out, bool decay, float decay_rate) {
+    void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, float rate, float mom, bool drop_out, bool decay, float decay_rate, bool rectify_weight, bool rectify_bias) {
         assert(!_weight->getT());
 #ifdef DOWN_POUR_SGD
         if (mpi_world_rank >= sgd_num_param_server) {
@@ -176,6 +176,14 @@ public:
         }
 #else
         _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());
+        if (rectify_weight && rectify_bias) 
+            _weight->applyBinary(OpRectify<T>(), _weight, _weight->nrows(), _weight->ncols()-1);
+        else if (rectify_weight) 
+            _weight->applyBinary(OpRectify<T>(), _weight, _weight->nrows()-1, _weight->ncols()-1);
+        else if (rectify_bias) {
+            printf("Error: doesn't support only rectifying bias!\n");
+            exit(-1);
+        }
 #endif
     }
 

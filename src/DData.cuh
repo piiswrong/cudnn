@@ -425,10 +425,21 @@ public:
     virtual bool getData(DMatrix<T> *&x, DMatrix<T>*&y, int batch_size) {
         x = new DMatrix<T>(batch_size, _input_dim, DData<T>::_handle);
         y = new DMatrix<T>(batch_size, _output_dim, DData<T>::_handle);
-        x->init(DMatrix<T>::Normal, 0.0, 1.0);
+        /*x->init(DMatrix<T>::Normal, 0.0, 1.0);
         for (int i = 0; i < batch_size; i++) {
             x->getElem(i, _input_dim-1) = 1.0;
             for (int j = 0; j < _output_dim; j++) y->getElem(i, j) = rand()%2;
+        }*/
+        for (int i = 0; i < batch_size; i++) {
+            T card = 0;
+            for (int j = 0; j < _input_dim-1; j++) {
+                T bit = rand()%2;
+                x->getElem(i, j) = bit;
+                card += bit;
+            }
+            x->getElem(i, _input_dim-1) = 1.0;
+            card /= _input_dim - 1;
+            y->getElem(i, 0) = 1.0/(1.0+exp(-card));
         }
         x->host2dev();
         y->host2dev();
