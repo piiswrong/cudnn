@@ -16,8 +16,18 @@ def rank(M):
     u,s,v = np.linalg.svd(M)
     return np.sum( s > 1e-10 )
 
-for i in xrange(100):
-    ind = [ i for i in xrange(V) if random.random() < p ]
-    print len(ind), np.linalg.matrix_rank(mat[ind, :]), rank(mat[ind, :])
+N = 10000
+X = np.zeros((N, V), dtype = np.float32)
+Y = np.zeros((N, ), dtype = np.float32)
+for i in xrange(N):
+    ind = [ j for j in xrange(V) if random.random() < p ]
+    r = rank(mat[ind, :])
+    print len(ind), r
+    X[i, ind] = 1.0
+    Y[i] = r
+
+X.tofile('RankData.bin')
+Y.tofile('RankLabel.bin')
+
 
 
