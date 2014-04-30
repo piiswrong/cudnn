@@ -304,12 +304,16 @@ public:
 		x = new T[DData<T>::_x_dim*DData<T>::_buff_dim];
         y = new T[DData<T>::_y_dim*DData<T>::_buff_dim];
         int need = DData<T>::_buff_dim;
+        Tx *tx = _tx;
+        Ty *ty = _ty;
         do {
             int available = (need < _eoffset - _offset) ? need:(_eoffset - _offset);
-            int xread = fread(_tx, sizeof(Tx), available*_xdim, _xfile); 
-            int yread = fread(_ty, sizeof(Ty), available*_ydim, _yfile); 
+            int xread = fread(tx, sizeof(Tx), available*_xdim, _xfile); 
+            int yread = fread(ty, sizeof(Ty), available*_ydim, _yfile); 
             assert(available*_xdim == xread);
             assert(available*_ydim == yread);
+            tx += available*_xdim;
+            ty += available*_ydim;
             
             need -= available;
             _offset += available;
