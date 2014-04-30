@@ -183,6 +183,7 @@ def makeReport(exp_name, exps):
         fin = open('%s%s_%d.acc'%(log_path, exp_name, exp))
         lines = fin.readlines()
         lines = [ (int(l.strip().split(' ')[0]),float(l.strip().split(' ')[1])) for l in lines ]
+        #lines = [ (0, float(l.strip().split(' ')[1])) for l in lines ]
         fin.close()
         maxacc = 0.0
         print 'acc per 10 epochs'
@@ -199,18 +200,16 @@ def makeReport(exp_name, exps):
             i += 1
         print 'max = %.2f'%maxacc+'\n'
 
-    table = [ [ 'N/A' for i in xrange(3*4) ] for j in xrange(5) ]
-    for hv,accs in zip(hyper_value, acc_list):
-        i = hv
 
     import matplotlib.pyplot as plt
+    groups = []
     if not os.path.exists(log_path+exp_name+'_plots'):
         os.mkdir(log_path+exp_name+'_plots')
     for i in xrange(len(hyper_name)):
-        groups = Set()
+        groups.append(Set())
         for j in xrange(len(hyper_value)):
-            groups.add(hyper_value[j][i])
-        for v in groups:
+            groups[-1].add(hyper_value[j][i])
+        for v in groups[-1]:
             fig = plt.figure(figsize=(18,9))
             plt.hold(True)
             for j in xrange(len(hyper_value)):
@@ -232,7 +231,49 @@ def makeReport(exp_name, exps):
             plt.legend(loc = 'upper left', bbox_to_anchor=(1, 1.0))
             plt.savefig(log_path+exp_name+'_plots/'+hyper_name[i] + '-' + str(v) + '.png')
             plt.clf()
+
+
+    def testint(x):
+        try:
+            return int(x)
+        except:
+            return x
             
+    x = [ int(hv[diff[0]]) for hv in hyper_value ]
+    y = [ int(hv[diff[1]]) for hv in hyper_value ]
+    groups[1] = Set([ int(round(((i-2)*j*j + j*(501))/1e7)) for i,j in zip(x,y)])
+    groups = [ dict([ (i,j) for i,j in zip(sorted(list(g), key = testint), xrange(len(g))) ]) for g in groups ]
+    dims = [ 1, len(groups[1] )]
+    for i in groups[2:]:
+        dims.append(len(i)*dims[-1])
+    table = [ [ 'N/A' for i in xrange(dims[-1]) ] for j in xrange(len(groups[0])) ]
+    for hv,accs in zip(hyper_value, acc_list):
+        hv[1] = int(round(((int(hv[0])-2)*int(hv[1])*int(hv[1]) + int(hv[1])*(501))/1e7))
+        ind = [ groups[i][j] for i, j in zip(xrange(len(hv)), hv) ]
+        i = ind[0]
+        j = 0
+        for k, l in zip(dims[:-1], ind[1:]):
+            j += k*l
+        maxacc = max(accs)
+        if maxacc > 30:
+            table[i][j] = '%.2lf'%(100-maxacc)
+        else:
+            table[i][j] = 'FAIL'
+
+    fout = open(log_path+exp_name+'_plots/'+ 'table.txt', 'w')
+    fout.write(str(groups)+'\n')
+    for i in xrange(len(table)):
+        fout.write(str(sorted(groups[0], key = testint)[i]) + ' & ')
+        for j in xrange(len(table[i])):
+            if j == len(table[i])-1:
+                fout.write(table[i][j])
+            else:
+                fout.write(table[i][j] + ' & ')
+
+        fout.write('\\\\ \\hline \n')
+    fout.close() 
+
+
 
 #makeReport('oddroot', [0,2,4,6,8])
 #makeReport('ReLU', xrange(0,15))
@@ -250,7 +291,7 @@ def makeReport(exp_name, exps):
 #makeExp('oddrootresume', [])
 #makeReport('oddrootresume', xrange(0,6))
 #makeExp('all3', [] )
-makeReport('final', [ i for i in xrange(0, 60) if i != 59 ] )
+makeReport('final', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 55, 58])
 #makeExp('final', [] )
 
 
