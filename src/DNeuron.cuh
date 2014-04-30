@@ -107,6 +107,32 @@ public:
 };
 
 template<class T>
+class DTanhNeuron : public DNeuron<T> {
+public:
+    class ForwardOp {
+    public:
+        HOSTDEVICE T operator() (T act, T drv) {
+            T e = exp(-2.0*drv);
+            return (1.0-e)/(1.0+e);
+        }
+    };
+    class BackwardOp {
+    public:
+        HOSTDEVICE T operator() (T delta, T drv, T act) {
+            return delta*(1.0-act*act);
+        }
+    };
+
+    DTanhNeuron(cublasHandle_t handle) : DNeuron<T>(handle) {}
+    virtual void fprop(DMatrix<T>* act, DMatrix<T>* drv) {
+        act->applyBinary(ForwardOp(), drv, act->nrows(), act->ncols() - 1);
+    }
+    virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
+        delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols());
+    }
+};
+
+template<class T>
 class DLogisticNeuron : public DNeuron<T> {
 public:
     class ForwardOp {

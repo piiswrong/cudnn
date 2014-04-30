@@ -128,7 +128,7 @@ public:
         for (int i = num_layers-1; i > 0; i--) {
             d = layers[i-1]->delta();
             layers[i]->bprop(d, layers[i-1]->act(), params->learning_rate, params->momentum,
-                            (i < num_layers-1) && params->hdrop_out, params->weight_decay, params->decay_rate, true, i<num_layers-1);
+                            (i < num_layers-1) && params->hdrop_out, params->weight_decay, params->decay_rate, true, true);
             //assert(layers[i]->weight()->isSane(1));
             //char buf[256];
             //sprintf(buf, "%d", i);
@@ -136,11 +136,7 @@ public:
             //d->samplePrint("d");
         }
         layers[0]->bprop(NULL, x, params->learning_rate, params->momentum,
-                            (num_layers>1) && params->hdrop_out, params->weight_decay, params->decay_rate, true, num_layers>1);
-        layers[num_layers-1]->weight()->dev2host();
-        layers[num_layers-1]->weight()->getElem(0, 0) = 1.0;
-        layers[num_layers-1]->weight()->getElem(1, 0) = 0.0;
-        layers[num_layers-1]->weight()->host2dev();
+                            (num_layers>1) && params->hdrop_out, params->weight_decay, params->decay_rate, true, true);
         d = layers[num_layers-1]->delta();
 #ifdef DOWN_POUR_SGD
         if (mpi_world_rank >= sgd_num_param_server) {
@@ -350,13 +346,9 @@ public:
             if (lastCheck >= _bp_hyper_params->check_interval) {
                 _layers[_num_layers-1]->neuron()->samplePrint();
                 _layers[_num_layers-1]->act()->samplePrint("top act");
-                _layers[_num_layers-1]->delta()->samplePrint("top delta");
                 y->samplePrint("y");
+                x->samplePrint("x");
                 _layers[0]->weight()->samplePrint("weight");
-                _layers[_num_layers-1]->weight()->samplePrint("top weight");
-                //_layers[0]->act()->samplePrint("bottom act");
-                //_layers[0]->weight()->samplePrint("bottom weight");
-                //x->samplePrint("x");
 #ifdef ADMM
                 printf("\nNode%d\tEpoch: %d\tInstance: %d\tError: %f\n", mpi_world_rank, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
 #elif defined(DOWN_POUR_SGD)

@@ -224,6 +224,7 @@ public:
             assert(_x_buffs[_buff_index]->isSane(1e5));
             assert(x->isSane(1e5));
             _buff_offset += batch_size;
+            x->samplePrint("xx");
             return true;
         }
     }
@@ -408,6 +409,21 @@ public:
         int soffset = 0;
         int eoffset = 100000;
         DBinaryData<T, float, unsigned int, OpNop<T>, OpNop<unsigned int> >::open(xpath.c_str(), ypath.c_str(), 0, 0, soffset, eoffset);
+    }
+};
+
+template<class T>
+class DRankData : public DBinaryData<T, float, float, OpNop<float>, OpNop<float> > {
+public:
+    DRankData(std::string path, int input_dim, int buff_dim, bool testing, cublasHandle_t handle) 
+        : DBinaryData<T, float, float, OpNop<float>, OpNop<float> >(OpNop<float>(), OpNop<float>(), input_dim, 1, true, false, buff_dim, false, testing, handle) {
+        std::string xpath, ypath;
+        if (path[path.length()-1] != '/') path.append("/");
+        xpath = path+"RankData.bin";
+        ypath = path+"RankLabel.bin";
+        int soffset = 0;
+        int eoffset = 64;
+        DBinaryData<T, float, float, OpNop<float>, OpNop<float> >::open(xpath.c_str(), ypath.c_str(), 0, 0, soffset, eoffset);
     }
 };
 
