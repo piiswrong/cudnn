@@ -59,7 +59,7 @@ def graphdata():
         else:
             y = 3
         X.append(l)
-        Y.append(y/6.0)
+        Y.append(y/3.0)
     X = np.asarray(X, dtype = np.float32)
     Y = np.asarray(Y, dtype = np.float32)
     Y = np.resize(Y, (2**E,1))
