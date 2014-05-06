@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
 #endif
 
     FILE *fin = NULL;
-    char * exp_name = NULL;
+    std::string exp_name, log_path, hyper_path, input_path, output_path;
     int resuming = -1;
     int devId = -1;
     bool grad_check = false;
@@ -42,18 +42,31 @@ int main(int argc, char **argv) {
             case 'r': resuming = atoi(argv[i+1]); ++i; break;
             case 'd': devId = atoi(argv[i+1]); i++; break;
             case 'c': grad_check = true; break;
+            case 'l': log_path = argv[i+1]; i++; break;
+            case 'h': hyper_path = argv[i+1]; i++; break;
+            case 'i': input_path = argv[i+1]; i++; break;
+            case 'o': output_path = argv[i+1]; i++; break;
+            case 'v': log_verbosity = atoi(argv[i+1]); i++; break;
             default: printf("Invalid command line argument \'%c\'!\n", argv[i][1]); exit(-1); break;
             }
         }else {
             exp_name = argv[i];
+            if (log_path == "") log_path = path+exp_name+".log";
+            if (hyper_path == "") hyper_path = path+exp_name+".hyper";
+            if (input_path == "") input_path = path+exp_name+".param";
+            if (output_path == "") output_path = path+exp_name+".param";
         }
     }
-    if (exp_name != NULL) {
-        flog = fopen((path+exp_name+".log").c_str(), "w");
-        fin = fopen((path+exp_name+".hyper").c_str(), "r");
-        printf("Using configuration file %s\n", (path+exp_name+".hyper").c_str());
-        if (fin == NULL) exit(-1);
+    if (log_path != "") flog = fopen(log_path.c_str(), "w");
+    if (hyper_path != "") {
+        fin = fopen(hyper_path.c_str(), "r");
+        if (fin == NULL) {
+            printf("Cannot open configuration file %s\n", hyper_path.c_str());
+            exit(-1);
+        }
+        printf("Using configuration file %s\n", hyper_path.c_str());
     }
+
 
 #ifndef DISABLE_GPU
 #ifdef NVML
@@ -215,7 +228,7 @@ int main(int argc, char **argv) {
         printf("Resuming from %d-th epoch.\n", resuming);
         //std::stringstream ss;
         //ss << resuming - 10;
-        fin = fopen((path+exp_name+".param").c_str(), "r");
+        fin = fopen(input_path.c_str(), "r");
         if (fin == 0) {
             printf("Error loading: cannot find file %s!\n", (path+exp_name+".param").c_str());
             exit(-1);
@@ -227,14 +240,14 @@ int main(int argc, char **argv) {
         _bp_hyper_params.learning_rate *= std::pow(_bp_hyper_params.learning_rate_decay, resuming);
     }else 
         resuming = 0;
-    if (exp_name != NULL)
+    if (exp_name != "")
         fineTuneWithCheckpoint(dnn, data, bp_epochs, 10, path+exp_name, resuming);
     else 
         dnn->fineTune(data, bp_epochs);
 
 #endif
-    if (exp_name != NULL) {
-        FILE *fout = fopen((path+exp_name+".param").c_str(), "w");
+    if (exp_name != "") {
+        FILE *fout = fopen(output_path.c_str(), "w");
         dnn->save(fout);
         fclose(fout);
     }

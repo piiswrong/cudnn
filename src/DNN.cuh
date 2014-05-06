@@ -287,7 +287,7 @@ public:
                     tmp->samplePrint("input");
                     layers[layer+1]->act()->samplePrint("output");
                     printf("\nLayer: %d\t Epoch: %d\tInstance: %d\tError: %f\n", layer, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
-                    LOG(fprintf(flog, "\nLayer: %d\t Epoch: %d\tInstance: %d\tError: %f\n", layer, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck)));
+                    LOG(VERBOSE_NORMAL, fprintf(flog, "\nLayer: %d\t Epoch: %d\tInstance: %d\tError: %f\n", layer, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck)));
                     lastCheck = 0;
                     error = 0.0;
                 }
@@ -322,7 +322,7 @@ public:
         int starting = time(0);
         
         CUDA_CALL(cudaThreadSynchronize());
-        LOG(fprintf(flog, "Fine Tuning\n"));
+        LOG(VERBOSE_NORMAL, fprintf(flog, "Fine Tuning\n"));
         while ( nEpoch <= total_epochs ) {
 #ifdef DOWN_POUR_SGD
             if (mpi_world_rank >= sgd_num_param_server)
@@ -356,11 +356,11 @@ public:
 #elif defined(DOWN_POUR_SGD)
                 if (mpi_world_rank == 0) {
                     printf("\nEpoch: %d\tInstance: %d\tError: %f\n", nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
-                    LOG(fprintf(flog, "%f %d\n", (float)(error/lastCheck), time(0)-starting));
+                    LOG(VERBOSE_MINIMAL, fprintf(flog, "%f %d\n", (float)(error/lastCheck), time(0)-starting));
                 }
 #else
                 printf("\nEpoch: %d\tInstance: %d\tError: %f\n", nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
-                LOG(fprintf(flog, "%f %d\n", (float)(error/lastCheck), (int)time(0)-starting));
+                LOG(VERBOSE_MINIMAL, fprintf(flog, "%f %d\n", (float)(error/lastCheck), (int)time(0)-starting));
 #endif
                 checked = true;
                 lastError = error/lastCheck;
