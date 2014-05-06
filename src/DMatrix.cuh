@@ -31,7 +31,8 @@ class DMatrix {
         _ColSparse = 8,
         _RowSparse = 16,
         _Weight = 32,
-        _One = 64
+        _One = 64,
+        _Positive = 128
     };
 
 public:
@@ -43,7 +44,8 @@ public:
         ColSparse = 1+8,
         RowSparse = 1 + 16,
         Weight = 1+32,
-        One = 64
+        One = 64,
+        Positive = 128
     };
     DMatrix(int ld, int fd, cublasHandle_t handle = 0) {
         _on_device = false;
@@ -192,6 +194,9 @@ public:
                 }
 			}
 		}
+        if (p&_Positive) {
+            for (int i = 0; i < _nelem; i++) _host_data[i] *= _host_data[i] > 0;
+        }
         if (p&_Weight) {
             for (int i = _nelem - _ld; i < _nelem; i++) _host_data[i] = 0.0;
             for (int i = _ld-1; i < _nelem; i+=_ld) _host_data[i] = 0.0;

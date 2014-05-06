@@ -319,7 +319,7 @@ public:
         bool checked = false;
         T lastError;
         int lastCheck = 0;
-        int starting = time(0);
+        int starting = clock();
         
         CUDA_CALL(cudaThreadSynchronize());
         LOG(VERBOSE_NORMAL, fprintf(flog, "Fine Tuning\n"));
@@ -358,7 +358,7 @@ public:
                 }
 #else
                 printf("\nEpoch: %d\tInstance: %d\tError: %f\n", nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
-                LOG(VERBOSE_MINIMAL, fprintf(flog, "%f %d\n", (float)(error/lastCheck), (int)time(0)-starting));
+                LOG(VERBOSE_MINIMAL, fprintf(flog, "%f %d\n", (float)(error/lastCheck), nInstance));
 #endif
                 checked = true;
                 lastError = error/lastCheck;

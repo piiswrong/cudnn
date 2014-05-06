@@ -127,7 +127,7 @@ int main(int argc, char **argv) {
     CUBLAS_CALL(cublasCreate(&handle));
 
     int num_layers = 2;
-    int hidden_dim = 64;
+    int hidden_dim = 16;
     //int input_dim = 351, output_dim = 150;
     //int input_dim = 1568, output_dim = 256;
     //int input_dim = 28*28, output_dim = 10;
@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
     char unit[255];
     strcpy(unit, "Tanh");
     float pt_epochs = 0.0;
-    int bp_epochs = 10;
+    int bp_epochs = 100;
     DHyperParams _bp_hyper_params, _pt_hyper_params;
     _pt_hyper_params.idrop_out = false;
     _pt_hyper_params.idrop_rate = 0.2;
@@ -146,14 +146,14 @@ int main(int argc, char **argv) {
     _pt_hyper_params.learning_rate = 0.01;
 
     _bp_hyper_params.check_interval = 64;
-    _bp_hyper_params.learning_rate = 0.01;
+    _bp_hyper_params.learning_rate = 0.1;
     _bp_hyper_params.idrop_out = false;
     _bp_hyper_params.idrop_rate = 0.2;
     _bp_hyper_params.hdrop_out = false;
     _bp_hyper_params.hdrop_rate= 0.5;
-    _bp_hyper_params.momentum = 0.5;
-    _bp_hyper_params.max_momentum = 0.90;
-    _bp_hyper_params.step_momentum = 0.04;
+    _bp_hyper_params.momentum = 0.0;
+    _bp_hyper_params.max_momentum = 0.00;
+    _bp_hyper_params.step_momentum = 0.00;
     _bp_hyper_params.weight_decay = false;
     _bp_hyper_params.decay_rate = 0.01;
 
