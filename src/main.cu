@@ -114,15 +114,15 @@ int main(int argc, char **argv) {
     CUBLAS_CALL(cublasCreate(&handle));
 
     int num_layers = 2;
-    int hidden_dim = 16;
+    int hidden_dim = 64;
     //int input_dim = 351, output_dim = 150;
     //int input_dim = 1568, output_dim = 256;
     //int input_dim = 28*28, output_dim = 10;
     int input_dim = 6, output_dim = 1;
     char unit[255];
-    strcpy(unit, "Cutoff");
+    strcpy(unit, "Tanh");
     float pt_epochs = 0.0;
-    int bp_epochs = 10000;
+    int bp_epochs = 10;
     DHyperParams _bp_hyper_params, _pt_hyper_params;
     _pt_hyper_params.idrop_out = false;
     _pt_hyper_params.idrop_rate = 0.2;
