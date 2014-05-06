@@ -1,6 +1,7 @@
 #include <common.cuh>
 
 FILE* flog = NULL;
+int log_verbosity = VERBOSE_NORMAL;
 
 #ifdef DOWN_POUR_SGD
 int sgd_num_param_server = 1;

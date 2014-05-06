@@ -15,9 +15,13 @@
 
 
 const int SPARSE_DEGREE = 15;
+const int VERBOSE_NONE = 0;
+const int VERBOSE_MINIMAL = 1;
+const int VERBOSE_NORMAL = 2;
 extern FILE* flog;
-#define LOG(x) \
-if (flog != NULL) { \
+extern int log_verbosity;
+#define LOG(v, x) \
+if (flog != NULL && v <= log_verbosity) { \
     x; \
     fflush(flog); \
 }
