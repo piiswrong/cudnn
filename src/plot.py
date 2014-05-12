@@ -1,39 +1,43 @@
-import matplotlib.pyplot as plt
 import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 import numpy as np
 
-plt.hold(True)
-l = [2, 3, 5, 10]
-for i in l:
-    fin = open(str(i)+'.log')
-    x = []
-    y = []
-    for line in fin:
-        line = line.strip().split(' ')
-        x.append(float(line[1]))
-        y.append(float(line[0]))
-    n = len(x)
-    x = np.asarray(x)
-    y = np.asarray(y)
+def curve_plot(logs):
 
-    for j in xrange(4):
-        y[1:n-1] = (y[1:n-1] + y[2:])/2.0
+	for f, legend in logs:
+	    mat = np.loadtxt(f)
+	    x = mat[:,1]
+	    y = np.sqrt(mat[:,0])
+	    plt.plot(x, y, label=legend)
 
-    e = 0
-    while e < n and x[e] < 1000:
-        e += 1
 
-    y = 100*(1-y)
-    x = x
-    plt.gca().set_yscale('log')
-    plt.gca().set_xscale('log')
+	plt.legend( loc = 'upper right' )
+	plt.xlabel('Epoches')
+	plt.ylabel('Error')
+	#matplotlib.rcParams.update({'font.size': 32})
 
-    plt.plot(x[:e],y[:e], label='N=%d'%i)
+	plt.savefig('a.png')
 
-plt.legend( loc = 'lower left' )
-plt.xlabel('Time (s)')
-plt.ylabel('Accuracy (%)')
-matplotlib.rcParams.update({'font.size': 32})
+def hist_plot(logs):
+	y = np.fromfile("../data/RankLabel.bin", dtype = np.float32)
+	i = 0
+	for f, legend in logs:
+		yp = np.loadtxt(f)
+		print y.shape, yp.shape
+		yp = abs(yp-y)
+		i+=1
+		plt.subplot(len(logs), 1, i)
+		plt.hist(yp, label = legend)
+		plt.legend( loc = 'upper right' )
+	plt.xlabel('Error')
+	plt.ylabel('Freq')
+	#matplotlib.rcParams.update({'font.size': 32})
 
-plt.show()
+	plt.savefig('a.png')
+
+
+logs = [ ('1.log', 'layers=1') , ('2.log', 'layers=2') , ('3.log', 'layers=3') ]
+#logs = [ ('3.log', 'layers=3') ]
+hist_plot(logs)
 

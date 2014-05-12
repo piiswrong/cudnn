@@ -14,6 +14,7 @@ protected:
     bool _on_device;
     cublasHandle_t _handle;
     bool _started;
+    bool _terminated;
     bool _permute;
     int *_perm_seq;
     int _x_dim;
@@ -107,10 +108,12 @@ public:
     int x_dim() { return _x_dim; }
     int y_dim() { return _y_dim; }
     void set_devId(int id) { _devId = id; }
+    void set_testing(bool testing) { _testing = testing; }
 
     virtual void start() {
         if (!_started) {
             _started = true;
+            _terminated = false;
             _buff_index = 0;
             _buff_offset = 0;
             for (int i = 0; i < _num_buffs; i++) {
@@ -187,6 +190,7 @@ public:
             pthread_mutex_unlock(&_mutex);
             if (n < _buff_dim) break;
         }
+        _terminated = true;
     }
 
     virtual int fetch(T *&x, T *&y) = 0;
@@ -197,6 +201,10 @@ public:
 
         pthread_mutex_lock(&_mutex);
         while (!_ready[_buff_index]) {
+            if (_terminated) {
+                pthread_mutex_unlock(&_mutex);
+                return false;
+            }
             pthread_cond_wait(&_cond_get, &_mutex);
         }
         pthread_mutex_unlock(&_mutex);
@@ -205,12 +213,13 @@ public:
         if (batch_size > dim - _buff_offset) {
             if (_testing) {
                 CUDA_CALL(cudaStreamSynchronize(_streams[_buff_index]));
-                x = new DMatrix<T>(_x_buffs[_buff_index], _buff_offset, dim - _buff_offset);
-                y = new DMatrix<T>(_y_buffs[_buff_index], _buff_offset, dim - _buff_offset);
-                if (dim < _buff_dim) {
-                    return false;
-                }else {
+                if (dim - _buff_offset == 0) {
                     moveOn();
+                    return getData(x, y, batch_size);
+                }else {
+                    x = new DMatrix<T>(_x_buffs[_buff_index], _buff_offset, dim - _buff_offset);
+                    y = new DMatrix<T>(_y_buffs[_buff_index], _buff_offset, dim - _buff_offset);
+                    _buff_offset = dim;
                     return true;
                 }
             }else {

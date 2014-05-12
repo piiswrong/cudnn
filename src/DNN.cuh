@@ -1,6 +1,7 @@
 #ifndef DNN_CUH
 #define DNN_CUH
 
+#include <fstream>
 #include <common.cuh>
 #include <DData.cuh>
 #include <DLayer.cuh>
@@ -214,24 +215,37 @@ public:
     }
 #endif
 
-    T test(DData<T>* data) {
+    T test(DData<T>* data, std::string output_path="") { 
+        std::ofstream fout;
+        if (output_path != "") fout.open(output_path.c_str());
         scaleWeight(true);
         data->start();
         int iperEpoch = data->instancesPerEpoch();
         DMatrix<T> *x, *y;
         T loss = 0.0;
         CUDA_CALL(cudaThreadSynchronize());
-        DHyperParams dummy_param = *_pt_hyper_params;
+        DHyperParams dummy_param = *_bp_hyper_params;
         dummy_param.idrop_out = dummy_param.hdrop_out = false;
         dummy_param.idrop_rate = dummy_param.hdrop_rate = false;
-        while (true) {
-            bool more = data->getData(x, y, _bp_hyper_params->batch_size);
+        while (data->getData(x, y, _bp_hyper_params->batch_size)) {
             fprop(x, _num_layers, _layers, &dummy_param, _state);
+            if (output_path != "") {
+                DMatrix<T> *py = _layers[_num_layers-1]->act();
+                py->dev2host();
+                //printf("%d", y->nrows());
+                for (int i = 0; i < y->nrows(); i++) {
+                    for (int j = 0; j < py->ncols()-1; j++) {
+                        fout << py->getElem(i,j);
+                        if (j == py->ncols()-2) fout << "\n";
+                        else fout << " ";
+                    }
+                }
+
+            }
             _layers[_num_layers-1]->neuron()->initDelta(_layers[_num_layers-1]->delta(), _layers[_num_layers-1]->act(), y);
             _layers[_num_layers-1]->neuron()->computeLoss(_layers[_num_layers-1]->delta(), _layers[_num_layers-1]->act(), y);
             loss += _layers[_num_layers-1]->neuron()->getLoss();
             CUDA_CALL(cudaThreadSynchronize());
-            if (!more) break;
         }
         return loss/iperEpoch;
     }

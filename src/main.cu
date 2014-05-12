@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
 #endif
 
     FILE *fin = NULL;
-    std::string exp_name, log_path, hyper_path, input_path, output_path;
+    std::string exp_name, log_path, hyper_path, input_path, output_path, pred_path;
     int resuming = -1;
     int devId = -1;
     bool grad_check = false;
@@ -47,6 +47,7 @@ int main(int argc, char **argv) {
             case 'i': input_path = argv[i+1]; i++; break;
             case 'o': output_path = argv[i+1]; i++; break;
             case 'v': log_verbosity = atoi(argv[i+1]); i++; break;
+            case 't': pred_path = argv[i+1]; i++; break;
             default: printf("Invalid command line argument \'%c\'!\n", argv[i][1]); exit(-1); break;
             }
         }else {
@@ -126,7 +127,7 @@ int main(int argc, char **argv) {
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 2;
+    int num_layers = 3;
     int hidden_dim = 16;
     //int input_dim = 351, output_dim = 150;
     //int input_dim = 1568, output_dim = 256;
@@ -135,7 +136,7 @@ int main(int argc, char **argv) {
     char unit[255];
     strcpy(unit, "Tanh");
     float pt_epochs = 0.0;
-    int bp_epochs = 100;
+    int bp_epochs = 1000;
     DHyperParams _bp_hyper_params, _pt_hyper_params;
     _pt_hyper_params.idrop_out = false;
     _pt_hyper_params.idrop_rate = 0.2;
@@ -257,6 +258,11 @@ int main(int argc, char **argv) {
         FILE *fout = fopen(output_path.c_str(), "w");
         dnn->save(fout);
         fclose(fout);
+    }
+    if (pred_path != "") {
+        data->stop();
+        data->set_testing(true);
+        dnn->test(data, pred_path);
     }
     //DMnistData<float> *test_data;// = new DMnistData<float>("../data", DData<float>::Test, 10000, false, dnn->handle());
     //test_data->set_devId(devId);
