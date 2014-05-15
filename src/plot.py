@@ -37,7 +37,12 @@ def hist_plot(logs):
 	plt.savefig('a.png')
 
 
-logs = [ ('1.log', 'layers=1') , ('2.log', 'layers=2') , ('3.log', 'layers=3') ]
+#logs = [ ('1.log', 'layers=1') , ('2.log', 'layers=2') , ('3.log', 'layers=3') ]
 #logs = [ ('3.log', 'layers=3') ]
-hist_plot(logs)
+logs = []
+for l in xrange(1,3):
+    for r in xrange(1,4):
+        logs.append( ('%d-%d.log'%(l,r), 'generate=%d approx=%d'%(l,r)) )
+print logs
+curve_plot(logs)
 

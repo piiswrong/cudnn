@@ -69,7 +69,38 @@ def graphdata():
     X.tofile('../data/RankData.bin')
     Y.tofile('../data/RankLabel.bin')
         
+def dummydata():
+    N = 64
+    V = 6
+    H = 16
+    L = 2
+    x = np.random.normal(size=(N,V))
+    x = np.asarray(x, dtype=np.float32)
+    x = x*(x>0)
+    y = x
+    fout = open("rank.param", "w")
+    fout.write("%d\n"%L)
+    for l in xrange(L):
+        ni = no = H
+        if l == L-1:
+            no = 1
+        if l == 0:
+            ni = V
+        w = np.random.normal(0, 1.0/np.sqrt(ni), size=(ni,no))
+        w = np.asarray(w, dtype=np.float32)
+        w = w*(w>0)
+        fout.write("%d\ng%d %d %d\n"%(l,l,no,ni))
+        for i in xrange(w.shape[0]):
+            for j in xrange(w.shape[1]):
+                fout.write(str(w[i,j])+" ")
+            fout.write("\n")
+
+        y = np.tanh(np.dot(y,w))
+    x.tofile("../data/RankData.bin")
+    y.tofile("../data/RankLabel.bin")
+    print y
+
 
 #rankdata()
-graphdata()
-
+#graphdata()
+dummydata()

@@ -127,7 +127,7 @@ int main(int argc, char **argv) {
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 3;
+    int num_layers = 2;
     int hidden_dim = 16;
     //int input_dim = 351, output_dim = 150;
     //int input_dim = 1568, output_dim = 256;
@@ -136,7 +136,7 @@ int main(int argc, char **argv) {
     char unit[255];
     strcpy(unit, "Tanh");
     float pt_epochs = 0.0;
-    int bp_epochs = 1000;
+    int bp_epochs = 1;
     DHyperParams _bp_hyper_params, _pt_hyper_params;
     _pt_hyper_params.idrop_out = false;
     _pt_hyper_params.idrop_rate = 0.2;
@@ -147,7 +147,7 @@ int main(int argc, char **argv) {
     _pt_hyper_params.learning_rate = 0.01;
 
     _bp_hyper_params.check_interval = 64;
-    _bp_hyper_params.learning_rate = 0.1;
+    _bp_hyper_params.learning_rate = 0.5;
     _bp_hyper_params.idrop_out = false;
     _bp_hyper_params.idrop_rate = 0.2;
     _bp_hyper_params.hdrop_out = false;
@@ -238,7 +238,7 @@ int main(int argc, char **argv) {
         //ss << resuming - 10;
         fin = fopen(input_path.c_str(), "r");
         if (fin == 0) {
-            printf("Error loading: cannot find file %s!\n", (path+exp_name+".param").c_str());
+            printf("Error loading: cannot find file %s!\n", input_path.c_str());
             exit(-1);
         }
         dnn->layers()[0]->weight()->samplePrint();
