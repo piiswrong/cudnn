@@ -126,18 +126,14 @@ public:
         if (mpi_world_rank >= sgd_num_param_server) 
 #endif
             layers[num_layers-1]->neuron()->initDelta(d, layers[num_layers-1]->act(), y);
-        layers[num_layers-1]->delta()->samplePrint("delta");
         for (int i = num_layers-1; i > 0; i--) {
             d = layers[i-1]->delta();
             layers[i]->bprop(d, layers[i-1]->act(), params->learning_rate, params->momentum,
                             (i < num_layers-1) && params->hdrop_out, params->weight_decay, params->decay_rate, true, true);
-            //d->samplePrint("d");
-            layers[num_layers-1]->delta()->samplePrint("delta");
         }
         layers[0]->bprop(NULL, x, params->learning_rate, params->momentum,
                             (num_layers>1) && params->hdrop_out, params->weight_decay, params->decay_rate, true, true);
         d = layers[num_layers-1]->delta();
-        layers[num_layers-1]->delta()->samplePrint("delta");
 #ifdef DOWN_POUR_SGD
         if (mpi_world_rank >= sgd_num_param_server) {
             layers[num_layers-1]->neuron()->computeLoss(d, layers[num_layers-1]->act(), y);
@@ -151,9 +147,7 @@ public:
             return loss;
         }
 #else
-        layers[num_layers-1]->delta()->samplePrint("delta");
         layers[num_layers-1]->neuron()->computeLoss(d, layers[num_layers-1]->act(), y);
-        layers[num_layers-1]->delta()->samplePrint("delta");
         return layers[num_layers-1]->neuron()->getLoss();
 #endif
     }
@@ -361,7 +355,6 @@ public:
             if (lastCheck >= _bp_hyper_params->check_interval) {
                 _layers[_num_layers-1]->neuron()->samplePrint();
                 _layers[_num_layers-1]->act()->samplePrint("top act");
-                _layers[_num_layers-1]->drv()->samplePrint("top drv");
                 y->samplePrint("y");
                 x->samplePrint("x");
                 _layers[0]->weight()->samplePrint("weight");

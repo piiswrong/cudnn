@@ -51,6 +51,7 @@ public:
         delta->applyTenary(DeltaOp(), act, y, y->nrows(), delta->ncols() - 1);
     }
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        initDelta(delta, act, y);
         if (delta->nrows() != y->nrows()) {
             _loss = 0.0;
             delta->dev2host();

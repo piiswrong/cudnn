@@ -59,7 +59,7 @@ def graphdata():
         else:
             y = 3
         X.append(l)
-        Y.append(y/6.0)
+        Y.append(y/3.0)
     X = np.asarray(X, dtype = np.float32)
     Y = np.asarray(Y, dtype = np.float32)
     Y = np.resize(Y, (2**E,1))
@@ -89,11 +89,11 @@ def dummydata():
         w = np.random.normal(0, 1.0/np.sqrt(ni), size=(ni,no))
         w = np.asarray(w, dtype=np.float32)
         w = w*(w>0)
-        fout.write("%d\ng%d %d %d\n"%(l,l,no,ni))
-        for i in xrange(w.shape[0]):
-            for j in xrange(w.shape[1]):
-                fout.write(str(w[i,j])+" ")
-            fout.write("\n")
+        fout.write("%d\ng%d %d %d\n"%(l,l,no,ni+1))
+        for i in xrange(w.shape[1]):
+            for j in xrange(w.shape[0]):
+                fout.write(str(w[j,i])+" ")
+            fout.write("0.0\n")
 
         y = np.tanh(np.dot(y,w))
     x.tofile("../data/RankData.bin")

@@ -1,6 +1,7 @@
 #include <common.cuh>
 #include <DNN.cuh>
 #include <DData.cuh>
+#include <tclap/CmdLine.h>
 
 #ifdef NVML
 #include <nvml_old.h>
@@ -36,38 +37,111 @@ int main(int argc, char **argv) {
     int resuming = -1;
     int devId = -1;
     bool grad_check = false;
-    for (int i = 1; i < argc; i++) {
-        if (argv[i][0] == '-') {
-            switch (argv[i][1]) {
-            case 'r': resuming = atoi(argv[i+1]); ++i; break;
-            case 'd': devId = atoi(argv[i+1]); i++; break;
-            case 'c': grad_check = true; break;
-            case 'l': log_path = argv[i+1]; i++; break;
-            case 'h': hyper_path = argv[i+1]; i++; break;
-            case 'i': input_path = argv[i+1]; i++; break;
-            case 'o': output_path = argv[i+1]; i++; break;
-            case 'v': log_verbosity = atoi(argv[i+1]); i++; break;
-            case 't': pred_path = argv[i+1]; i++; break;
-            default: printf("Invalid command line argument \'%c\'!\n", argv[i][1]); exit(-1); break;
-            }
-        }else {
-            exp_name = argv[i];
+
+    int num_layers = 2;
+    int hidden_dim = 16;
+    //int input_dim = 351, output_dim = 150;
+    //int input_dim = 1568, output_dim = 256;
+    //int input_dim = 28*28, output_dim = 10;
+    int input_dim = 6, output_dim = 1;
+    std::string neuron("Tanh");
+    float pt_epochs = 0.0;
+    int bp_epochs = 100000;
+    DHyperParams _bp_hyper_params, _pt_hyper_params;
+    _pt_hyper_params.idrop_out = false;
+    _pt_hyper_params.idrop_rate = 0.2;
+    _pt_hyper_params.hdrop_out = false;
+    _pt_hyper_params.weight_decay = false;
+    _pt_hyper_params.decay_rate = 0.00;
+    _pt_hyper_params.momentum = 0.90;
+    _pt_hyper_params.learning_rate = 0.01;
+
+    _bp_hyper_params.check_interval = 64;
+    _bp_hyper_params.learning_rate = 0.5;
+    _bp_hyper_params.learning_rate_decay = 1;
+    _bp_hyper_params.idrop_out = false;
+    _bp_hyper_params.idrop_rate = 0.2;
+    _bp_hyper_params.hdrop_out = false;
+    _bp_hyper_params.hdrop_rate= 0.5;
+    _bp_hyper_params.momentum = 0.9;
+    _bp_hyper_params.max_momentum = 0.90;
+    _bp_hyper_params.step_momentum = 0.00;
+    _bp_hyper_params.weight_decay = false;
+    _bp_hyper_params.decay_rate = 0.01;
+
+    _bp_hyper_params.batch_size = 64;
+
+#ifdef ADMM
+    _bp_hyper_params.decay_rate = 0.001;
+#endif
+
+    try{
+        TCLAP::CmdLine cmd("", ' ', "0.1");
+        TCLAP::UnlabeledValueArg<std::string> argExpName("expName", "Name of the experiment", false, "", "string", cmd);
+        TCLAP::ValueArg<int> argResuming("r", "resuming", "Resume from n-th epoch", false, -1, "int", cmd); 
+        TCLAP::ValueArg<int> argDevId("d", "dev-id", "Id of device to use", false, -1, "int", cmd); 
+        TCLAP::SwitchArg argCheckGrad("c", "check-grad", "Check gradient", cmd, false);
+        TCLAP::ValueArg<std::string> argLogPath("l", "log-path", "Path to log file", false, "", "string", cmd); 
+        TCLAP::ValueArg<std::string> argHyperPath("h", "hyper-path", "Path to hyperparamter file", false, "", "string", cmd); 
+        TCLAP::ValueArg<std::string> argInputPath("i", "input-path", "Path to input parameter file", false, "", "string", cmd); 
+        TCLAP::ValueArg<std::string> argOutputPath("o", "output-path", "Path to output parameter file", false, "", "string", cmd); 
+        TCLAP::ValueArg<std::string> argPredPath("t", "testing", "Path to prediction result output file", false, "", "string", cmd); 
+        TCLAP::ValueArg<int> argVerbosity("v", "verbose", "log output verbosity level", false, VERBOSE_NORMAL, "int", cmd); 
+
+        TCLAP::ValueArg<int> argNumLayers("", "numLayers", "number of layers", false, num_layers, "int", cmd);
+        TCLAP::ValueArg<int> argHiddenDim("", "hiddenDim", "Dimension of hidden layers", false, hidden_dim, "int", cmd); 
+        TCLAP::ValueArg<std::string> argNeuron("", "neuron", "Type of neuron to use", false, neuron, "string", cmd); 
+
+        TCLAP::ValueArg<double> argBpLearningRate("", "bpLearningRate", "Initial learning rate", false, _bp_hyper_params.learning_rate, "double", cmd);
+        TCLAP::ValueArg<double> argBpMomentum("", "bpMomentum", "Initial momentum", false, _bp_hyper_params.momentum, "double", cmd);
+
+        cmd.parse(argc, argv);
+
+        exp_name = argExpName.getValue();
+        resuming = argResuming.getValue();
+        devId = argDevId.getValue();
+        grad_check = argCheckGrad.getValue();
+        log_path = argLogPath.getValue();
+        hyper_path = argHyperPath.getValue();
+        input_path = argInputPath.getValue();
+        output_path = argOutputPath.getValue();
+        pred_path = argPredPath.getValue();
+        log_verbosity = argVerbosity.getValue();
+
+        if (exp_name != "") {
             if (log_path == "") log_path = path+exp_name+".log";
             if (hyper_path == "") hyper_path = path+exp_name+".hyper";
             if (input_path == "") input_path = path+exp_name+".param";
             if (output_path == "") output_path = path+exp_name+".param";
         }
-    }
-    if (log_path != "") flog = fopen(log_path.c_str(), "w");
-    if (hyper_path != "") {
-        fin = fopen(hyper_path.c_str(), "r");
-        if (fin == NULL) {
-            printf("Cannot open configuration file %s\n", hyper_path.c_str());
-            exit(-1);
+        if (log_path != "") flog = fopen(log_path.c_str(), "w");
+        if (hyper_path != "") {
+            fin = fopen(hyper_path.c_str(), "r");
+            if (fin == NULL) {
+                printf("Cannot open configuration file %s\n", hyper_path.c_str());
+                exit(-1);
+            }
+            printf("Using configuration file %s\n", hyper_path.c_str());
+            READ_PARAM(num_layers);
+            READ_PARAM(hidden_dim);
+            char    tmp[255];
+            fscanf(fin, "neuron=%s\n", tmp);
+            neuron = tmp;
+            READ_PARAM(pt_epochs);
+            READ_PARAM(bp_epochs);
+            _pt_hyper_params.load(fin);
+            _bp_hyper_params.load(fin);
+            fclose(fin);
         }
-        printf("Using configuration file %s\n", hyper_path.c_str());
-    }
 
+        num_layers = argNumLayers.getValue();
+        hidden_dim = argHiddenDim.getValue();
+        neuron = argNeuron.getValue();
+
+    }catch(TCLAP::ArgException &e) {
+        std::cout << "Error: " << e.error() << " for arg " << e.argId() << std::endl;
+        exit(-1);
+    }
 
 #ifndef DISABLE_GPU
 #ifdef NVML
@@ -127,76 +201,28 @@ int main(int argc, char **argv) {
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 2;
-    int hidden_dim = 16;
-    //int input_dim = 351, output_dim = 150;
-    //int input_dim = 1568, output_dim = 256;
-    //int input_dim = 28*28, output_dim = 10;
-    int input_dim = 6, output_dim = 1;
-    char unit[255];
-    strcpy(unit, "Tanh");
-    float pt_epochs = 0.0;
-    int bp_epochs = 1;
-    DHyperParams _bp_hyper_params, _pt_hyper_params;
-    _pt_hyper_params.idrop_out = false;
-    _pt_hyper_params.idrop_rate = 0.2;
-    _pt_hyper_params.hdrop_out = false;
-    _pt_hyper_params.weight_decay = false;
-    _pt_hyper_params.decay_rate = 0.00;
-    _pt_hyper_params.momentum = 0.90;
-    _pt_hyper_params.learning_rate = 0.01;
-
-    _bp_hyper_params.check_interval = 64;
-    _bp_hyper_params.learning_rate = 0.5;
-    _bp_hyper_params.idrop_out = false;
-    _bp_hyper_params.idrop_rate = 0.2;
-    _bp_hyper_params.hdrop_out = false;
-    _bp_hyper_params.hdrop_rate= 0.5;
-    _bp_hyper_params.momentum = 0.0;
-    _bp_hyper_params.max_momentum = 0.00;
-    _bp_hyper_params.step_momentum = 0.00;
-    _bp_hyper_params.weight_decay = false;
-    _bp_hyper_params.decay_rate = 0.01;
-
-    _bp_hyper_params.batch_size = 64;
-
-#ifdef ADMM
-    _bp_hyper_params.decay_rate = 0.001;
-#endif
-
-    if (fin != NULL) {
-        READ_PARAM(num_layers);
-        READ_PARAM(hidden_dim);
-        fscanf(fin, "neuron=%s\n", unit);
-        READ_PARAM(pt_epochs);
-        READ_PARAM(bp_epochs);
-        _pt_hyper_params.load(fin);
-        _bp_hyper_params.load(fin);
-    }
 
     int *layer_dims = new int[num_layers+1];
     layer_dims[0] = input_dim;
     layer_dims[num_layers] = output_dim;
     for (int i = 1; i < num_layers; i++) layer_dims[i] = hidden_dim;
 
-    DNeuron<float> **neuron = new DNeuron<float>*[num_layers];
+    DNeuron<float> **neurons = new DNeuron<float>*[num_layers];
     for (int i = 0; i < num_layers; i++) {
-        std::string str_unit(unit);
-        if (str_unit == "Logistic") {
-            neuron[i] = new DLogisticNeuron<float>(handle);
-        }else if (str_unit == "Oddroot") {
-            printf("using oddroot\n");
-            neuron[i] = new DOddrootNeuron<float>(handle);
-        }else if (str_unit == "ReLU") {
-            neuron[i] = new DReLUNeuron<float>(handle);
-        }else if (str_unit == "Linear") {
-            neuron[i] = new DNeuron<float>(handle);
-        }else if (str_unit == "Tanh") {
-            neuron[i] = new DTanhNeuron<float>(handle);
-        }else if (str_unit == "Cutoff") {
-            neuron[i] = new DCutoffNeuron<float>(handle);
+        if (neuron == "Logistic") {
+            neurons[i] = new DLogisticNeuron<float>(handle);
+        }else if (neuron == "Oddroot") {
+            neurons[i] = new DOddrootNeuron<float>(handle);
+        }else if (neuron == "ReLU") {
+            neurons[i] = new DReLUNeuron<float>(handle);
+        }else if (neuron == "Linear") {
+            neurons[i] = new DNeuron<float>(handle);
+        }else if (neuron == "Tanh") {
+            neurons[i] = new DTanhNeuron<float>(handle);
+        }else if (neuron == "Cutoff") {
+            neurons[i] = new DCutoffNeuron<float>(handle);
         }else {
-            printf("ERROR: \"%s\" is not a supported neuron type\n", unit);
+            printf("ERROR: \"%s\" is not a supported neuron type\n", neuron.c_str());
             exit(-1);
         }
     }
@@ -219,14 +245,14 @@ int main(int argc, char **argv) {
     data->set_devId(devId);
 #endif
 
-    //neuron[num_layers-1] = new DTanhNeuron<float>(handle);
-    //neuron[num_layers-1] = new DSoftmaxNeuron<float>(_bp_hyper_params.batch_size, handle);
-    //neuron[num_layers-1] = new DGMMNeuron<float>(&_bp_hyper_params, 256, output_dim, 0.1, handle);
+    //neurons[num_layers-1] = new DTanhNeuron<float>(handle);
+    //neurons[num_layers-1] = new DSoftmaxNeuron<float>(_bp_hyper_params.batch_size, handle);
+    //neurons[num_layers-1] = new DGMMNeuron<float>(&_bp_hyper_params, 256, output_dim, 0.1, handle);
     //DvMFNeuron<float> *last_neuron = new DvMFNeuron<float>(&_bp_hyper_params, 32, output_dim, 0.2, handle);
     //last_neuron->init(data);
-    //neuron[num_layers-1] = last_neuron;
+    //neurons[num_layers-1] = last_neuron;
     
-    DNN<float> *dnn = new DNN<float>(num_layers, layer_dims, neuron, &_pt_hyper_params, &_bp_hyper_params, handle);
+    DNN<float> *dnn = new DNN<float>(num_layers, layer_dims, neurons, &_pt_hyper_params, &_bp_hyper_params, handle);
 
     if (grad_check) {
         return !dnn->createGradCheck(data);
