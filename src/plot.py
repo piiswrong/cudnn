@@ -26,6 +26,7 @@ def hist_plot(logs, output):
 		yp = np.loadtxt(f)
 		print y.shape, yp.shape
 		yp = abs(yp-y)/abs(y)
+                print yp
 		i+=1
 		plt.subplot(len(logs), 1, i)
 		plt.hist(yp, label = legend)
@@ -39,12 +40,12 @@ def hist_plot(logs, output):
 
 #logs = [ ('1.log', 'layers=1') , ('2.log', 'layers=2') , ('3.log', 'layers=3') ]
 #logs = [ ('3.log', 'layers=3') ]
-logs = [("2-2.log", "2-2")]
+logs = [ ('1.log','1.0'), ('5.log', '5.0'), ('10.log', '10.0'), ('20.log', '20.0') ]
 """for l in xrange(1,3):
     for r in xrange(1,4):
         logs.append( ('%d-%d.log'%(l,r), 'generate=%d approx=%d'%(l,r)) )
 print logs
 """
-#curve_plot(logs, "a.png")
-hist_plot(logs, "b.png")
+curve_plot(logs, "a.png")
+#hist_plot(logs, "a.png")
 

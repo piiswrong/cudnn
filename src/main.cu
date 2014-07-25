@@ -2,6 +2,7 @@
 #include <DNN.cuh>
 #include <DData.cuh>
 #include <tclap/CmdLine.h>
+#include <time.h>
 
 #ifdef NVML
 #include <nvml_old.h>
@@ -12,9 +13,9 @@ template<class T>
 void fineTuneWithCheckpoint(DNN<T> *dnn, DData<T> *data, int ntotal, int ninterval, std::string path, int resuming) {
     for (int i = 0; i < ntotal; i += ninterval) {
         if (i + ninterval <= ntotal) 
-            dnn->fineTune(data, ninterval);
+            dnn->fineTune(data, i+resuming, i+resuming+ninterval);
         else 
-            dnn->fineTune(data, ntotal - i);
+            dnn->fineTune(data, i+resuming, i+resuming+ntotal);
         std::stringstream ss;
         ss << i+resuming;
         FILE *fout = fopen((path+"_"+ss.str()+".param").c_str(), "w");
@@ -25,6 +26,7 @@ void fineTuneWithCheckpoint(DNN<T> *dnn, DData<T> *data, int ntotal, int ninterv
 
 int main(int argc, char **argv) {
     std::string path = "/projects/grail/jxie/cudnn/log/";
+    srand(time(0));
     //feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
 #ifdef USE_MPI 
     MPI_Init(&argc, &argv);
@@ -57,8 +59,8 @@ int main(int argc, char **argv) {
     _pt_hyper_params.learning_rate = 0.01;
 
     _bp_hyper_params.check_interval = 64;
-    _bp_hyper_params.learning_rate = 0.5;
-    _bp_hyper_params.learning_rate_decay = 1;
+    _bp_hyper_params.learning_rate = 1;
+    _bp_hyper_params.learning_rate_decay = 0.00000;
     _bp_hyper_params.idrop_out = false;
     _bp_hyper_params.idrop_rate = 0.2;
     _bp_hyper_params.hdrop_out = false;
@@ -93,6 +95,7 @@ int main(int argc, char **argv) {
         TCLAP::ValueArg<std::string> argNeuron("", "neuron", "Type of neuron to use", false, neuron, "string", cmd); 
 
         TCLAP::ValueArg<double> argBpLearningRate("", "bpLearningRate", "Initial learning rate", false, _bp_hyper_params.learning_rate, "double", cmd);
+        TCLAP::ValueArg<double> argBpLearningRateDecay("", "bpLearningRateDecay", "Learning rate decay", false, _bp_hyper_params.learning_rate_decay, "double", cmd);
         TCLAP::ValueArg<double> argBpMomentum("", "bpMomentum", "Initial momentum", false, _bp_hyper_params.momentum, "double", cmd);
 
         cmd.parse(argc, argv);
@@ -137,6 +140,11 @@ int main(int argc, char **argv) {
         num_layers = argNumLayers.getValue();
         hidden_dim = argHiddenDim.getValue();
         neuron = argNeuron.getValue();
+
+
+        _bp_hyper_params.learning_rate = argBpLearningRate.getValue();
+        _bp_hyper_params.learning_rate_decay = argBpLearningRateDecay.getValue();
+        _bp_hyper_params.momentum = argBpMomentum.getValue();
 
     }catch(TCLAP::ArgException &e) {
         std::cout << "Error: " << e.error() << " for arg " << e.argId() << std::endl;
@@ -271,13 +279,12 @@ int main(int argc, char **argv) {
         dnn->load(fin);
         dnn->layers()[0]->weight()->samplePrint();
         fclose(fin);
-        _bp_hyper_params.learning_rate *= std::pow(_bp_hyper_params.learning_rate_decay, resuming);
     }else 
         resuming = 0;
     if (exp_name != "")
         fineTuneWithCheckpoint(dnn, data, bp_epochs, 10, path+exp_name, resuming);
     else 
-        dnn->fineTune(data, bp_epochs);
+        dnn->fineTune(data, resuming, resuming+bp_epochs);
 
 #endif
     if (exp_name != "") {

@@ -8,8 +8,10 @@
 class DHyperParams {
 public:
     float learning_rate;
+    float current_learning_rate;
     float learning_rate_decay;
     float momentum;
+    float current_momentum;
     float max_momentum;
     float step_momentum;
     bool weight_decay;

@@ -128,10 +128,10 @@ public:
             layers[num_layers-1]->neuron()->initDelta(d, layers[num_layers-1]->act(), y);
         for (int i = num_layers-1; i > 0; i--) {
             d = layers[i-1]->delta();
-            layers[i]->bprop(d, layers[i-1]->act(), params->learning_rate, params->momentum,
+            layers[i]->bprop(d, layers[i-1]->act(), params->current_learning_rate, params->current_momentum,
                             (i < num_layers-1) && params->hdrop_out, params->weight_decay, params->decay_rate, true, true);
         }
-        layers[0]->bprop(NULL, x, params->learning_rate, params->momentum,
+        layers[0]->bprop(NULL, x, params->current_learning_rate, params->current_momentum,
                             (num_layers>1) && params->hdrop_out, params->weight_decay, params->decay_rate, true, true);
         d = layers[num_layers-1]->delta();
 #ifdef DOWN_POUR_SGD
@@ -255,7 +255,7 @@ public:
         int instances_per_layer = iperEpoch * epochs_per_layer;
         for( int layer = 0 ; layer < _num_layers-1; layer++) {
             printf("Pretraining layer %d of %d\n", layer, _num_layers);
-            int nEpoch = 1;
+            int nEpoch = 0;
             int nInstance = 0;
             int lastCheck = 0;
             T error = 0.0;
@@ -264,6 +264,12 @@ public:
             for (int i = 0; i <= layer; i++) layers[i] = _layers[i];
             layers[layer+1] = new DLayer<T>(_layer_dims[layer+1], _layer_dims[layer], layer + _num_layers, /*layer>0?layers[layer-1]->neuron():*/new DNeuron<T>(_handle), 
                                             _pt_hyper_params, _bp_hyper_params, _handle);
+
+            _pt_hyper_params->current_learning_rate = _pt_hyper_params->learning_rate/(1.0+nEpoch*_pt_hyper_params->learning_rate_decay);
+            _pt_hyper_params->current_momentum = _pt_hyper_params->current_momentum+nEpoch*_pt_hyper_params->step_momentum;
+            if (_pt_hyper_params->current_momentum > _pt_hyper_params->max_momentum)
+                _pt_hyper_params->current_momentum = _pt_hyper_params->max_momentum;
+
             while (instances_per_layer > nInstance) {
                 CUDA_CALL(cudaThreadSynchronize());
                 data->getData(x, y, _bp_hyper_params->batch_size);
@@ -284,12 +290,12 @@ public:
                 //layers[layer+1]->act()->samplePrint("act");
 
                 nInstance += _bp_hyper_params->batch_size;
-                while (nEpoch*iperEpoch <= nInstance) {
+                while ((nEpoch+1)*iperEpoch <= nInstance) {
                     nEpoch++;
-                    _pt_hyper_params->learning_rate *= _pt_hyper_params->learning_rate_decay;
-                    _pt_hyper_params->momentum += _pt_hyper_params->step_momentum;
-                    if (_pt_hyper_params->momentum > _pt_hyper_params->max_momentum)
-                        _pt_hyper_params->momentum = _pt_hyper_params->max_momentum;
+                    _pt_hyper_params->current_learning_rate = _pt_hyper_params->learning_rate/(1.0+nEpoch*_pt_hyper_params->learning_rate_decay);
+                    _pt_hyper_params->current_momentum = _pt_hyper_params->current_momentum+nEpoch*_pt_hyper_params->step_momentum;
+                    if (_pt_hyper_params->current_momentum > _pt_hyper_params->max_momentum)
+                        _pt_hyper_params->current_momentum = _pt_hyper_params->max_momentum;
                 }
                 lastCheck += _bp_hyper_params->batch_size;
                 if (lastCheck >= _pt_hyper_params->check_interval) {
@@ -310,7 +316,7 @@ public:
         _scaled_weight = true;
     }
 
-    T fineTune(DData<T>* data, int total_epochs) {
+    T fineTune(DData<T>* data, int startingEpoch, int endingEpoch) {
         scaleWeight(false);
 #ifdef DOWN_POUR_SGD
         if (mpi_world_rank >= sgd_num_param_server)
@@ -322,17 +328,22 @@ public:
            iperEpoch = data->totalInstancesPerEpoch(); 
 #endif
         DMatrix<T> *x, *y;
-        int nEpoch = 1;
-        int nInstance = 0;
+        int nEpoch = startingEpoch;
+        int nInstance = startingEpoch*iperEpoch;
         T error = 0.0;
         bool checked = false;
         T lastError;
         int lastCheck = 0;
         int starting = clock();
-        
+
+        _bp_hyper_params->current_learning_rate = _bp_hyper_params->learning_rate/(1.0+_bp_hyper_params->learning_rate_decay*nEpoch);
+        _bp_hyper_params->current_momentum = _bp_hyper_params->momentum+_bp_hyper_params->step_momentum*nEpoch;
+        if (_bp_hyper_params->current_momentum > _bp_hyper_params->max_momentum)
+            _bp_hyper_params->current_momentum = _bp_hyper_params->max_momentum;
+
         CUDA_CALL(cudaThreadSynchronize());
         LOG(VERBOSE_NORMAL, fprintf(flog, "Fine Tuning\n"));
-        while ( nEpoch <= total_epochs ) {
+        while ( nEpoch < endingEpoch) {
 #ifdef DOWN_POUR_SGD
             if (mpi_world_rank >= sgd_num_param_server)
 #endif  
@@ -340,12 +351,12 @@ public:
             error += trainOnBatch(x, y);
             CUDA_CALL(cudaThreadSynchronize());
             nInstance += _bp_hyper_params->batch_size;
-            while (nEpoch*iperEpoch <= nInstance) {
+            while ((nEpoch+1)*iperEpoch <= nInstance) {
                 nEpoch++;
-                _bp_hyper_params->learning_rate *= _bp_hyper_params->learning_rate_decay;
-                _bp_hyper_params->momentum += _bp_hyper_params->step_momentum;
-                if (_bp_hyper_params->momentum > _bp_hyper_params->max_momentum)
-                    _bp_hyper_params->momentum = _bp_hyper_params->max_momentum;
+                _bp_hyper_params->current_learning_rate = _bp_hyper_params->learning_rate/(1.0+_bp_hyper_params->learning_rate_decay*nEpoch);
+                _bp_hyper_params->current_momentum = _bp_hyper_params->momentum+_bp_hyper_params->step_momentum*nEpoch;
+                if (_bp_hyper_params->current_momentum > _bp_hyper_params->max_momentum)
+                    _bp_hyper_params->current_momentum = _bp_hyper_params->max_momentum;
             }
             lastCheck += _bp_hyper_params->batch_size;
             //printf("%d\n", nInstance);
@@ -369,6 +380,7 @@ public:
                 printf("\nEpoch: %d\tInstance: %d\tError: %f\n", nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
                 LOG(VERBOSE_MINIMAL, fprintf(flog, "%f %d\n", (float)(error/lastCheck), nInstance));
 #endif
+                printf("rate:%lf\n", _bp_hyper_params->current_learning_rate);
                 checked = true;
                 lastError = error/lastCheck;
                 lastCheck = 0;
