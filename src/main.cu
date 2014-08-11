@@ -117,8 +117,8 @@ int main(int argc, char **argv) {
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 40;
-    int hidden_dim = 511;
+    int num_layers = 3;
+    int hidden_dim = 255;
     char unit[255];
     strcpy(unit, "ReLU");
     float pt_epochs = 0.0;
@@ -131,12 +131,12 @@ int main(int argc, char **argv) {
     _pt_hyper_params.momentum = 0.90;
     _pt_hyper_params.learning_rate = 0.01;
 
-    _bp_hyper_params.check_interval = 10000;
-    _bp_hyper_params.learning_rate = 0.1;
+    _bp_hyper_params.check_interval = 1;
+    _bp_hyper_params.learning_rate = 0.2;
     _bp_hyper_params.idrop_out = false;
     _bp_hyper_params.idrop_rate = 0.2;
     _bp_hyper_params.hdrop_out = false;
-    _bp_hyper_params.hdrop_rate= 0.2;
+    _bp_hyper_params.hdrop_rate= 0.5;
     _bp_hyper_params.momentum = 0.5;
     _bp_hyper_params.max_momentum = 0.90;
     _bp_hyper_params.step_momentum = 0.04;
@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
     _bp_hyper_params.decay_rate = 0.001;
 #endif
 
-    int bp_epochs = 200;
+    int bp_epochs = 20;
     if (fin != NULL) {
         READ_PARAM(num_layers);
         READ_PARAM(hidden_dim);
@@ -158,7 +158,8 @@ int main(int argc, char **argv) {
     }
 
 
-    int input_dim = 351, output_dim = 150;
+    int input_dim = 500, output_dim = 3;
+    //int input_dim = 351, output_dim = 150;
     //input_dim = 28*28, output_dim = 10;
     int *layer_dims = new int[num_layers+1];
     layer_dims[0] = input_dim;
@@ -197,7 +198,7 @@ int main(int argc, char **argv) {
 #else
     //DMnistData<float> *data = new DMnistData<float>("/scratch/jxie", DData<float>::Train, 50000, false, dnn->handle());
     //DData<float> *data = new DDummyData<float>(10,  handle);
-    DTimitData<float> *data = new DTimitData<float>("/scratch/jxie/", 10000, false, dnn->handle());
+    DData<float> *data = new DISTCData<float>("/projects/grail/jxienb/train", 256, false, dnn->handle());
 #ifndef DISABLE_GPU
     data->set_devId(devId);
 #endif
@@ -217,21 +218,44 @@ int main(int argc, char **argv) {
         fclose(fin);
         _bp_hyper_params.learning_rate *= std::pow(_bp_hyper_params.learning_rate_decay, resuming);
     }
+    
+    DData<float> *test_data;
+    test_data = new DISTCData<float>("/projects/grail/jxienb/test", 256, true, dnn->handle());
+    CUDA_KERNEL_CHECK();
+    //test_data->set_devId(devId);
+
+    FILE *ll = fopen("log", "w");
+
     if (exp_name != NULL)
         fineTuneWithCheckpoint(dnn, data, bp_epochs, 10, path+exp_name, resuming>0?resuming:0);
-    else 
+    else if(false){
+        for (int i = 0; i < 100; i++) {
+            double err = dnn->fineTune(data, 1);
+            double acc = dnn->test(test_data);
+            fprintf(ll, "%d %lf %lf\n", i, acc, err);
+            printf("%lf", acc);
+            test_data->stop();
+        }
+    }else{
         dnn->fineTune(data, bp_epochs);
+    }
 
 #endif
+    exp_name = "a";
     if (exp_name != NULL) {
         FILE *fout = fopen((path+exp_name+".param").c_str(), "w");
         dnn->save(fout);
         fclose(fout);
     }
-    //DMnistData<float> *test_data;// = new DMnistData<float>("../data", DData<float>::Test, 10000, false, dnn->handle());
+
+
+    //DData<float> *test_data;
+    test_data = new DISTCData<float>("/projects/grail/jxienb/test", 256, true, dnn->handle());
+    CUDA_KERNEL_CHECK();
     //test_data->set_devId(devId);
-    //test_data = new DMnistData<float>("../data", DData<float>::Test, 10000, true, dnn->handle());
-    //printf("Testing Error:%f\n", dnn->test(test_data));
+    printf("Testing...\n");
+    printf("Testing Error:%f\n", dnn->test(test_data));
+    
 
     CUDA_CALL(cudaDeviceReset());
 #ifdef USE_MPI

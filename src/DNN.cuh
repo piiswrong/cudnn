@@ -224,13 +224,27 @@ public:
         T loss = 0.0;
         CUDA_CALL(cudaThreadSynchronize());
         DHyperParams dummy_param(_pt_hyper_params);
-        _pt_hyper_params.idrop_out = _pt_hyper_params.hdrop_out = false;
-        _pt_hyper_params.idrop_rate = _pt_hyper_params.hdrop_rate = false;
+        dummy_param.idrop_out = dummy_param.hdrop_out = false;
+        dummy_param.idrop_rate = dummy_param.hdrop_rate = false;
+
+        FILE * fout = fopen("tmp","w");
+
         while (true) {
             bool more = data->getData(x, y, _bp_hyper_params.batch_size);
+            printf("%d\n", x->nrows());
             fprop(x, _num_layers, _layers, &dummy_param, _state);
             _layers[_num_layers-1]->neuron()->initDelta(_delta, _layers[_num_layers-1]->act(), y);
             _layers[_num_layers-1]->neuron()->computeLoss(_delta, _layers[_num_layers-1]->act(), y);
+
+            DMatrix<T> *act = _layers[_num_layers-1]->act();
+            act->dev2host();
+            for (int i = 0; i < y->nrows(); i++) {
+                for (int j = 0; j < 3; j++) {
+                    fprintf(fout, "%f ", act->getElem(i, j));
+                }
+                fprintf(fout, "\n");
+            }
+
             loss += _layers[_num_layers-1]->neuron()->getLoss();
             CUDA_CALL(cudaThreadSynchronize());
             if (!more) break;
@@ -402,8 +416,8 @@ public:
                 _layers[_num_layers-1]->act()->samplePrint();
                 _layers[_num_layers-2]->act()->samplePrint();
                 _layers[0]->act()->samplePrint();
-                _layers[0]->drv()->samplePrint();
-                _layers[0]->weight()->samplePrint();
+                //_layers[0]->drv()->samplePrint();
+                //_layers[0]->weight()->samplePrint();
                 x->samplePrint();
 #ifdef ADMM
                 printf("\nNode%d\tEpoch: %d\tInstance: %d\tError: %f\n", mpi_world_rank, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));

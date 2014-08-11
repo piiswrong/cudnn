@@ -203,7 +203,7 @@ public:
         
         int dim = _available[_buff_index];
         if (batch_size > dim - _buff_offset) {
-            if (_testing) {
+            if ((dim - _buff_offset) > 0 && _testing) {
                 CUDA_CALL(cudaStreamSynchronize(_streams[_buff_index]));
                 x = new DMatrix<T>(_x_buffs[_buff_index], _buff_offset, dim - _buff_offset);
                 y = new DMatrix<T>(_y_buffs[_buff_index], _buff_offset, dim - _buff_offset);
@@ -382,6 +382,24 @@ public:
 
     ~DMnistData() {
         DData<T>::stop();
+    }
+};
+
+template<class T>
+class DISTCData : public DBinaryData<T, double, double, OpScale<T>, OpNop<T> > {
+public:
+    DISTCData(std::string path, int buff_dim, bool testing, cublasHandle_t handle) 
+        : DBinaryData<T, double, double, OpScale<T>, OpNop<T> >(OpScale<T>(1.0/1.0), OpNop<T>(), 500, 3, true, false, buff_dim, false, testing, handle) {
+        std::string xpath, ypath;
+        if (path[path.length()-1] != '/') path.append("/");
+        xpath = path+"data";
+        ypath = path+"label";
+        int soffset = 0;
+        int eoffset = 2602;
+        if (testing)
+            eoffset = 581;
+
+        DBinaryData<T, double, double, OpScale<T>, OpNop<T> >::open(xpath.c_str(), ypath.c_str(), 0, 0, soffset, eoffset);
     }
 };
 
