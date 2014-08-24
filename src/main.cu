@@ -126,16 +126,16 @@ int main(int argc, char **argv) {
     cublasHandle_t handle = 0; 
     CUBLAS_CALL(cublasCreate(&handle));
 
-    int num_layers = 80;
-    int hidden_dim = 351;
-    int input_dim = 351, output_dim = 150;
+    int num_layers = 5;
+    int hidden_dim = 1023;
+    int input_dim = 378, output_dim = 23;
     //int input_dim = 1568, output_dim = 256;
     //int input_dim = 28*28, output_dim = 10;
     //int input_dim = 32, output_dim = 32;
     char unit[255];
-    strcpy(unit, "Oddroot");
+    strcpy(unit, "ReLU");
     float pt_epochs = 0.0;
-    int bp_epochs = 100;
+    int bp_epochs = 20;
     DHyperParams _bp_hyper_params, _pt_hyper_params;
     _pt_hyper_params.idrop_out = false;
     _pt_hyper_params.idrop_rate = 0.2;
@@ -145,17 +145,17 @@ int main(int argc, char **argv) {
     _pt_hyper_params.momentum = 0.90;
     _pt_hyper_params.learning_rate = 0.01;
 
-    _bp_hyper_params.check_interval = 128;
-    _bp_hyper_params.learning_rate = 0.5;
-    _bp_hyper_params.idrop_out = false;
+    _bp_hyper_params.check_interval = 100000;
+    _bp_hyper_params.learning_rate = 0.1;
+    _bp_hyper_params.idrop_out = true;
     _bp_hyper_params.idrop_rate = 0.2;
-    _bp_hyper_params.hdrop_out = false;
+    _bp_hyper_params.hdrop_out = true;
     _bp_hyper_params.hdrop_rate= 0.5;
     _bp_hyper_params.momentum = 0.5;
     _bp_hyper_params.max_momentum = 0.90;
     _bp_hyper_params.step_momentum = 0.04;
     _bp_hyper_params.weight_decay = false;
-    _bp_hyper_params.decay_rate = 0.01;
+    _bp_hyper_params.decay_rate = 0.001;
 
 #ifdef ADMM
     _bp_hyper_params.decay_rate = 0.001;
@@ -183,7 +183,6 @@ int main(int argc, char **argv) {
         if (str_unit == "Logistic") {
             neuron[i] = new DLogisticNeuron<float>(handle);
         }else if (str_unit == "Oddroot") {
-            printf("using oddroot\n");
             neuron[i] = new DOddrootNeuron<float>(handle);
         }else if (str_unit == "ReLU") {
             neuron[i] = new DReLUNeuron<float>(handle);
@@ -206,7 +205,7 @@ int main(int argc, char **argv) {
 #else
     //DMnistData<float> *data = new DMnistData<float>("../data/", DData<float>::Train, 50000, false, dnn->handle());
     //DData<float> *data = new DDummyData<float>(input_dim, 1, handle);
-    DTimitData<float> *data = new DTimitData<float>("/scratch/jxie/", 10000, false, handle);
+    DData<float> *data = new DActData<float>("/s0/jxie/caffe/examples/act/data/", DData<float>::Train, 10000, false, handle);
     //DData<float> *data = new DPatchData<float>("/projects/grail/jxie/paris/", input_dim, 10000, false, handle);
 #ifndef DISABLE_GPU
     data->set_devId(devId);
@@ -251,10 +250,10 @@ int main(int argc, char **argv) {
         dnn->save(fout);
         fclose(fout);
     }
-    //DMnistData<float> *test_data;// = new DMnistData<float>("../data", DData<float>::Test, 10000, false, dnn->handle());
-    //test_data->set_devId(devId);
-    //test_data = new DMnistData<float>("../data", DData<float>::Test, 10000, true, dnn->handle());
-    //printf("Testing Error:%f\n", dnn->test(test_data));
+
+    DData<float> *test_data = new DActData<float>("/s0/jxie/caffe/examples/act/data/", DData<float>::Test, 10000, true, dnn->handle());
+    test_data->set_devId(devId);
+    printf("Testing Error:%f\n", dnn->test(test_data));
 
     CUDA_CALL(cudaDeviceReset());
 #ifdef USE_MPI

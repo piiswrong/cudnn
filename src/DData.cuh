@@ -354,6 +354,36 @@ public:
 };
 
 template<class T>
+class DActData : public DBinaryData<T, double, int, OpScale<T>, OpNop<T> > {
+protected:
+    int _split;
+public:
+    DActData(std::string path, int split, int buff_dim, int testing, cublasHandle_t handle) : DBinaryData<T, double, int, OpScale<T>, OpNop<T> >(OpScale<T>(1.0), OpNop<T>(), 378, 23, true, true, buff_dim, true, testing, handle) {
+        _split = split;
+        int soffset, eoffset;
+        std::string xpath;
+        std::string ypath;
+		if (path[path.length()-1] != '/') path.append("/");
+        if (split&(DData<T>::Train|DData<T>::Validate)) {
+            xpath = path+"trainData";
+			ypath = path+"trainLabel";
+			soffset = 0;
+			eoffset = 500881;
+        }else {
+			xpath = path+"testData";
+			ypath = path+"testLabel";
+			soffset = 0;
+			eoffset = 177995;
+		}
+        DBinaryData<T, double, int, OpScale<T>, OpNop<T> >::open(xpath.c_str(), ypath.c_str(), 0, 0, soffset, eoffset);
+    }
+
+    ~DActData() {
+        DData<T>::stop();
+    }
+};
+
+template<class T>
 class DMnistData : public DBinaryData<T, unsigned char, unsigned char, OpScale<T>, OpNop<T> > {
 protected:
     int _split;

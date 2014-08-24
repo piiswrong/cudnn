@@ -33,9 +33,9 @@ if (flog != NULL && v <= log_verbosity) { \
 #include <math_functions.h>
 
 #define HOSTDEVICE __host__ __device__
-const int WARP_SIZE = 16;
+const int WARP_SIZE = 32;
 const int BLOCK_SIZE = 256;
-const int TILE_DIM = 16;
+const int TILE_DIM = 32;
 const int BLOCK_ROWS = 8;
 
 #define CUDA_CALL(statment) do {   cudaError_t macroErrorCode = statment; \
