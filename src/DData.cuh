@@ -7,6 +7,7 @@
 #include <DOperators.cuh>
 #include <pthread.h>
 #include <cstring>
+#include <DHyperParams.cuh>
 
 template<class T>
 class DData {
@@ -108,7 +109,7 @@ public:
     int x_dim() { return _x_dim; }
     int y_dim() { return _y_dim; }
     void set_devId(int id) { _devId = id; }
-    void set_testing(bool testing) { _testing = testing; }
+    virtual void set_testing(bool testing) { _testing = testing; }
 
     virtual void start() {
         if (!_started) {
@@ -362,12 +363,39 @@ public:
 	}
 };
 
+template<class T, class Tx, class Ty>
+class DGeneralData : public DBinaryData<T, Tx, Ty, OpScale<T>, OpNop<T> > {
+protected:
+    DDataSpec _data_spec;
+public:
+    DGeneralData(DDataSpec data_spec, int buff_dim, bool permute, int testing, cublasHandle_t handle) :
+                DBinaryData<T, Tx, Ty, OpScale<T>, OpNop<T> >(OpScale<T>(data_spec.scaling), OpNop<T>(), 
+                                                                  data_spec.input_dim, data_spec.output_dim, 
+                                                                  data_spec.xappendone, data_spec.yonehot, 
+                                                                  buff_dim, permute, testing, handle),
+                _data_spec(data_spec) {
+        set_testing(testing);
+    }
+    virtual void set_testing(bool testing) {
+        if (testing) {
+            DBinaryData<T, Tx, Ty, OpScale<T>, OpNop<T> >::open(_data_spec.test_data.c_str(), _data_spec.test_label.c_str(), 
+            _data_spec.test_data_skip, _data_spec.test_label_skip, _data_spec.test_soffset, 
+            _data_spec.test_soffset+_data_spec.test_items);
+        }else {
+            DBinaryData<T, Tx, Ty, OpScale<T>, OpNop<T> >::open(_data_spec.train_data.c_str(), _data_spec.train_label.c_str(), _data_spec.train_data_skip, _data_spec.train_label_skip, 
+            _data_spec.train_soffset, _data_spec.train_soffset+_data_spec.train_items);
+        }
+        DBinaryData<T, Tx, Ty, OpScale<T>, OpNop<T> >::set_testing(testing);
+    }
+};
+
 template<class T>
 class DMnistData : public DBinaryData<T, unsigned char, unsigned char, OpScale<T>, OpNop<T> > {
 protected:
     int _split;
 public:
-    DMnistData(std::string path, int split, int buff_dim, int testing, cublasHandle_t handle) : DBinaryData<T, unsigned char, unsigned char, OpScale<T>, OpNop<T> >(OpScale<T>(1.0/256.0), OpNop<T>(), 28*28, 10, true, true, buff_dim, true, testing, handle) {
+    DMnistData(std::string path, int split, int buff_dim, int testing, cublasHandle_t handle) : 
+                DBinaryData<T, unsigned char, unsigned char, OpScale<T>, OpNop<T> >(OpScale<T>(1.0/256.0), OpNop<T>(), 28*28, 10, true, true, buff_dim, true, testing, handle) {
         _split = split;
         int soffset, eoffset;
         std::string xpath;

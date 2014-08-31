@@ -129,10 +129,10 @@ public:
         for (int i = num_layers-1; i > 0; i--) {
             d = layers[i-1]->delta();
             layers[i]->bprop(d, layers[i-1]->act(), params->current_learning_rate, params->current_momentum,
-                            (i < num_layers-1) && params->hdrop_out, params->weight_decay, params->decay_rate, true, true);
+                            (i < num_layers-1) && params->hdrop_out, params->weight_decay, params->decay_rate, false, false);
         }
         layers[0]->bprop(NULL, x, params->current_learning_rate, params->current_momentum,
-                            (num_layers>1) && params->hdrop_out, params->weight_decay, params->decay_rate, true, true);
+                            (num_layers>1) && params->hdrop_out, params->weight_decay, params->decay_rate, false, false);
         d = layers[num_layers-1]->delta();
 #ifdef DOWN_POUR_SGD
         if (mpi_world_rank >= sgd_num_param_server) {
@@ -317,6 +317,7 @@ public:
     }
 
     T fineTune(DData<T>* data, int startingEpoch, int endingEpoch) {
+        printf("%f\n", (float)_bp_hyper_params->learning_rate);
         scaleWeight(false);
 #ifdef DOWN_POUR_SGD
         if (mpi_world_rank >= sgd_num_param_server)
