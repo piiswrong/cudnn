@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
     int devId = -1;
     bool grad_check = false;
 
-    int num_layers = 3;
+    int num_layers = 8;
     int hidden_dim = 1023;
     //int input_dim = 351, output_dim = 150;
     //int input_dim = 1568, output_dim = 256;
@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
     int input_dim = 6, output_dim = 1;
     std::string neuron("ReLU");
     float pt_epochs = 0.0;
-    int bp_epochs = 10;
+    int bp_epochs = 200;
     DHyperParams _bp_hyper_params, _pt_hyper_params;
     _pt_hyper_params.idrop_out = false;
     _pt_hyper_params.idrop_rate = 0.2;
@@ -69,13 +69,13 @@ int main(int argc, char **argv) {
     _bp_hyper_params.check_interval = 10000;
     _bp_hyper_params.learning_rate = 0.1;
     _bp_hyper_params.learning_rate_decay = 0.00000;
-    _bp_hyper_params.idrop_out = true;
+    _bp_hyper_params.idrop_out = false;
     _bp_hyper_params.idrop_rate = 0.2;
     _bp_hyper_params.hdrop_out = true;
-    _bp_hyper_params.hdrop_rate= 0.5;
-    _bp_hyper_params.momentum = 0.9;
+    _bp_hyper_params.hdrop_rate= 0.2;
+    _bp_hyper_params.momentum = 0.5;
     _bp_hyper_params.max_momentum = 0.90;
-    _bp_hyper_params.step_momentum = 0.00;
+    _bp_hyper_params.step_momentum = 0.04;
     _bp_hyper_params.weight_decay = false;
     _bp_hyper_params.decay_rate = 0.01;
 
@@ -313,7 +313,7 @@ int main(int argc, char **argv) {
         dnn->fineTune(data, resuming, resuming+bp_epochs);
 
 #endif
-    if (master_file != "") {
+    if (output_path != "") {
         FILE *fout = fopen(output_path.c_str(), "w");
         dnn->save(fout);
         fclose(fout);
