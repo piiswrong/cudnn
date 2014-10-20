@@ -288,15 +288,15 @@ __global__ void kNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm
 
 
 
-template<class T, int num_thrd>
-__global__ void kArgmax(T *x, int *ind, T *res, int ld, int fd, int n) {
+template<class T, class Op, int num_thrd>
+__global__ void kReduce(Op op, T *x, int *ind, T *res, int ld, int fd, int n) {
     __shared__ T smem[WARP_SIZE*num_thrd];
     __shared__ int mark[WARP_SIZE*num_thrd];
     int i = blockIdx.x*WARP_SIZE + threadIdx.x;
 
     if (i < ld) {
         int myMark = 0;
-        T myMax = dBatchReduce<T, false, num_thrd, OpMaxReduce<T>, OpNop<T> >(OpMaxReduce<T>(), OpNop<T>(), x, smem, mark, ld, fd, n, myMark);
+        T myMax = dBatchReduce<T, false, num_thrd, Op, OpNop<T> >(op, OpNop<T>(), x, smem, mark, ld, fd, n, myMark);
         if (threadIdx.y == 0) {
             ind[i] = myMark;
             res[i] = myMax;
@@ -305,6 +305,12 @@ __global__ void kArgmax(T *x, int *ind, T *res, int ld, int fd, int n) {
 
 }
 
+template<class T>
+__global__ void kDecode(T *x, int *ind, int m, int n, int ld) {
+    int i = blockIdx.x*TILE_DIM + threadIdx.x;
+    int j = blockIdx.y*TILE_DIM + threadIdx.y;
+    if (i < m && j < n) x[i+j*ld] = (j == ind[i]); 
+}
 
 
 template<class T>

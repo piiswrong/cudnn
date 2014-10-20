@@ -444,10 +444,10 @@ public:
         : DBinaryData<T, float, unsigned int, OpNop<T>, OpNop<unsigned int> >(OpNop<T>(), OpNop<unsigned int>(), input_dim, 1, true, false, buff_dim, false, testing, handle) {
         std::string xpath, ypath;
         if (path[path.length()-1] != '/') path.append("/");
-        xpath = path+"PatchData.bin";
-        ypath = path+"PatchLabel.bin";
+        xpath = path+"clusterData.bin";
+        ypath = path+"clusterLabel.bin";
         int soffset = 0;
-        int eoffset = 100000;
+        int eoffset = 2000;
         DBinaryData<T, float, unsigned int, OpNop<T>, OpNop<unsigned int> >::open(xpath.c_str(), ypath.c_str(), 0, 0, soffset, eoffset);
     }
 };

@@ -48,12 +48,12 @@ int main(int argc, char **argv) {
     int devId = -1;
     bool grad_check = false;
 
-    int num_layers = 8;
-    int hidden_dim = 1023;
+    int num_layers = 3;
+    int hidden_dim = 64;
     //int input_dim = 351, output_dim = 150;
     //int input_dim = 1568, output_dim = 256;
     //int input_dim = 28*28, output_dim = 10;
-    int input_dim = 6, output_dim = 1;
+    int input_dim = 10, output_dim = 64;
     std::string neuron("ReLU");
     float pt_epochs = 0.0;
     int bp_epochs = 200;
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
     _bp_hyper_params.learning_rate_decay = 0.00000;
     _bp_hyper_params.idrop_out = false;
     _bp_hyper_params.idrop_rate = 0.2;
-    _bp_hyper_params.hdrop_out = true;
+    _bp_hyper_params.hdrop_out = false;
     _bp_hyper_params.hdrop_rate= 0.2;
     _bp_hyper_params.momentum = 0.5;
     _bp_hyper_params.max_momentum = 0.90;
@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
             ("data", po::value<std::string>(&data_spec_path), "path to data specification file")
             ("resume,r", po::value<int>(&resuming)->default_value(-1), "resume from n-th epoch")
             ("device,d", po::value<int>(&devId)->default_value(-1), "id of GPU to use")
-            ("check-grad,c", po::value<bool>(&grad_check)->default_value(false), "performe numerical gradient checking")
+            ("check-grad,c", po::value<bool>(&grad_check)->default_value(false)->implicit_value(true), "performe numerical gradient checking")
             ("log-path,l", po::value<std::string>(&log_path)->default_value(""), "path to log file")
             ("input-path,i", po::value<std::string>(&input_path), "path to input network parameter file")
             ("output-path,o", po::value<std::string>(&output_path), "path to output network parameter file")
@@ -274,7 +274,8 @@ int main(int argc, char **argv) {
     if (vm.count("data")) {
         data = new DGeneralData<float,float,int>(*data_spec, 10000, true, false, handle);
     }else {
-        data = new DRankData<float>("../data/", input_dim, 64, false, handle);
+        data = new DPatchData<float>("../data/", input_dim, 2000, false, handle);
+        //data = new DRankData<float>("../data/", input_dim, 64, false, handle);
     }
 #ifndef DISABLE_GPU
     data->set_devId(devId);
@@ -283,6 +284,7 @@ int main(int argc, char **argv) {
     //neurons[num_layers-1] = new DTanhNeuron<float>(handle);
     //neurons[num_layers-1] = new DGMMNeuron<float>(&_bp_hyper_params, 256, output_dim, 0.1, handle);
     //DvMFNeuron<float> *last_neuron = new DvMFNeuron<float>(&_bp_hyper_params, 32, output_dim, 0.2, handle);
+    neurons[num_layers-1] = new DClusterNeuron<float>(&_bp_hyper_params, 256, output_dim, 0.1, 0.1, handle);
     //last_neuron->init(data);
     //neurons[num_layers-1] = last_neuron;
     

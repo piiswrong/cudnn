@@ -81,8 +81,8 @@ public:
     }
     
     void CopyFrom(DMatrix<T> *src) {
-        assert(_ld == src->_ld);
-        assert(_fd == src->_fd);
+        //assert(_ld == src->_ld);
+        //assert(_fd == src->_fd);
         _T  = src->_T;
         if (_on_device) 
             CUDA_CALL(cudaMemcpy(_dev_data, src->dev_data(), _size, cudaMemcpyDeviceToDevice));
@@ -477,11 +477,20 @@ void hNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm opNorm, DM
     }
 }
 
-template<class T>
-void Argmax(DMatrix<T> *x, DMatrix<int> *ind, DMatrix<T> *res, int n) {
+template<class T, class Op>
+void hReduce(Op op, DMatrix<T> *x, DMatrix<int> *ind, DMatrix<T> *res, int n) {
     dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
     dim3 block(WARP_SIZE, 32, 1);
-    kArgmax<T,32><<<grid, block>>>(x->dev_data(), ind->dev_data(), res->dev_data(), x->ld(), n);
+    kReduce<T,Op,32><<<grid, block>>>(op, x->dev_data(), ind->dev_data(), res->dev_data(), x->ld(), x->fd(), n);
+    CUDA_KERNEL_CHECK();
+}
+
+template<class T>
+void hDecode(DMatrix<T> *x, DMatrix<int> *ind) {
+    assert(!x->getT());
+    dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
+    dim3 block(TILE_DIM, TILE_DIM, 1);
+    kDecode<T><<<grid, block>>>(x->dev_data(), ind->dev_data(), x->nrows(), x->ncols(), x->ld());
     CUDA_KERNEL_CHECK();
 }
 
@@ -513,15 +522,16 @@ void CluterNeuronBprop(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *centers, 
 }
 
 template<class T, class Dist>
-void hComputeDistanceKernel(Dist dist, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *z, int p) {
+void hComputeDistanceKernel(Dist dist, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *z) {
     int m = z->ld(), n = z->fd();
     assert(m%TILE_DIM == 0);
     assert(n%TILE_DIM == 0);
     assert(!x->getT()&&!y->getT()&&!z->getT());
+    assert(x->ncols() == y->nrows());
     
     dim3 grid(m/TILE_DIM, n/TILE_DIM, 1);
     dim3 block(TILE_DIM, TILE_DIM, 1);
-    kComputeDistanceKernel<T, Dist><<<grid, block>>>(dist, x->dev_data(), y->dev_data(), z->dev_data(), x->ld(), y->ld(), z->ld(), p);
+    kComputeDistanceKernel<T, Dist><<<grid, block>>>(dist, x->dev_data(), y->dev_data(), z->dev_data(), x->ld(), y->ld(), z->ld(), x->ncols());
     CUDA_KERNEL_CHECK();
 }
 #else

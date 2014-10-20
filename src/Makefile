@@ -1,5 +1,6 @@
-FLAGS = -O3 -DNDEBUG --use_fast_math 
-#FLAGS = -g -G
+#FLAGS = -O3 -DNDEBUG --use_fast_math 
+FLAGS = -g -G
+FLAGS += -DBOOST_NOINLINE='__attribute__ ((noinline))'
 #FLAGS = -O3 -DNDEBUG -DDISABLE_GPU -DWITH_GMTK
 #FLAGS =  -g -DDISABLE_GPU #-DADMM
 #SUFIX = cpp 
