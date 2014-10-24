@@ -80,6 +80,17 @@ public:
 
     virtual void samplePrint() {
     }
+
+    virtual void test_output(std::ofstream &fout, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *act) {
+        act->dev2host();
+        for (int i = 0; i < y->nrows(); i++) {
+            for (int j = 0; j < act->ncols()-1; j++) {
+                fout << act->getElem(i,j);
+                if (j == act->ncols()-2) fout << "\n";
+                else fout << " ";
+            }
+        }
+    }
 };
 
 template<class T>
@@ -330,7 +341,7 @@ public:
         HOSTDEVICE T operator() (T y, T d) {
             T t = _m - d;
             t = t*(t>0);
-            return d;//_lambda*y - (1.0-_lambda)*(1.0-y)*t/(d+0.000001);
+            return _lambda*y - (1.0-_lambda)*(1.0-y)*t/(d+0.000001);
         }
     };
 
@@ -355,13 +366,15 @@ public:
         DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
         hComputeDistanceKernel(DistEuclid<T>(), act_view, _centers, _dist);
         _dist->applyBinary(OpSqrt<T>(), _dist, _dist->nrows(), _dist->ncols());
-        _dist->samplePrint("dist");
-        hReduce(OpMinReduce<T>(), _dist, _ind, _min_dist, _dist->nrows());
-        _min_dist->samplePrint("min_dist");
+        //_dist->samplePrint("dist");
+        hReduce(OpMinReduce<T>(), _dist, _ind, _min_dist, _dist->ncols());
+        //_min_dist->samplePrint("min_dist");
+        //_ind->samplePrint("ind");
     }
 
     virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
         _coef->CopyFrom(y);
+        _coef->setT();
     }
 
     virtual void bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {
@@ -370,13 +383,13 @@ public:
         DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
         delta_view->CopyFrom(act_view);
         hDecode(_mask, _ind);
-        _mask->samplePrint("mask");
-        delta_view->update(_mask, false, _centers, true, 1.0, -1.0);
-        _coef->samplePrint("y");
+        delta_view->update(_mask, false, _centers, true, -1.0, 1.0);
+        //delta->samplePrint("delta1");
+        //_coef->samplePrint("y");
         _coef->applyBinary(OpDelta(_margin, _lambda), _min_dist, _coef->nrows(), _coef->ncols());
-        _coef->samplePrint("coef");
+        //_coef->samplePrint("coef");
         delta_view->diagMul(delta_view, _coef, true);
-        delta->samplePrint("delta");
+        //delta->samplePrint("delta2");
     }
 
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
@@ -411,6 +424,13 @@ public:
     virtual void samplePrint() {
         _centers->samplePrint("centers");
         _dist->samplePrint("dist");
+    }
+
+    virtual void test_output(std::ofstream &fout, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *act) {
+        _ind->dev2host();
+        for (int i = 0; i < y->nrows(); i++) {
+            fout << _ind->getElem(i,0) << "\n";
+        }
     }
 
 };

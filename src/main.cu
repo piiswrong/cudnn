@@ -48,12 +48,12 @@ int main(int argc, char **argv) {
     int devId = -1;
     bool grad_check = false;
 
-    int num_layers = 3;
-    int hidden_dim = 64;
+    int num_layers = 2;
+    int hidden_dim = 10;
     //int input_dim = 351, output_dim = 150;
     //int input_dim = 1568, output_dim = 256;
     //int input_dim = 28*28, output_dim = 10;
-    int input_dim = 10, output_dim = 64;
+    int input_dim = 10, output_dim = 10;
     std::string neuron("ReLU");
     float pt_epochs = 0.0;
     int bp_epochs = 200;
@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
     _pt_hyper_params.momentum = 0.90;
     _pt_hyper_params.learning_rate = 0.01;
 
-    _bp_hyper_params.check_interval = 10000;
+    _bp_hyper_params.check_interval = 500;
     _bp_hyper_params.learning_rate = 0.1;
     _bp_hyper_params.learning_rate_decay = 0.00000;
     _bp_hyper_params.idrop_out = false;
@@ -284,7 +284,7 @@ int main(int argc, char **argv) {
     //neurons[num_layers-1] = new DTanhNeuron<float>(handle);
     //neurons[num_layers-1] = new DGMMNeuron<float>(&_bp_hyper_params, 256, output_dim, 0.1, handle);
     //DvMFNeuron<float> *last_neuron = new DvMFNeuron<float>(&_bp_hyper_params, 32, output_dim, 0.2, handle);
-    neurons[num_layers-1] = new DClusterNeuron<float>(&_bp_hyper_params, 256, output_dim, 0.1, 0.1, handle);
+    neurons[num_layers-1] = new DClusterNeuron<float>(&_bp_hyper_params, 10, output_dim, 0.1, 0.1*output_dim, handle);
     //last_neuron->init(data);
     //neurons[num_layers-1] = last_neuron;
     

@@ -85,7 +85,7 @@ public:
         //assert(_fd == src->_fd);
         _T  = src->_T;
         if (_on_device) 
-            CUDA_CALL(cudaMemcpy(_dev_data, src->dev_data(), _size, cudaMemcpyDeviceToDevice));
+            CUDA_CALL(cudaMemcpy(_dev_data, src->dev_data(), src->size(), cudaMemcpyDeviceToDevice));
         memcpy(_host_data, src->host_data(), _size);
     }
 
@@ -106,7 +106,7 @@ public:
         for (int i = 0; i < nrows(); i++) {
             for (int j = 0; j < ncols(); j++) {
                 T t = getElem(i,j);
-                if( i < nlines && j < 16)printf("%+0.4f ", (float)t);
+                if( i < nlines && j < 10)printf("%+0.4f ", (float)t);
                 if (t > max) max = t;
                 if (t < min) min = t;
             }
@@ -488,7 +488,7 @@ void hReduce(Op op, DMatrix<T> *x, DMatrix<int> *ind, DMatrix<T> *res, int n) {
 template<class T>
 void hDecode(DMatrix<T> *x, DMatrix<int> *ind) {
     assert(!x->getT());
-    dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
+    dim3 grid((x->nrows()-1)/WARP_SIZE+1, (x->ncols()-1)/WARP_SIZE+1, 1);
     dim3 block(TILE_DIM, TILE_DIM, 1);
     kDecode<T><<<grid, block>>>(x->dev_data(), ind->dev_data(), x->nrows(), x->ncols(), x->ld());
     CUDA_KERNEL_CHECK();
@@ -524,14 +524,14 @@ void CluterNeuronBprop(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *centers, 
 template<class T, class Dist>
 void hComputeDistanceKernel(Dist dist, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *z) {
     int m = z->ld(), n = z->fd();
-    assert(m%TILE_DIM == 0);
-    assert(n%TILE_DIM == 0);
+    //assert(m%TILE_DIM == 0);
+    //assert(n%TILE_DIM == 0);
     assert(!x->getT()&&!y->getT()&&!z->getT());
     assert(x->ncols() == y->nrows());
     
-    dim3 grid(m/TILE_DIM, n/TILE_DIM, 1);
+    dim3 grid((m-1)/TILE_DIM+1,(n-1)/TILE_DIM+1,1);
     dim3 block(TILE_DIM, TILE_DIM, 1);
-    kComputeDistanceKernel<T, Dist><<<grid, block>>>(dist, x->dev_data(), y->dev_data(), z->dev_data(), x->ld(), y->ld(), z->ld(), x->ncols());
+    kComputeDistanceKernel<T, Dist><<<grid, block>>>(dist, x->dev_data(), y->dev_data(), z->dev_data(), x->ld(), y->ld(), z->ld(), x->nrows(), y->ncols(), x->ncols());
     CUDA_KERNEL_CHECK();
 }
 #else

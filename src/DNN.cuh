@@ -225,17 +225,7 @@ public:
         while (data->getData(x, y, _bp_hyper_params->batch_size)) {
             fprop(x, _num_layers, _layers, &dummy_param, _state);
             if (output_path != "") {
-                DMatrix<T> *py = _layers[_num_layers-1]->act();
-                py->dev2host();
-                //printf("%d", y->nrows());
-                for (int i = 0; i < y->nrows(); i++) {
-                    for (int j = 0; j < py->ncols()-1; j++) {
-                        fout << py->getElem(i,j);
-                        if (j == py->ncols()-2) fout << "\n";
-                        else fout << " ";
-                    }
-                }
-
+                _layers[_num_layers-1]->neuron()->test_output(fout, x, y, _layers[_num_layers-1]->act());
             }
             _layers[_num_layers-1]->neuron()->initDelta(_layers[_num_layers-1]->delta(), _layers[_num_layers-1]->act(), y);
             _layers[_num_layers-1]->neuron()->computeLoss(_layers[_num_layers-1]->delta(), _layers[_num_layers-1]->act(), y);
@@ -408,8 +398,8 @@ public:
         hyper->idrop_out = hyper->hdrop_out = false;
         hyper->idrop_rate = hyper->hdrop_rate = 0;
         hyper->weight_decay = false;
-        hyper->learning_rate = 1;
-        hyper->momentum = 0;
+        hyper->current_learning_rate = 1;
+        hyper->current_momentum = 0;
 
         DMatrix<T> **tmpX = new DMatrix<T>*[L];
         for (int i = 0; i < L; i++) {

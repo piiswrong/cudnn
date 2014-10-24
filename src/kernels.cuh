@@ -364,7 +364,7 @@ __global__ void kCluterNeuronReverseIndex(T *rindex, T *scale, T *index, int ld,
 }
 
 template<class T, class Dist>
-__global__ void kComputeDistanceKernel(Dist dist, T *x, T *y, T *z, int ldx, int ldy, int ldz, int p) {
+__global__ void kComputeDistanceKernel(Dist dist, T *x, T *y, T *z, int ldx, int ldy, int ldz, int m, int n, int p) {
     __shared__ T sx[TILE_DIM][TILE_DIM];
     __shared__ T sy[TILE_DIM][TILE_DIM];
 
@@ -378,12 +378,12 @@ __global__ void kComputeDistanceKernel(Dist dist, T *x, T *y, T *z, int ldx, int
         sy[tx][ty] = y[k + threadIdx.x + j*ldy];
         __syncthreads();
 
-        for (int kk = 0; kk < TILE_DIM; kk++) {
+        for (int kk = 0; kk < TILE_DIM && k + kk < p; kk++) {
             c += dist(sx[tx][kk], sy[kk][ty]);
         }
         __syncthreads();
     }
-    z[i+j*ldz] = c;
+    if (i < m && j < n) z[i+j*ldz] = c;
 }
 
 #endif //DISABLE_GPU
