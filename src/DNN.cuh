@@ -225,7 +225,7 @@ public:
         while (data->getData(x, y, _bp_hyper_params->batch_size)) {
             fprop(x, _num_layers, _layers, &dummy_param, _state);
             if (output_path != "") {
-                _layers[_num_layers-1]->neuron()->test_output(fout, x, y, _layers[_num_layers-1]->act());
+                _layers[_num_layers-1]->neuron()->testOutput(fout, x, y, _layers[_num_layers-1]->act());
             }
             _layers[_num_layers-1]->neuron()->initDelta(_layers[_num_layers-1]->delta(), _layers[_num_layers-1]->act(), y);
             _layers[_num_layers-1]->neuron()->computeLoss(_layers[_num_layers-1]->delta(), _layers[_num_layers-1]->act(), y);

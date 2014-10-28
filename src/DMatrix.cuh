@@ -478,11 +478,18 @@ void hNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm opNorm, DM
 }
 
 template<class T, class Op>
-void hReduce(Op op, DMatrix<T> *x, DMatrix<int> *ind, DMatrix<T> *res, int n) {
-    dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
-    dim3 block(WARP_SIZE, 32, 1);
-    kReduce<T,Op,32><<<grid, block>>>(op, x->dev_data(), ind->dev_data(), res->dev_data(), x->ld(), x->fd(), n);
-    CUDA_KERNEL_CHECK();
+void hReduce(Op op, DMatrix<T> *x, DMatrix<int> *ind, DMatrix<T> *res, int n, bool colWise) {
+    if (colWise ^ x->getT()) {
+        dim3 grid(1, (x->fd()-1)/WARP_SIZE+1, 1);
+        dim3 block(32, WARP_SIZE, 1);
+        kReduce<T,true,Op,32><<<grid, block>>>(op, x->dev_data(), ind->dev_data(), res->dev_data(), x->ld(), x->fd(), n);
+        CUDA_KERNEL_CHECK();
+    }else {
+        dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
+        dim3 block(WARP_SIZE, 32, 1);
+        kReduce<T,false,Op,32><<<grid, block>>>(op, x->dev_data(), ind->dev_data(), res->dev_data(), x->ld(), x->fd(), n);
+        CUDA_KERNEL_CHECK();
+    }
 }
 
 template<class T>

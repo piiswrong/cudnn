@@ -244,7 +244,7 @@ __global__ void kWeightUpdate(T* x, T* y, T decay_rate, int ld, int fd) {
 }
 
 template<class T, bool colWise, int num_thrd, class OpElem, class OpReduce, class OpAll, class OpNorm>
-__global__ void kNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm opNorm, T *x, T *y, T *norm, int ld, int fd, int n) {
+__global__ void kNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm opNorm, T *x, T *y, T *norm, T *ind, int ld, int fd, int n) {
     __shared__ T smem[WARP_SIZE*num_thrd];
     __shared__ int mark[WARP_SIZE*num_thrd];
 
@@ -256,14 +256,17 @@ __global__ void kNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm
             int myMark;
             T mySum = dBatchReduce<T, false, num_thrd, OpReduce, OpElem>(opReduce, opElem, x, smem, mark, ld, fd, n, myMark);
             mySum = opAll(mySum);
-            if (norm != NULL && threadIdx.y == 0) {
-                norm[i] = mySum;
+            if (threadIdx.y == 0) {
+                if (norm != NULL) norm[i] = mySum;
+                if (ind != NULL) ind[i] = mySum;
             }
 
-            int nelem = ld*fd;
-            while (j < nelem) {
-                y[j] = opNorm(x[j], mySum);
-                j += blockSize;
+            if (y != NULL) {
+                int nelem = ld*fd;
+                while (j < nelem) {
+                    y[j] = opNorm(x[j], mySum);
+                    j += blockSize;
+                }
             }
         }
     }else{
@@ -274,13 +277,16 @@ __global__ void kNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm
             int myMark;
             T mySum = dBatchReduce<T, true, num_thrd, OpReduce, OpElem>(opReduce, opElem, x, smem, mark, ld, fd, n, myMark);
             mySum = opAll(mySum);
-            if (norm != NULL && threadIdx.x == 0) {
-                norm[j] = mySum;
+            if (threadIdx.x == 0) {
+                if (norm != NULL) norm[j] = mySum;
+                if (ind != NULL) ind[j] = mySum;
             }
 
-            int nelem = ld*(j+1);
-            for (; i < nelem; i+=num_thrd) {
-                y[i] = opNorm(x[i], mySum);
+            if (y != NULL) {
+                int nelem = ld*(j+1);
+                for (; i < nelem; i+=num_thrd) {
+                    y[i] = opNorm(x[i], mySum);
+                }
             }
         }
     }
@@ -288,21 +294,35 @@ __global__ void kNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm
 
 
 
-template<class T, class Op, int num_thrd>
+template<class T, bool colWise, class Op, int num_thrd>
 __global__ void kReduce(Op op, T *x, int *ind, T *res, int ld, int fd, int n) {
     __shared__ T smem[WARP_SIZE*num_thrd];
     __shared__ int mark[WARP_SIZE*num_thrd];
-    int i = blockIdx.x*WARP_SIZE + threadIdx.x;
 
-    if (i < ld) {
-        int myMark = 0;
-        T myMax = dBatchReduce<T, false, num_thrd, Op, OpNop<T> >(op, OpNop<T>(), x, smem, mark, ld, fd, n, myMark);
-        if (threadIdx.y == 0) {
-            ind[i] = myMark;
-            res[i] = myMax;
+
+    if (!colWise) {
+        int i = blockIdx.x*WARP_SIZE + threadIdx.x;
+
+        if (i < ld) {
+            int myMark = 0;
+            T myMax = dBatchReduce<T, false, num_thrd, Op, OpNop<T> >(op, OpNop<T>(), x, smem, mark, ld, fd, n, myMark);
+            if (threadIdx.y == 0) {
+                ind[i] = myMark;
+                res[i] = myMax;
+            }
+        }
+    }else {
+        int j = blockIdx.y*WARP_SIZE + threadIdx.y;
+
+        if (j < fd) {
+            int myMark;
+            T myMax = dBatchReduce<T, true, num_thrd, OpReduce, OpElem>(op, OpNop<T>(), x, smem, mark, ld, fd, n, myMark);
+            if (threadIdx.x == 0) {
+                ind[j] = myMark;
+                res[j] = myMax;
+            }
         }
     }
-
 }
 
 template<class T>

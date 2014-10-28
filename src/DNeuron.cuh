@@ -81,7 +81,7 @@ public:
     virtual void samplePrint() {
     }
 
-    virtual void test_output(std::ofstream &fout, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *act) {
+    virtual void testOutput(std::ofstream &fout, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *act) {
         act->dev2host();
         for (int i = 0; i < y->nrows(); i++) {
             for (int j = 0; j < act->ncols()-1; j++) {
@@ -324,8 +324,8 @@ template<class T>
 class DClusterNeuron : public DNeuron<T> {
     DHyperParams *_hyper_params;
     T _lambda, _margin;
-    DMatrix<T> *_centers, *_dist, *_mask;
-    DMatrix<T> *_min_dist, *_coef;
+    DMatrix<T> *_centers, *_dist, *_mask, *_tmp_centers;
+    DMatrix<T> *_min_dist, *_coef, *_tmp_count, *_tmpk;
 
     DMatrix<int> *_ind;
 
@@ -353,10 +353,13 @@ public:
 
         _centers = new DMatrix<T>(n_dims, n_centers, handle);
         _centers->init(DMatrix<T>::Normal, 0.0, 1.0);
+        _tmp_centers = new DMatrix<T>(n_dims, n_centers, handle);
         _dist = new DMatrix<T>(batch_size, n_centers, handle);
         _mask = new DMatrix<T>(batch_size, n_centers, handle);
         _min_dist = new DMatrix<T>(batch_size, 1, handle);
         _coef = new DMatrix<T>(batch_size, 1, handle);
+        _tmp_count = new DMatrix<T>(n_centers, 1, handle);
+        _tmpk = new DMatrix<T>(n_centers, 1, handle);
         _ind = new DMatrix<int>(batch_size, 1, handle);
     }
 
@@ -367,7 +370,7 @@ public:
         hComputeDistanceKernel(DistEuclid<T>(), act_view, _centers, _dist);
         _dist->applyBinary(OpSqrt<T>(), _dist, _dist->nrows(), _dist->ncols());
         //_dist->samplePrint("dist");
-        hReduce(OpMinReduce<T>(), _dist, _ind, _min_dist, _dist->ncols());
+        hReduce(OpMinReduce<T>(), _dist, _ind, _min_dist, _dist->ncols(), false);
         //_min_dist->samplePrint("min_dist");
         //_ind->samplePrint("ind");
     }
@@ -426,11 +429,15 @@ public:
         _dist->samplePrint("dist");
     }
 
-    virtual void test_output(std::ofstream &fout, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *act) {
+    virtual void testOutput(std::ofstream &fout, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *act) {
         _ind->dev2host();
         for (int i = 0; i < y->nrows(); i++) {
             fout << _ind->getElem(i,0) << "\n";
         }
+        DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
+        _tmp_centers->update(act_view, true, _mask, false, 1.0, 1.0);
+        hReduce(OpSumReduce<T>(), _mask, 
+        
     }
 
 };

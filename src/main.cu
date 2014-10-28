@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
         generic_opts.add_options()
             ("help", "print this help massage")
             ("master", po::value<std::string>(&master_file), "path to master file")
-            ("data", po::value<std::string>(&data_spec_path), "path to data specification file")
+            ("data", po::value<std::string>(&data_spec_path)->default_value("../data/cluster_data"), "path to data specification file")
             ("resume,r", po::value<int>(&resuming)->default_value(-1), "resume from n-th epoch")
             ("device,d", po::value<int>(&devId)->default_value(-1), "id of GPU to use")
             ("check-grad,c", po::value<bool>(&grad_check)->default_value(false)->implicit_value(true), "performe numerical gradient checking")
@@ -272,7 +272,7 @@ int main(int argc, char **argv) {
     //DData<float> *data = new DPatchData<float>("/projects/grail/jxie/paris/", input_dim, 10000, false, handle);
     DData<float> *data;
     if (vm.count("data")) {
-        data = new DGeneralData<float,float,int>(*data_spec, 10000, true, false, handle);
+        data = new DGeneralData<float,float,int>(*data_spec, _bp_hyper_params.batch_size*100, true, false, handle);
     }else {
         data = new DPatchData<float>("../data/", input_dim, 2000, false, handle);
         //data = new DRankData<float>("../data/", input_dim, 64, false, handle);
