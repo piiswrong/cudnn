@@ -6,7 +6,7 @@
 #include <DData.cuh>
 #include <DLayer.cuh>
 #include <DOperators.cuh>
-#include <DHyperParams.cuh>
+#include <DHyperParams.h>
 
 
 template<class T>
@@ -120,6 +120,15 @@ public:
 #endif
     }
 
+    DMatrix<T> *testAct(DMatrix<T> *x) {
+        scaleWeight(true);
+        DHyperParams dummy_param = *_bp_hyper_params;
+        dummy_param.idrop_out = dummy_param.hdrop_out = false;
+        dummy_param.idrop_rate = dummy_param.hdrop_rate = false;
+        fprop(x, _num_layers, _layers, &dummy_param, _state);
+        return _layers[_num_layers-1]->act();
+    }
+
     T bprop(DMatrix<T>* x, DMatrix<T>* y, int num_layers, DLayer<T>** layers, DHyperParams *params) {
         DMatrix<T>* d = layers[num_layers-1]->delta();
 #ifdef DOWN_POUR_SGD
@@ -222,6 +231,7 @@ public:
         DHyperParams dummy_param = *_bp_hyper_params;
         dummy_param.idrop_out = dummy_param.hdrop_out = false;
         dummy_param.idrop_rate = dummy_param.hdrop_rate = false;
+        
         while (data->getData(x, y, _bp_hyper_params->batch_size)) {
             fprop(x, _num_layers, _layers, &dummy_param, _state);
             if (output_path != "") {
@@ -231,6 +241,7 @@ public:
             _layers[_num_layers-1]->neuron()->computeLoss(_layers[_num_layers-1]->delta(), _layers[_num_layers-1]->act(), y);
             loss += _layers[_num_layers-1]->neuron()->getLoss();
             CUDA_CALL(cudaThreadSynchronize());
+            delete x, y;
         }
         return loss/iperEpoch;
     }
@@ -312,7 +323,7 @@ public:
 #ifdef DOWN_POUR_SGD
         if (mpi_world_rank >= sgd_num_param_server)
 #endif  
-            data->start();
+            data->stop(), data->set_testing(false), data->start();
         int iperEpoch = data->instancesPerEpoch();
 #ifdef DOWN_POUR_SGD
         if (mpi_world_rank < sgd_num_param_server)
@@ -390,7 +401,7 @@ public:
     }
 
     bool gradCheck(DHyperParams *hyper, DMatrix<T> *input, DMatrix<T> *output, DLayer<T> **layers, int num_layers, DMatrix<T> **X, DMatrix<T> **dX, int *M, int *N, int L) {
-        const double g_epsilon = 1e-1;
+        const double g_epsilon = 1e-3;
         const double bound = 1e-1;
         int passed = 0, failed = 0;
         double max_fail = 0.0;

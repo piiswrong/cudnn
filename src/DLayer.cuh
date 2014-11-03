@@ -3,7 +3,7 @@
 
 #include <time.h>
 #include <common.cuh>
-#include <DHyperParams.cuh>
+#include <DHyperParams.h>
 #include <DOperators.cuh>
 #include <DNeuron.cuh>
 #include <kernels.cuh>

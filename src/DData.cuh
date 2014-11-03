@@ -7,7 +7,7 @@
 #include <DOperators.cuh>
 #include <pthread.h>
 #include <cstring>
-#include <DHyperParams.cuh>
+#include <DHyperParams.h>
 
 template<class T>
 class DData {

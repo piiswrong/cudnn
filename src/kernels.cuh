@@ -316,7 +316,7 @@ __global__ void kReduce(Op op, T *x, int *ind, T *res, int ld, int fd, int n) {
 
         if (j < fd) {
             int myMark;
-            T myMax = dBatchReduce<T, true, num_thrd, OpReduce, OpElem>(op, OpNop<T>(), x, smem, mark, ld, fd, n, myMark);
+            T myMax = dBatchReduce<T, true, num_thrd, Op, OpNop<T> >(op, OpNop<T>(), x, smem, mark, ld, fd, n, myMark);
             if (threadIdx.x == 0) {
                 ind[j] = myMark;
                 res[j] = myMax;

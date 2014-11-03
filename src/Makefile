@@ -1,10 +1,9 @@
-FLAGS = -O3 -DNDEBUG --use_fast_math 
+FLAGS = -O0 -DNDEBUG --use_fast_math 
 #FLAGS = -g -G
 FLAGS += -DBOOST_NOINLINE='__attribute__ ((noinline))'
 #FLAGS = -O3 -DNDEBUG -DDISABLE_GPU -DWITH_GMTK
 #FLAGS =  -g -DDISABLE_GPU #-DADMM
 #SUFIX = cpp 
-SUFIX = cu
 #CC = gcc -pthread -std=c++0x
 CC = nvcc --compiler-options="-pthread"
 #FLAGS += -DNVML
@@ -39,20 +38,31 @@ INCLUDE += -I/usr/lib/openmpi/include -I/usr/lib/openmpi/include/openmpi
 #	$(CC) $(FLAGS) $(INCLUDE) -c gmtkGPUtrain.cpp 
 #	$(CC) $(FLAGS) $(LIBS) common.o kernels.o gmtkGPUtrain.o -o gmtkGPUtrain
 #	rm gmtkGPUtrain.o
+#
 
-main: common.o kernels.o main.o 
-	$(CC) $(FLAGS) $(LIBS) common.o kernels.o main.o -o main
-	rm main.o
+HEADERS = $(wildcard *.cuh)
 
-common.o: common.cuh common.$(SUFIX)
-	$(CC) $(FLAGS) $(INCLUDE) -c common.$(SUFIX)
+main: common.o kernels.o main.o DDataSpec.o DHyperParams.o DOption.o
+	$(CC) $(FLAGS) $(LIBS) common.o kernels.o main.o DDataSpec.o DHyperParams.o DOption.o -o main
 
+common.o: common.cuh common.cu
+	$(CC) $(FLAGS) $(INCLUDE) -c common.cu
 
-kernels.o: kernels.cuh kernels.$(SUFIX)
-	$(CC) $(FLAGS) $(INCLUDE) -c kernels.$(SUFIX)
+kernels.o: kernels.cuh kernels.cu
+	$(CC) $(FLAGS) $(INCLUDE) -c kernels.cu
 
-main.o: main.$(SUFIX)
-	$(CC) $(FLAGS) $(INCLUDE) -c main.$(SUFIX)
+main.o: main.cu $(HEADERS)
+	$(CC) $(FLAGS) $(INCLUDE) -c main.cu
+
+DHyperParams.o: DHyperParams.cc DHyperParams.h
+	$(CC) $(FLAGS) $(INCLUDE) -c DHyperParams.cc
+
+DDataSpec.o: DDataSpec.cc DDataSpec.h
+	$(CC) $(FLAGS) $(INCLUDE) -c DDataSpec.cc
+
+DOption.o: DOption.cc DOption.h
+	$(CC) $(FLAGS) $(INCLUDE) -c DOption.cc
+
 
 clean:
-	rm *.o main
+	rm -f *.o main 

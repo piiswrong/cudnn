@@ -101,7 +101,7 @@ public:
     void samplePrint(const char * title = NULL) {
         const int nlines = 10;
         dev2host();
-        if (title != NULL) printf("%s\n", title);
+        if (title != NULL) printf("%s (%d, %d)\n", title, nrows(), ncols());
         T max = getElem(0,0), min = getElem(0,0);
         for (int i = 0; i < nrows(); i++) {
             for (int j = 0; j < ncols(); j++) {
@@ -323,7 +323,7 @@ public:
             std::swap(Ta, Tb);
             Ta = !Ta; Tb = !Tb;
         }
-        assert(A->nrows(Ta) == ld());
+        assert(A->nrows(Ta) <= ld());
         assert(A->ncols(Ta) == B->nrows(Tb));
         assert(B->ncols(Tb) == fd());
         //printf("A:%dx%d\t B:%dx%d C:%dx%d\n", A->nrows(Ta), A->ncols(Ta), B->nrows(Tb), B->ncols(Tb), ld(), fd());
@@ -462,17 +462,17 @@ void hDropout(DMatrix<T> *x, DMatrix<T> *mask, curandState *state, float rate, b
 }
 
 template<class T, class OpElem, class OpReduce, class OpAll, class OpNorm>
-void hNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm opNorm, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *norm, int n, bool colWise) {
-    assert(x->getT() == y->getT());
+void hNormalize(OpElem opElem, OpReduce opReduce, OpAll opAll, OpNorm opNorm, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *norm, DMatrix<T> *ind, int n, bool colWise) {
+    assert(y == NULL || x->getT() == y->getT());
     if (colWise ^ x->getT()) {
         dim3 grid(1, (x->fd()-1)/WARP_SIZE+1, 1);
         dim3 block(32, WARP_SIZE, 1);
-        kNormalize<T,true,32><<<grid, block>>>(opElem, opReduce, opAll, opNorm, x->dev_data(), y->dev_data(), norm!=NULL?norm->dev_data():NULL, x->ld(), x->fd(), n);
+        kNormalize<T,true,32><<<grid, block>>>(opElem, opReduce, opAll, opNorm, x->dev_data(), y!=NULL?y->dev_data():NULL, norm!=NULL?norm->dev_data():NULL, ind!=NULL?ind->dev_data():NULL, x->ld(), x->fd(), n);
         CUDA_KERNEL_CHECK();
     }else {
         dim3 grid((x->ld()-1)/WARP_SIZE+1, 1, 1);
         dim3 block(WARP_SIZE, 32, 1);
-        kNormalize<T,false,32><<<grid, block>>>(opElem, opReduce, opAll, opNorm, x->dev_data(), y->dev_data(), norm!=NULL?norm->dev_data():NULL, x->ld(), x->fd(), n);
+        kNormalize<T,false,32><<<grid, block>>>(opElem, opReduce, opAll, opNorm, x->dev_data(), y!=NULL?y->dev_data():NULL, norm!=NULL?norm->dev_data():NULL, ind!=NULL?ind->dev_data():NULL, x->ld(), x->fd(), n);
         CUDA_KERNEL_CHECK();
     }
 }

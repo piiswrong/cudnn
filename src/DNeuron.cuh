@@ -91,6 +91,7 @@ public:
             }
         }
     }
+
 };
 
 template<class T>
@@ -345,6 +346,12 @@ public:
         }
     };
 
+    
+
+    DMatrix<T> *centers() { return _centers; }
+    DMatrix<T> *mask() { return _mask; }
+    DMatrix<T> *min_dist() { return _min_dist; }
+
     DClusterNeuron(DHyperParams *hyper_params, int n_centers, int n_dims, T lambda, T margin, cublasHandle_t handle) : DNeuron<T>(handle) {
         int batch_size = hyper_params->batch_size;
         _lambda = lambda;
@@ -434,10 +441,6 @@ public:
         for (int i = 0; i < y->nrows(); i++) {
             fout << _ind->getElem(i,0) << "\n";
         }
-        DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
-        _tmp_centers->update(act_view, true, _mask, false, 1.0, 1.0);
-        hReduce(OpSumReduce<T>(), _mask, 
-        
     }
 
 };
