@@ -380,6 +380,7 @@ public:
         hReduce(OpMinReduce<T>(), _dist, _ind, _min_dist, _dist->ncols(), false);
         //_min_dist->samplePrint("min_dist");
         //_ind->samplePrint("ind");
+        hDecode(_mask, _ind);
     }
 
     virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
@@ -392,7 +393,6 @@ public:
         DMatrix<T> *drv_view = new DMatrix<T>(drv, 0, drv->fd()-1);
         DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
         delta_view->CopyFrom(act_view);
-        hDecode(_mask, _ind);
         delta_view->update(_mask, false, _centers, true, -1.0, 1.0);
         //delta->samplePrint("delta1");
         //_coef->samplePrint("y");
@@ -432,8 +432,7 @@ public:
     }*/
 
     virtual void samplePrint() {
-        _centers->samplePrint("centers");
-        _dist->samplePrint("dist");
+        //_dist->samplePrint("dist");
     }
 
     virtual void testOutput(std::ofstream &fout, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *act) {

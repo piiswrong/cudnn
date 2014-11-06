@@ -179,7 +179,7 @@ int main(int argc, char **argv) {
     //DData<float> *data = new DPatchData<float>("/projects/grail/jxie/paris/", input_dim, 10000, false, handle);
     DData<float> *data;
     if (opt.count("data")) {
-        data = new DGeneralData<float,float,int>(opt.data_spec, opt.bp_hyper_params.batch_size*100, true, false, handle);
+        data = new DGeneralData<float,float,int>(opt.data_spec, opt.bp_hyper_params.batch_size*100, false, false, handle);
     }else {
         data = new DPatchData<float>("../data/", opt.input_dim, 2000, false, handle);
         //data = new DRankData<float>("../data/", input_dim, 64, false, handle);
@@ -201,8 +201,6 @@ int main(int argc, char **argv) {
     DKmeans<float> *kmeans = new DKmeans<float>(dnn, data, opt.bp_hyper_params.batch_size, last_neuron->centers(), last_neuron->mask(), last_neuron->min_dist(), handle);
 
     kmeans->cluster(5);
-
-    exit(-1);
 
     if (opt.grad_check) {
         return !dnn->createGradCheck(data);

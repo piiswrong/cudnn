@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
 #include <cstring>
 #include <string>
 #include <algorithm>

@@ -367,10 +367,10 @@ public:
             //_layers[5]->weight()->samplePrint();
             if (lastCheck >= _bp_hyper_params->check_interval) {
                 _layers[_num_layers-1]->neuron()->samplePrint();
-                _layers[_num_layers-1]->act()->samplePrint("top act");
-                y->samplePrint("y");
-                x->samplePrint("x");
-                _layers[0]->weight()->samplePrint("weight");
+                //_layers[_num_layers-1]->act()->samplePrint("top act");
+                //y->samplePrint("y");
+                //x->samplePrint("x");
+                //_layers[0]->weight()->samplePrint("weight");
 #ifdef ADMM
                 printf("\nNode%d\tEpoch: %d\tInstance: %d\tError: %f\n", mpi_world_rank, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
 #elif defined(DOWN_POUR_SGD)

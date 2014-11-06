@@ -5,7 +5,7 @@ FLAGS += -DBOOST_NOINLINE='__attribute__ ((noinline))'
 #FLAGS =  -g -DDISABLE_GPU #-DADMM
 #SUFIX = cpp 
 #CC = gcc -pthread -std=c++0x
-CC = nvcc --compiler-options="-pthread"
+CC = nvcc --compiler-options="-pthread" 
 #FLAGS += -DNVML
 LIBS += -lnvidia-ml
 LIBS += -lcudart -lcublas 
@@ -41,6 +41,7 @@ INCLUDE += -I/usr/lib/openmpi/include -I/usr/lib/openmpi/include/openmpi
 #
 
 HEADERS = $(wildcard *.cuh)
+HEADERS += $(wildcard *.h)
 
 main: common.o kernels.o main.o DDataSpec.o DHyperParams.o DOption.o
 	$(CC) $(FLAGS) $(LIBS) common.o kernels.o main.o DDataSpec.o DHyperParams.o DOption.o -o main
