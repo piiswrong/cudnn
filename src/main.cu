@@ -200,7 +200,7 @@ int main(int argc, char **argv) {
 
     DKmeans<float> *kmeans = new DKmeans<float>(dnn, data, opt.bp_hyper_params.batch_size, last_neuron->centers(), last_neuron->mask(), last_neuron->min_dist(), handle);
 
-    kmeans->cluster(5);
+    kmeans->cluster();
 
     if (opt.grad_check) {
         return !dnn->createGradCheck(data);
@@ -227,7 +227,7 @@ int main(int argc, char **argv) {
         dnn->fineTune(data, opt.resuming, opt.resuming+opt.bp_epochs);
 
 
-    kmeans->cluster(5);
+    kmeans->cluster();
 
 #endif
     if (opt.output_path != "") {
