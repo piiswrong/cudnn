@@ -41,9 +41,9 @@ int main(int argc, char **argv) {
 #endif
 
     DOption opt;
-    opt.num_layers = 2;
-    opt.hidden_dim = 10;
-    opt.input_dim = 10, opt.output_dim = 2;
+    opt.num_layers = 1;
+    opt.hidden_dim = 1023;
+    opt.input_dim = 10, opt.output_dim = 255;
     opt.neuron = "ReLU";
     opt.pt_epochs = 0.0;
     opt.bp_epochs = 20;
@@ -191,7 +191,7 @@ int main(int argc, char **argv) {
     //neurons[num_layers-1] = new DTanhNeuron<float>(handle);
     //neurons[num_layers-1] = new DGMMNeuron<float>(&opt.bp_hyper_params, 256, output_dim, 0.1, handle);
     //DvMFNeuron<float> *last_neuron = new DvMFNeuron<float>(&opt.bp_hyper_params, 32, output_dim, 0.2, handle);
-    DClusterNeuron<float> *last_neuron = new DClusterNeuron<float>(&opt.bp_hyper_params, 10, opt.output_dim, 0.1, 0.1*opt.output_dim, handle);
+    DClusterNeuron<float> *last_neuron = new DClusterNeuron<float>(&opt.bp_hyper_params, 256, opt.output_dim, 0.5, 5.0, handle);
     neurons[opt.num_layers-1] =  last_neuron;
     //last_neuron->init(data);
     //neurons[num_layers-1] = last_neuron;
@@ -223,11 +223,12 @@ int main(int argc, char **argv) {
         opt.resuming = 0;
     if (opt.master_file != "")
         fineTuneWithCheckpoint(dnn, data, opt.bp_epochs, 10, opt.master_file, opt.resuming);
-    else 
-        dnn->fineTune(data, opt.resuming, opt.resuming+opt.bp_epochs);
-
-
-    kmeans->cluster();
+    else {
+        for (int i = 0; i < opt.bp_epochs; i++) {
+            dnn->fineTune(data, opt.resuming+i, opt.resuming+i+1);
+            kmeans->cluster();
+        }
+    }
 
 #endif
     if (opt.output_path != "") {

@@ -368,7 +368,7 @@ public:
             if (lastCheck >= _bp_hyper_params->check_interval) {
                 _layers[_num_layers-1]->neuron()->samplePrint();
                 //_layers[_num_layers-1]->act()->samplePrint("top act");
-                //y->samplePrint("y");
+                y->samplePrint("y");
                 //x->samplePrint("x");
                 //_layers[0]->weight()->samplePrint("weight");
 #ifdef ADMM

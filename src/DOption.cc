@@ -26,7 +26,7 @@ bool DOption::parse(int argc, char **argv) {
         generic_opts.add_options()
             ("help", "print this help massage")
             ("master", po::value<std::string>(&master_file), "path to master file")
-            ("data", po::value<std::string>(&data_spec_path)->default_value("../data/cluster_data"), "path to data specification file")
+            ("data", po::value<std::string>(&data_spec_path)->default_value("../../paris/data_spec"), "path to data specification file")
             ("resume,r", po::value<int>(&resuming)->default_value(-1), "resume from n-th epoch")
             ("device,d", po::value<int>(&devId)->default_value(-1), "id of GPU to use")
             ("check-grad,c", po::value<bool>(&grad_check)->default_value(false)->implicit_value(true), "performe numerical gradient checking")

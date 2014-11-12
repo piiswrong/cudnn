@@ -432,13 +432,15 @@ public:
     }*/
 
     virtual void samplePrint() {
-        //_dist->samplePrint("dist");
+        _min_dist->samplePrint("min dist");
     }
 
     virtual void testOutput(std::ofstream &fout, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *act) {
+        //return DNeuron<T>::testOutput(fout, x, y, act);
         _ind->dev2host();
+        _min_dist->dev2host();
         for (int i = 0; i < y->nrows(); i++) {
-            fout << _ind->getElem(i,0) << "\n";
+            fout << _ind->getElem(i,0) << " " << _min_dist->getElem(i,0) << "\n";
         }
     }
 
