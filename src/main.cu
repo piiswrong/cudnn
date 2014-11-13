@@ -204,7 +204,7 @@ int main(int argc, char **argv) {
 
     DKmeans<float> *kmeans = new DKmeans<float>(dnn, data, opt.bp_hyper_params.batch_size, last_neuron->centers(), last_neuron->mask(), last_neuron->min_dist(), handle);
 
-    kmeans->cluster();
+    //kmeans->cluster();
 
     
     if (opt.resuming == -1 && opt.pt_epochs > 0) dnn->pretrain(data, opt.pt_epochs);

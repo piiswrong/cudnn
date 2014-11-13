@@ -12,6 +12,7 @@
 
 template<class T>
 class DLayer {
+protected:
     bool _on_device;
     cublasHandle_t _handle;
     int _input_dim;
@@ -22,12 +23,6 @@ class DLayer {
     DHyperParams* _bp_hyper_params;
 
     DMatrix<T> *_momentun, *_weight, *_drv, *_act, *_delta, *_mask;
-#ifdef ADMM
-    DMatrix<T> *_z, *_u, *_buf;
-#endif
-#ifdef DOWN_POUR_SGD
-    DMatrix<T> *_grad;
-#endif
     curandState *_state;
 public:
     DLayer(int input_dim, int output_dim, int layer_id, DNeuron<T> *neuron, 
@@ -48,14 +43,7 @@ public:
         _momentun = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
         _momentun->init(DMatrix<T>::Zero);
         _weight = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
-#ifdef DOWN_POUR_SGD
-        _weight->mpiCreateWin();
-#endif
-//        if (_bp_hyper_params->sparseInit) {
-//            _weight->init(DMatrix<T>::Weight|DMatrix<T>::Uniform|DMatrix<T>::ColSparse, -1.0/sqrt((T)_weight->ld()), 1.0/sqrt((T)_weight->ld()));
-//        }else {
-            _weight->init(DMatrix<T>::Weight|DMatrix<T>::Normal, 0, 1.0/sqrt((T)_weight->ld()));
-//        }
+        _weight->init(DMatrix<T>::Weight|DMatrix<T>::Normal, 0, 1.0/sqrt((T)_weight->ld()));
         _drv = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _drv->init(DMatrix<T>::Zero);
         _act = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
@@ -64,22 +52,6 @@ public:
         _delta->init(DMatrix<T>::Zero);
         _mask = new DMatrix<T>(bp_hyper_params->batch_size, _output_dim+1, _handle);
         _mask->init(DMatrix<T>::Zero);
-#ifdef ADMM
-        _z = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
-        _z->init(DMatrix<T>::Zero);
-        _u = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
-        _u->init(DMatrix<T>::Zero);
-        _buf = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
-        _buf->init(DMatrix<T>::Zero);
-#endif
-
-#ifdef DOWN_POUR_SGD
-        if (mpi_world_rank < sgd_num_param_server) {
-            _grad = new DMatrix<T>(_input_dim+1, _output_dim+1, _handle);
-            _grad->init(DMatrix<T>::Zero);
-        }
-#endif
-
 #ifndef DISABLE_GPU
         if (_on_device) {
             CUDA_CALL(cudaMalloc((void**)&_state, _act->nelem()*sizeof(curandState)));
@@ -93,12 +65,6 @@ public:
 
     ~DLayer() {
         delete _momentun, _weight, _drv, _act, _delta, _mask;
-#ifdef ADMM
-        delete _z, _u, _buf;
-#endif
-#ifdef DOWN_POUR_SGD
-        delete _grad;
-#endif
         if (_on_device) {
             CUDA_CALL(cudaFree((void*)_state));
         }
@@ -117,23 +83,7 @@ public:
         _momentun->init(DMatrix<T>::Zero);
     }
 
-#ifdef ADMM
-    void ADMM_reduce() {
-        _z->applyTenary(OpAdd<T>(), _weight, _u, _weight->nrows(), _weight->ncols());
-        _z->mpiAllReduce(_z, MPI_SUM);
-        _z->applyBinary(OpScale<T>(1.0/mpi_world_size), _z, _z->nrows(), _z->ncols());
-        _u->applyTenary(OpSubEqu<T>(), _weight, _z, _weight->nrows(), _weight->ncols());
-        _buf->applyTenary(OpSub<T>(), _u, _z, _buf->nrows(), _buf->ncols());
-        _weight->mpiAllReduce(_weight, MPI_SUM);
-        _weight->applyBinary(OpScale<T>(1.0/mpi_world_size), _weight, _weight->nrows(), _weight->ncols());
-    }
-#endif
-
     void fprop(DMatrix<T>* dev_data, bool drop_out, float drop_rate) {
-#ifdef DOWN_POUR_SGD
-        _weight->mpiGet(0);
-        //printf("%f\n", _weight->getElem(0,0));
-#endif
         _drv->update(dev_data, false, _weight, false);
         _neuron->fprop(_act, _drv);
         if (drop_out) 
@@ -142,39 +92,18 @@ public:
     
     void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, float rate, float mom, bool drop_out, bool decay, float decay_rate, bool rectify_weight, bool rectify_bias) {
         assert(!_weight->getT());
-#ifdef DOWN_POUR_SGD
-        if (mpi_world_rank >= sgd_num_param_server) {
-#endif
-            _neuron->bprop(_delta, _drv, _act);
-            if (drop_out && !_neuron->easyDropout()) 
-                _delta->applyBinary(OpMul<T>(), _mask, _delta->nrows(), _delta->ncols()-1);
+        _neuron->bprop(_delta, _drv, _act);
+        if (drop_out && !_neuron->easyDropout()) 
+            _delta->applyBinary(OpMul<T>(), _mask, _delta->nrows(), _delta->ncols()-1);
 
-            if (delta)
-                delta->update(_delta, false, _weight, true, 1.0, 0.0);
-#ifdef DOWN_POUR_SGD
-            _momentun->update(pre_act, true, _delta, false, -(1.0-mom)*rate/_delta->nrows(), 0.0);
-#else
-            _momentun->update(pre_act, true, _delta, false, -(1.0-mom)*rate/_delta->nrows(), mom);
-#endif
+        if (delta)
+            delta->update(_delta, false, _weight, true, 1.0, 0.0);
+        _momentun->update(pre_act, true, _delta, false, -(1.0-mom)*rate/_delta->nrows(), mom);
 
-#ifdef ADMM
-            _momentun->applyTenary(OpADMMDecay<T>(-(1.0-mom)*rate*decay_rate), _weight, _buf, _weight->nrows(), _weight->ncols());
-#else
-            if (decay) {
-                _momentun->applyBinary(OpScaleAdd<T>(-(1.0-mom)*rate*decay_rate), _weight, _weight->nrows()-1, _weight->ncols());
-            }
-#endif
-
-#ifdef DOWN_POUR_SGD
-            _momentun->mpiSend(0, _layer_id);
-        }else {
-            _grad->mpiRecv(MPI_ANY_SOURCE, _layer_id);
-            _momentun->applyBinary(OpDPSGDMom<T>(mom), _grad, _weight->nrows(), _weight->ncols());
-            T tt = _weight->getElem(0,0);
-            _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());
-            //printf("%f+%f=%f\n", tt, _momentun->getElem(0,0), _weight->getElem(0,0));
+        if (decay) {
+            _momentun->applyBinary(OpScaleAdd<T>(-(1.0-mom)*rate*decay_rate), _weight, _weight->nrows()-1, _weight->ncols());
         }
-#else
+
         _weight->add(_momentun, 1.0, _weight->nelem() - _weight->ld());
         if (rectify_weight && rectify_bias) 
             _weight->applyBinary(OpRectify<T>(), _weight, _weight->nrows(), _weight->ncols()-1);
@@ -184,7 +113,6 @@ public:
             printf("Error: doesn't support only rectifying bias!\n");
             exit(-1);
         }
-#endif
     }
 
 

@@ -376,9 +376,38 @@ public:
         DMatrix<T> *drv_view = new DMatrix<T>(drv, 0, drv->fd()-1);
         DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
         hComputeDistanceKernel(DistEuclid<T>(), act_view, _centers, _dist);
+        /*
+        act_view->dev2host();
+        _centers->dev2host();
+        _dist->dev2host();
+        for (int i = 0; i < act_view->nrows(); i++) {
+            for (int j = 0; j < _centers->ncols(); j++) {
+                T s = 0;
+                for (int k = 0; k < act_view->ncols(); k++) {
+                    T t = act_view->getElem(i,k) - _centers->getElem(k,j);
+                    s += t*t;
+                }
+                T d = _dist->getElem(i,j);
+                if ( true || abs(s-d)/max(abs(s), abs(d)) > 1e-5 ) {
+                    printf("ERROR:%f %f\n", s, d);
+                }
+            }
+        }
+        */
         _dist->applyBinary(OpSqrt<T>(), _dist, _dist->nrows(), _dist->ncols());
         //_dist->samplePrint("dist");
         hReduce(OpMinReduce<T>(), _dist, _ind, _min_dist, _dist->ncols(), false);
+        /*
+        _min_dist->dev2host();
+        _dist->dev2host();
+        for (int i = 0; i < _dist->nrows(); i++) {
+            for (int j = 0; j < _dist->ncols(); j++) {
+                if (_min_dist->getElem(i,0) > _dist->getElem(i,j)) {
+                    printf("ERROR: %f %f", _min_dist->getElem(i,0), _dist->getElem(i,j));
+                }
+            }
+        }*/
+        
         //_min_dist->samplePrint("min_dist");
         //_ind->samplePrint("ind");
         hDecode(_mask, _ind);
