@@ -322,6 +322,130 @@ HOSTDEVICE float DOddrootNeuron<float>::ForwardOp::operator() (float act, float 
 */
 
 template<class T>
+class DClusterNeuron2 : public DNeuron<T> {
+    DHyperParams *_hyper_params;
+    T _lambda, _margin;
+    DMatrix<T> *_centers, *_dist, *_mask, *_tmp_centers;
+    DMatrix<T> *_min_dist, *_coef, *_tmp_count, *_tmpk;
+
+    DMatrix<int> *_ind;
+
+    T _loss;
+
+    
+    
+public:
+    class OpDelta {
+        T _m, _lambda;
+    public:
+        OpDelta(T m, T lambda) : _m(m), _lambda(lambda) {}
+        HOSTDEVICE T operator() (T y, T d) {
+            T t = d < _m;
+            return _lambda*y*t/(d+1e-8) - (1.0-_lambda)*(1.0-y)*t/(d+0.000001);
+        }
+    };
+
+    
+
+    DMatrix<T> *centers() { return _centers; }
+    DMatrix<T> *mask() { return _mask; }
+    DMatrix<T> *min_dist() { return _min_dist; }
+
+    DClusterNeuron2(DHyperParams *hyper_params, int n_centers, int n_dims, T lambda, T margin, cublasHandle_t handle) : DNeuron<T>(handle) {
+        int batch_size = hyper_params->batch_size;
+        _lambda = lambda;
+        _margin = margin;
+        _hyper_params = hyper_params;
+
+        _centers = new DMatrix<T>(n_dims, n_centers, handle);
+        _centers->init(DMatrix<T>::Normal, 0.0, 1.0);
+        _tmp_centers = new DMatrix<T>(n_dims, n_centers, handle);
+        _dist = new DMatrix<T>(batch_size, n_centers, handle);
+        _mask = new DMatrix<T>(batch_size, n_centers, handle);
+        _min_dist = new DMatrix<T>(batch_size, 1, handle);
+        _coef = new DMatrix<T>(batch_size, 1, handle);
+        _tmp_count = new DMatrix<T>(n_centers, 1, handle);
+        _tmpk = new DMatrix<T>(n_centers, 1, handle);
+        _ind = new DMatrix<int>(batch_size, 1, handle);
+    }
+
+    virtual void fprop(DMatrix<T> *act, DMatrix<T> *drv) {
+        act->CopyFrom(drv);
+        DMatrix<T> *drv_view = new DMatrix<T>(drv, 0, drv->fd()-1);
+        DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
+        hComputeDistanceKernel(DistEuclid<T>(), act_view, _centers, _dist);
+        _dist->applyBinary(OpSqrt<T>(), _dist, _dist->nrows(), _dist->ncols());
+        //_dist->samplePrint("dist");
+        hReduce(OpMinReduce<T>(), _dist, _ind, _min_dist, _dist->ncols(), false);
+        //_min_dist->samplePrint("min_dist");
+        //_ind->samplePrint("ind");
+        hDecode(_mask, _ind);
+    }
+
+    virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        _coef->CopyFrom(y);
+        _coef->setT();
+    }
+
+    virtual void bprop(DMatrix<T> *delta, DMatrix<T> *drv, DMatrix<T> *act) {
+        DMatrix<T> *delta_view = new DMatrix<T>(delta, 0, delta->fd()-1);
+        DMatrix<T> *drv_view = new DMatrix<T>(drv, 0, drv->fd()-1);
+        DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
+        delta_view->CopyFrom(act_view);
+        delta_view->update(_mask, false, _centers, true, -1.0, 1.0);
+        //delta->samplePrint("delta1");
+        //_coef->samplePrint("y");
+        _coef->applyBinary(OpDelta(_margin, _lambda), _min_dist, _coef->nrows(), _coef->ncols());
+        //_coef->samplePrint("coef");
+        delta_view->diagMul(delta_view, _coef, true);
+        //delta->samplePrint("delta2");
+    }
+
+    virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        y->dev2host();
+        _min_dist->dev2host();
+        _loss = 0.0;
+        for(int i = 0; i < y->nrows(); i++) {
+            T yi = y->getElem(i,0);
+            T di = _min_dist->getElem(i,0);
+            _loss += _lambda*yi*min(di, _margin) + (1.0-_lambda)*(1.0-yi)*max(_margin-di,0.0);
+        }
+    }
+
+    virtual T getLoss() {
+        return _loss;
+    }
+
+    /*virtual int params(DMatrix<T> **&X, DMatrix<T> **&dX, int *&M, int *&N) {
+        int L = 1;
+        X = new DMatrix<T>*[L];
+        dX = new DMatrix<T>*[L];
+        M = new int[L];
+        N = new int[L];
+        X[0] = _means;
+        dX[0] = _mom_means;
+        M[0] = _means->nrows();
+        N[0] = _means->ncols();
+        return L;
+    }*/
+
+    virtual void samplePrint() {
+        _min_dist->samplePrint("min dist");
+    }
+
+    virtual void testOutput(std::ofstream &fout, DMatrix<T> *x, DMatrix<T> *y, DMatrix<T> *act) {
+        //return DNeuron<T>::testOutput(fout, x, y, act);
+        _ind->dev2host();
+        _min_dist->dev2host();
+        for (int i = 0; i < y->nrows(); i++) {
+            fout << _ind->getElem(i,0) << " " << _min_dist->getElem(i,0) << "\n";
+        }
+    }
+
+};
+
+
+template<class T>
 class DClusterNeuron : public DNeuron<T> {
     DHyperParams *_hyper_params;
     T _lambda, _margin;

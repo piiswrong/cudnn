@@ -401,7 +401,7 @@ public:
     }
 
     bool gradCheck(DHyperParams *hyper, DMatrix<T> *input, DMatrix<T> *output, DLayer<T> **layers, int num_layers, DMatrix<T> **X, DMatrix<T> **dX, int *M, int *N, int L) {
-        const double g_epsilon = 1e-3;
+        const double g_epsilon = 1e-2;
         const double bound = 1e-1;
         int passed = 0, failed = 0;
         double max_fail = 0.0;

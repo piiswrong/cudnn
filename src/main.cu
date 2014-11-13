@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
 #endif
 
     DOption opt;
-    opt.num_layers = 1;
+    opt.num_layers = 2;
     opt.hidden_dim = 1023;
     opt.input_dim = 10, opt.output_dim = 255;
     opt.neuron = "ReLU";
@@ -191,20 +191,22 @@ int main(int argc, char **argv) {
     //neurons[num_layers-1] = new DTanhNeuron<float>(handle);
     //neurons[num_layers-1] = new DGMMNeuron<float>(&opt.bp_hyper_params, 256, output_dim, 0.1, handle);
     //DvMFNeuron<float> *last_neuron = new DvMFNeuron<float>(&opt.bp_hyper_params, 32, output_dim, 0.2, handle);
-    DClusterNeuron<float> *last_neuron = new DClusterNeuron<float>(&opt.bp_hyper_params, 256, opt.output_dim, 0.5, 5.0, handle);
+    DClusterNeuron2<float> *last_neuron = new DClusterNeuron2<float>(&opt.bp_hyper_params, 255, opt.output_dim, 0.8, 5.0, handle);
     neurons[opt.num_layers-1] =  last_neuron;
     //last_neuron->init(data);
     //neurons[num_layers-1] = last_neuron;
     
     DNN<float> *dnn = new DNN<float>(opt.num_layers, layer_dims, neurons, &opt.pt_hyper_params, &opt.bp_hyper_params, handle);
 
+    if (opt.grad_check) {
+        return !dnn->createGradCheck(data);
+    }
+
     DKmeans<float> *kmeans = new DKmeans<float>(dnn, data, opt.bp_hyper_params.batch_size, last_neuron->centers(), last_neuron->mask(), last_neuron->min_dist(), handle);
 
     kmeans->cluster();
 
-    if (opt.grad_check) {
-        return !dnn->createGradCheck(data);
-    }
+    
     if (opt.resuming == -1 && opt.pt_epochs > 0) dnn->pretrain(data, opt.pt_epochs);
     if (opt.resuming != -1) {
         printf("Resuming from %d-th epoch.\n", opt.resuming);

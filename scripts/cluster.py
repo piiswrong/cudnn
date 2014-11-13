@@ -11,7 +11,7 @@ data = []
 for i in xrange(n_centers):
     data.append(np.random.normal(0,sigma,(n_samples, n_dim)) + centers[i])
 
-data.append(np.random.normal(0,1,(n_samples*n_centers, n_dim)))
+data.append(np.random.normal(0,sigma,(n_samples*n_centers, n_dim)))
 
 data = np.concatenate(data, axis = 0)
 Y = np.zeros((n_samples*n_centers*2,1))
@@ -22,8 +22,11 @@ np.random.shuffle(data)
 N = data.shape[0]
 X_train = data[:N/2,:-1]
 Y_train = data[:N/2,-1]
+print Y_train.sum()
 X_test = data[N/2:,:-1]
 Y_test = data[N/2:,-1]
+print Y_test.sum();
+print Y_test[:10]
 X_train.astype(np.float32).tofile("../data/clusterData.train")
 Y_train.astype(np.int32).tofile("../data/clusterLabel.train")
 X_test.astype(np.float32).tofile("../data/clusterData.test")
@@ -34,6 +37,7 @@ fspec.write(
 """
 input-dim=%d
 output-dim=1
+yonehot=false
 train-data=clusterData.train
 train-label=clusterLabel.train
 train-items=%d
