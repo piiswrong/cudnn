@@ -325,7 +325,8 @@ template<class T>
 class DClusterNeuron2 : public DNeuron<T> {
     DHyperParams *_hyper_params;
     T _lambda, _margin;
-    DMatrix<T> *_centers, *_dist, *_mask, *_tmp_centers;
+    DMatrix<T> *_centers, *_dist, *_mask; 
+    DMatrix<T> *_mom_centers;
     DMatrix<T> *_min_dist, *_coef, *_tmp_count, *_tmpk;
 
     DMatrix<int> *_ind;
@@ -359,7 +360,8 @@ public:
 
         _centers = new DMatrix<T>(n_dims, n_centers, handle);
         _centers->init(DMatrix<T>::Normal, 0.0, 1.0);
-        _tmp_centers = new DMatrix<T>(n_dims, n_centers, handle);
+        _mom_centers = new DMatrix<T>(n_dims, n_centers, handle);
+        _mom_centers->init(DMatrix<T>::Zero, 0.0, 0.0);
         _dist = new DMatrix<T>(batch_size, n_centers, handle);
         _mask = new DMatrix<T>(batch_size, n_centers, handle);
         _min_dist = new DMatrix<T>(batch_size, 1, handle);
@@ -399,6 +401,10 @@ public:
         //_coef->samplePrint("coef");
         delta_view->diagMul(delta_view, _coef, true);
         //delta->samplePrint("delta2");
+
+        //update centers
+        _mom_centers->update(delta_view, true, _mask, false, (1.0-_hyper_params->current_momentum)*_hyper_params->current_learning_rate/delta_view->nrows(), _hyper_params->current_momentum);
+        _centers->add(_mom_centers, 1.0, _centers->nelem());
     }
 
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
@@ -416,18 +422,18 @@ public:
         return _loss;
     }
 
-    /*virtual int params(DMatrix<T> **&X, DMatrix<T> **&dX, int *&M, int *&N) {
+    virtual int params(DMatrix<T> **&X, DMatrix<T> **&dX, int *&M, int *&N) {
         int L = 1;
         X = new DMatrix<T>*[L];
         dX = new DMatrix<T>*[L];
         M = new int[L];
         N = new int[L];
-        X[0] = _means;
-        dX[0] = _mom_means;
-        M[0] = _means->nrows();
-        N[0] = _means->ncols();
+        X[0] = _centers;
+        dX[0] = _mom_centers;
+        M[0] = _centers->nrows();
+        N[0] = _centers->ncols();
         return L;
-    }*/
+    }
 
     virtual void samplePrint() {
         _min_dist->samplePrint("min dist");
