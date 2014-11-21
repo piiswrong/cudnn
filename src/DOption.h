@@ -22,6 +22,7 @@ public:
     int resuming, devId;
     bool grad_check;
     int num_layers, hidden_dim, input_dim, output_dim;
+    std::string net_spec;
     std::string neuron;
     float pt_epochs;
     int bp_epochs;

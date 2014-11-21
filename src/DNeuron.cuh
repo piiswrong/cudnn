@@ -45,7 +45,7 @@ public:
         act->applyBinary(ForwardOp(), drv, act->nrows(), act->ncols() - 1);
     }
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
-        delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols());
+        delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols() - 1);
     }
     virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
         delta->applyTenary(DeltaOp(), act, y, y->nrows(), delta->ncols() - 1);
@@ -74,8 +74,7 @@ public:
         computeLoss(delta, act, y);
         return getLoss()/y->nrows();
     }
-    virtual int params(DMatrix<T> **&X, DMatrix<T> **&dX, int *&M, int *&N) {
-        return 0;
+    virtual void regParams(std::vector<DMatrix<T>*> &X, std::vector<DMatrix<T>*> &dX) {
     }
 
     virtual void samplePrint() {
@@ -92,6 +91,7 @@ public:
         }
     }
 
+    static DNeuron<T> *MakeNeuron(std::string neuron, cublasHandle_t handle);
 };
 
 template<class T>
@@ -140,7 +140,7 @@ public:
         act->applyBinary(ForwardOp(), drv, act->nrows(), act->ncols() - 1);
     }
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
-        delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols());
+        delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols() - 1);
     }
 };
 
@@ -166,7 +166,7 @@ public:
         act->applyBinary(ForwardOp(), drv, act->nrows(), act->ncols() - 1);
     }
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
-        delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols());
+        delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols() - 1);
     }
 };
 
@@ -191,7 +191,7 @@ public:
         act->applyBinary(ForwardOp(), drv, act->nrows(), act->ncols() - 1);
     }
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
-        delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols());
+        delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols() - 1);
     }
 };
 
@@ -288,7 +288,7 @@ public:
         act->applyBinary(ForwardOp(), drv, act->nrows(), act->ncols() - 1);
     }
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* drv, DMatrix<T>* act) {
-        delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols());
+        delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols() - 1);
     }
 
 };
@@ -376,38 +376,9 @@ public:
         DMatrix<T> *drv_view = new DMatrix<T>(drv, 0, drv->fd()-1);
         DMatrix<T> *act_view = new DMatrix<T>(act, 0, act->fd()-1);
         hComputeDistanceKernel(DistEuclid<T>(), act_view, _centers, _dist);
-        /*
-        act_view->dev2host();
-        _centers->dev2host();
-        _dist->dev2host();
-        for (int i = 0; i < act_view->nrows(); i++) {
-            for (int j = 0; j < _centers->ncols(); j++) {
-                T s = 0;
-                for (int k = 0; k < act_view->ncols(); k++) {
-                    T t = act_view->getElem(i,k) - _centers->getElem(k,j);
-                    s += t*t;
-                }
-                T d = _dist->getElem(i,j);
-                if ( true || abs(s-d)/max(abs(s), abs(d)) > 1e-5 ) {
-                    printf("ERROR:%f %f\n", s, d);
-                }
-            }
-        }
-        */
         _dist->applyBinary(OpSqrt<T>(), _dist, _dist->nrows(), _dist->ncols());
         //_dist->samplePrint("dist");
         hReduce(OpMinReduce<T>(), _dist, _ind, _min_dist, _dist->ncols(), false);
-        /*
-        _min_dist->dev2host();
-        _dist->dev2host();
-        for (int i = 0; i < _dist->nrows(); i++) {
-            for (int j = 0; j < _dist->ncols(); j++) {
-                if (_min_dist->getElem(i,0) > _dist->getElem(i,j)) {
-                    printf("ERROR: %f %f", _min_dist->getElem(i,0), _dist->getElem(i,j));
-                }
-            }
-        }*/
-        
         //_min_dist->samplePrint("min_dist");
         //_ind->samplePrint("ind");
         hDecode(_mask, _ind);
@@ -432,8 +403,8 @@ public:
         //delta->samplePrint("delta2");
 
         //update centers
-        _mom_centers->update(delta_view, true, _mask, false, (1.0-_hyper_params->current_momentum)*_hyper_params->current_learning_rate/delta_view->nrows(), _hyper_params->current_momentum);
-        _centers->add(_mom_centers, 1.0, _centers->nelem());
+        
+
     }
 
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
@@ -451,17 +422,9 @@ public:
         return _loss;
     }
 
-    virtual int params(DMatrix<T> **&X, DMatrix<T> **&dX, int *&M, int *&N) {
-        int L = 1;
-        X = new DMatrix<T>*[L];
-        dX = new DMatrix<T>*[L];
-        M = new int[L];
-        N = new int[L];
-        X[0] = _centers;
-        dX[0] = _mom_centers;
-        M[0] = _centers->nrows();
-        N[0] = _centers->ncols();
-        return L;
+    virtual void regParams(std::vector<DMatrix<T>*> &X, std::vector<DMatrix<T>*> &dX) {
+        X.push_back(_centers);
+        dX.push_back(_mom_centers);
     }
 
     virtual void samplePrint() {
@@ -861,5 +824,27 @@ public:
         
     }
 };
+
+template<class T>
+DNeuron<T> *DNeuron<T>::MakeNeuron(std::string neuron, cublasHandle_t handle) {
+    DNeuron<T> *res;
+    if (neuron == "Logistic") {
+        res = new DLogisticNeuron<float>(handle);
+    }else if (neuron == "Oddroot") {
+        res = new DOddrootNeuron<float>(handle);
+    }else if (neuron == "ReLU") {
+        res = new DReLUNeuron<float>(handle);
+    }else if (neuron == "Linear") {
+        res = new DNeuron<float>(handle);
+    }else if (neuron == "Tanh") {
+        res = new DTanhNeuron<float>(handle);
+    }else if (neuron == "Cutoff") {
+        res = new DCutoffNeuron<float>(handle);
+    }else {
+        printf("ERROR: \"%s\" is not a supported neuron type\n", neuron.c_str());
+        exit(-1);
+    }
+    return res;
+}
 
 #endif //DNEURON_CUH

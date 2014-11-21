@@ -20,6 +20,7 @@ LIBS += -L/usr/lib64/nvidia
 LIBS += -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5
 LIBS += -lstdc++
 LIBS += -lboost_program_options -lboost_filesystem -lboost_system
+LIBS += -lcudnn
 INCLUDE = -I.
 INCLUDE += -I/homes/jxie/include
 INCLUDE += -I/homes/grail/jxie/include

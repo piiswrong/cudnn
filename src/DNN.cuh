@@ -5,6 +5,9 @@
 #include <common.cuh>
 #include <DData.cuh>
 #include <DLayer.cuh>
+#include <DFullLayer.cuh>
+#include <DConvLayer.cuh>
+#include <DPoolLayer.cuh>
 #include <DOperators.cuh>
 #include <DHyperParams.h>
 
@@ -39,8 +42,8 @@ public:
 
         _layers = new DLayer<T>*[_num_layers];
         for (int i = 0; i < _num_layers; i++) {
-            _layers[i] = new DLayer<T>(layer_dims[i], layer_dims[i+1], i, neurons[i],
-                                    _pt_hyper_params, _bp_hyper_params, _handle);
+            _layers[i] = new DFullLayer<T>(layer_dims[i], layer_dims[i+1], i, neurons[i],
+                                           _pt_hyper_params, _bp_hyper_params, _handle);
         }
 #ifndef DISABLE_GPU
         if (_on_device) {
@@ -54,6 +57,62 @@ public:
 #endif
     }
 
+    DNN(DDim4 data_dim, std::string spec, std::string neuron, DNeuron<T> *loss_neuron, DHyperParams *pt_hyper_params, DHyperParams *bp_hyper_params, cublasHandle_t handle = 0) {
+        _handle = handle;
+        if (_handle != 0) {
+            _on_device = true;
+        }else {
+            _on_device = false;
+        }
+        _pt_hyper_params = pt_hyper_params;
+        _bp_hyper_params = bp_hyper_params;
+        _scaled_weight = false;
+        data_dim.n = bp_hyper_params->batch_size;
+
+        cudnnHandle_t cudnn_handle;
+        cudnnCreate(&cudnn_handle);
+
+        std::vector<std::string> list = split(spec, " ");
+        _num_layers = list.size();
+        _layer_dims = new int[_num_layers+1];
+        _layer_dims[0] = data_dim.c * data_dim.h * data_dim.w;
+        _layers = new DLayer<T>*[_num_layers];
+        DDim4 input_dim = data_dim;
+        for (int i = 0; i < _num_layers; i++) {
+            std::string s = list[i];
+            std::vector<std::string> params = split(s.substr(1), ",");
+            std::vector<int> iparams;
+            for (i = 0; i < params.size(); i++) iparams.push_back(atoi(params[i].c_str()));
+            switch (s[0]) {
+            case 'F':
+                _layers[i] = new DFullLayer<T>(_layer_dims[i], iparams[0], i, DNeuron<T>::MakeNeuron(neuron, _handle), _pt_hyper_params, _bp_hyper_params, _handle);
+                break;
+            case 'C':
+                _layers[i] = new DConvLayer<T>(input_dim, iparams[0], iparams[1], iparams[2], i==_num_layers-1?loss_neuron:DNeuron<T>::MakeNeuron(neuron, _handle), _handle, cudnn_handle);
+                break;
+            case 'P':
+                _layers[i] = new DPoolLayer<T>(input_dim, iparams[0], iparams[1], _handle, cudnn_handle); 
+                break;
+            default:
+                std::cout << "Invalid layer type " << s[0] << std::endl;
+            }
+            input_dim = _layers[i]->output_dim();
+            _layer_dims[i+1] = input_dim.c*input_dim.h*input_dim.w;
+        }
+
+#ifndef DISABLE_GPU
+        if (_on_device) {
+            int nstate = (_layer_dims[0]+1)*_bp_hyper_params->batch_size;
+            CUDA_CALL(cudaMalloc((void**)&_state, nstate*sizeof(curandState)));
+            dim3 grid((nstate-1)/BLOCK_SIZE+1);
+            dim3 block(BLOCK_SIZE);
+            kSetupCurand<<<grid, block>>>(_state, nstate, time(0));
+            CUDA_KERNEL_CHECK();
+        }
+#endif       
+
+    }
+
     cublasHandle_t handle() { return _handle; }
     DLayer<T> **layers() { return _layers; }
 
@@ -62,14 +121,7 @@ public:
         fprintf(fout, "%d\n", _num_layers);
         for (int i = 0; i < _num_layers; i++) {
             fprintf(fout, "%d\ng%d ", i, i);
-            DMatrix<T> *x = _layers[i]->weight();
-            x->dev2host();
-            fprintf(fout, "%d %d\n", x->ncols() - 1, x->nrows());
-            for (int j = 0; j < x->ncols() - 1; j++) {
-                for (int k = 0; k < x->nrows(); k++) 
-                    fprintf(fout, "%lf ", (double)x->getElem(k, j));
-                fprintf(fout, "\n");
-            }
+            _layers[i]->save(fout);
         }
     }
 
@@ -82,16 +134,7 @@ public:
         }
         for (int i = 0; i < _num_layers; i++) {
             fscanf(fin, "%*d\ng%*d");
-            DMatrix<T> *x = _layers[i]->weight();
-            fscanf(fin, "%*d %*d");
-            for (int j = 0; j < x->ncols() - 1; j++) {
-                for (int k = 0; k < x->nrows(); k++) {
-                    double t;
-                    fscanf(fin, "%lf", &t);
-                    x->getElem(k, j) = (T)t;
-                }
-            }
-            x->host2dev();
+            _layers[i]->load(fin);
         }
         _scaled_weight = true;
     }
@@ -246,6 +289,8 @@ public:
         return loss/iperEpoch;
     }
 
+    
+    /*
     void pretrain(DData<T>* data, double epochs_per_layer) {
         DMatrix<T> *x, *y;
         DHyperParams dummy_param = *_pt_hyper_params;
@@ -263,7 +308,9 @@ public:
             DLayer<T> **layers = new DLayer<T>*[layer+2];
             DMatrix<T> *tmp = new DMatrix<T>(_bp_hyper_params->batch_size, _layer_dims[layer]+1, _handle);
             for (int i = 0; i <= layer; i++) layers[i] = _layers[i];
-            layers[layer+1] = new DLayer<T>(_layer_dims[layer+1], _layer_dims[layer], layer + _num_layers, /*layer>0?layers[layer-1]->neuron():*/new DNeuron<T>(_handle), 
+            layers[layer+1] = new DLayer<T>(_layer_dims[layer+1], _layer_dims[layer], layer + _num_layers, 
+                                            //layer>0?layers[layer-1]->neuron():
+                                            new DNeuron<T>(_handle), 
                                             _pt_hyper_params, _bp_hyper_params, _handle);
 
             _pt_hyper_params->current_learning_rate = _pt_hyper_params->learning_rate/(1.0+nEpoch*_pt_hyper_params->learning_rate_decay);
@@ -315,7 +362,7 @@ public:
             delete layers;
         }
         _scaled_weight = true;
-    }
+    }*/
 
     T fineTune(DData<T>* data, int startingEpoch, int endingEpoch) {
         printf("%f\n", (float)_bp_hyper_params->learning_rate);
@@ -400,7 +447,7 @@ public:
         }
     }
 
-    bool gradCheck(DHyperParams *hyper, DMatrix<T> *input, DMatrix<T> *output, DLayer<T> **layers, int num_layers, DMatrix<T> **X, DMatrix<T> **dX, int *M, int *N, int L) {
+    bool gradCheck(DHyperParams *hyper, DMatrix<T> *input, DMatrix<T> *output, DLayer<T> **layers, int num_layers, std::vector<DMatrix<T>*> &X, std::vector<DMatrix<T>*> &dX) {
         const double g_epsilon = 1e-2;
         const double bound = 1e-1;
         int passed = 0, failed = 0;
@@ -412,6 +459,7 @@ public:
         hyper->current_learning_rate = 1;
         hyper->current_momentum = 0;
 
+        int L = X.size();
         DMatrix<T> **tmpX = new DMatrix<T>*[L];
         for (int i = 0; i < L; i++) {
             X[i]->dev2host();
@@ -422,8 +470,8 @@ public:
         for (int i = 0; i < L ; i++) {
             DMatrix<T> *x = X[i];
             DMatrix<T> *dx = dX[i];
-            for (int j = 0; j < M[i]; j++) {
-                for (int k = 0; k < N[i]; k++) {
+            for (int j = 0; j < x->nrows(); j++) {
+                for (int k = 0; k < x->ncols(); k++) {
                     double epsilon = g_epsilon;//max(1e-5, abs(x->getElem(j, k))) * g_epsilon;
                     fprop(input, num_layers, layers, hyper, NULL);
                     double fl = last_layer->neuron()->objective(last_layer->delta(), last_layer->act(), output);
@@ -465,37 +513,15 @@ public:
         }
         printf("PASS: %d\nFAIL: %d(max=%lf)\n", passed, failed, max_fail);
         return true;
-
     }
     
     bool createGradCheck(DData<T> *data) {
         DMatrix<T> *input, *output;
         data->start();
         data->getData(input, output, _bp_hyper_params->batch_size);
-        //input->init(DMatrix<T>::Normal, 0.0, 1.0);
-        //output->init(DMatrix<T>::Normal, 0.0, 1.0);
-        int L;
-        DMatrix<T> **tX, **tdX, **X, **dX;
-        int *tM, *tN;
-        L = _layers[_num_layers-1]->neuron()->params(tX, tdX, tM, tN);
-        int *M = new int[L+_num_layers], *N = new int[L+_num_layers];
-        X = new DMatrix<T>*[_num_layers+L];
-        dX = new DMatrix<T>*[_num_layers+L];
-        for (int i = 0; i < _num_layers; i++) {
-            X[i] = _layers[i]->weight();
-            dX[i] = _layers[i]->momentum();
-            M[i] = X[i]->nrows();
-            N[i] = X[i]->ncols()-1;
-        }
-        for (int i = _num_layers; i < _num_layers+L; i++) {
-            X[i] = tX[i-_num_layers];
-            dX[i] = tdX[i-_num_layers];
-            M[i] = tM[i-_num_layers];
-            N[i] = tN[i-_num_layers];
-        }
-        L += _num_layers;
-        
-        return gradCheck(_bp_hyper_params, input, output, _layers, _num_layers, X, dX, M, N, L);
+        std::vector<DMatrix<T>*> X, dX;
+        for (int i = 0; i < _num_layers; i++) _layers[i]->regParams(X, dX);
+        return gradCheck(_bp_hyper_params, input, output, _layers, _num_layers, X, dX);
     }
 };
 

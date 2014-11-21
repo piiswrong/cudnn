@@ -137,5 +137,16 @@ void cblas_Xgemm (const CBLAS_ORDER Order, const CBLAS_TRANSPOSE TransA, const C
     cblas_dgemm (Order, TransA, TransB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc);
 }
 
-
+std::vector<std::string> split(const std::string &str, const std::string &delimiters) {
+    std::vector<std::string> res;
+    char *buff = new char[str.length()+1];
+    str.copy(buff, str.length());
+    char *p = strtok(buff, delimiters.c_str());
+    while(p != NULL) {
+        res.push_back(p);
+        p = strtok(NULL, delimiters.c_str());
+    }
+    delete buff;
+    return res;
+}
 

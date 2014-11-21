@@ -18,7 +18,6 @@ int DOption::count(std::string s) {
 bool DOption::parse(int argc, char **argv) {
     po::options_description generic_opts("Generic options");
     po::options_description hyper_opts("Hyper-parameters");
-    po::options_description data_opts("Data set options");
     po::options_description cmdline_opts;
     po::options_description master_file_opts;
     po::positional_options_description p;
@@ -38,6 +37,7 @@ bool DOption::parse(int argc, char **argv) {
         ;
 
         hyper_opts.add_options()
+            ("net-spec", po::value<std::string>(&net_spec)->default_value(net_spec), "set hyper-paramter value")
             ("num-layers", po::value<int>(&num_layers)->default_value(num_layers), "set hyper-paramter value")
             ("hidden-dim", po::value<int>(&hidden_dim)->default_value(hidden_dim), "set hyper-paramter value")
             ("neuron", po::value<std::string>(&neuron)->default_value(neuron), "set hyper-paramter value")
@@ -47,7 +47,6 @@ bool DOption::parse(int argc, char **argv) {
         pt_hyper_params.registerParams(hyper_opts, "pt");
         bp_hyper_params.registerParams(hyper_opts, "bp");
 
-        data_spec.registerParams(data_opts);
         
         cmdline_opts.add(generic_opts).add(hyper_opts);
         master_file_opts.add(hyper_opts);
@@ -76,28 +75,14 @@ bool DOption::parse(int argc, char **argv) {
             notify(*_vm);
         }
         if (_vm->count("data")) {
-            std::ifstream ifs(data_spec_path.c_str());
-            if (!ifs) {
-                printf("Cannot open data specification file %s\n", master_file.c_str());
-                exit(-1);
-            }
-            printf("Using data set %s\n", data_spec_path.c_str());
-            store(parse_config_file(ifs, data_opts), *_vm);
-            notify(*_vm);
+            data_spec.parse(data_spec_path);
             input_dim = data_spec.input_dim;
             //output_dim = data_spec.output_dim;
-            fs::path base(data_spec_path);
-            base.remove_filename();
-            data_spec.train_data = canonical(data_spec.train_data, base).c_str();
-            data_spec.train_label = canonical(data_spec.train_label, base).c_str();
-            data_spec.test_data = canonical(data_spec.test_data, base).c_str();
-            data_spec.test_label = canonical(data_spec.test_label, base).c_str();
         }
 
     }catch(std::exception &e) {
         std::cout << "Error: " << e.what() << "\n";
         std::cout << cmdline_opts << "\n";
-        std::cout << data_opts << "\n";
         return false;
     }
     return true;

@@ -145,22 +145,7 @@ int main(int argc, char **argv) {
 
     DNeuron<float> **neurons = new DNeuron<float>*[opt.num_layers];
     for (int i = 0; i < opt.num_layers-1; i++) {
-        if (opt.neuron == "Logistic") {
-            neurons[i] = new DLogisticNeuron<float>(handle);
-        }else if (opt.neuron == "Oddroot") {
-            neurons[i] = new DOddrootNeuron<float>(handle);
-        }else if (opt.neuron == "ReLU") {
-            neurons[i] = new DReLUNeuron<float>(handle);
-        }else if (opt.neuron == "Linear") {
-            neurons[i] = new DNeuron<float>(handle);
-        }else if (opt.neuron == "Tanh") {
-            neurons[i] = new DTanhNeuron<float>(handle);
-        }else if (opt.neuron == "Cutoff") {
-            neurons[i] = new DCutoffNeuron<float>(handle);
-        }else {
-            printf("ERROR: \"%s\" is not a supported neuron type\n", opt.neuron.c_str());
-            exit(-1);
-        }
+        neurons[i] = DNeuron<float>::MakeNeuron(opt.neuron, handle);
     }
     neurons[opt.num_layers-1] = new DSoftmaxNeuron<float>(opt.bp_hyper_params.batch_size, handle);
 #ifdef ADMM
@@ -195,8 +180,12 @@ int main(int argc, char **argv) {
     neurons[opt.num_layers-1] =  last_neuron;
     //last_neuron->init(data);
     //neurons[num_layers-1] = last_neuron;
-    
-    DNN<float> *dnn = new DNN<float>(opt.num_layers, layer_dims, neurons, &opt.pt_hyper_params, &opt.bp_hyper_params, handle);
+
+    DNN<float> *dnn;
+    if (opt.net_spec == "") 
+        dnn = new DNN<float>(opt.num_layers, layer_dims, neurons, &opt.pt_hyper_params, &opt.bp_hyper_params, handle);
+    else 
+        dnn = new DNN<float>(opt.data_spec.input_4d, opt.net_spec, opt.neuron, last_neuron, &opt.pt_hyper_params, &opt.bp_hyper_params, handle);
 
     if (opt.grad_check) {
         return !dnn->createGradCheck(data);
@@ -207,7 +196,11 @@ int main(int argc, char **argv) {
     //kmeans->cluster();
 
     
-    if (opt.resuming == -1 && opt.pt_epochs > 0) dnn->pretrain(data, opt.pt_epochs);
+    if (opt.resuming == -1 && opt.pt_epochs > 0) {
+        std::cout << "Pre-training currently disabled." << std::endl;
+        exit(-1);
+        //dnn->pretrain(data, opt.pt_epochs);
+    }
     if (opt.resuming != -1) {
         printf("Resuming from %d-th epoch.\n", opt.resuming);
         //std::stringstream ss;
@@ -217,9 +210,7 @@ int main(int argc, char **argv) {
             printf("Error loading: cannot find file %s!\n", opt.input_path.c_str());
             exit(-1);
         }
-        dnn->layers()[0]->weight()->samplePrint();
         dnn->load(fin);
-        dnn->layers()[0]->weight()->samplePrint();
         fclose(fin);
     }else 
         opt.resuming = 0;

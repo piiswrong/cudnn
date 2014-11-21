@@ -2,6 +2,7 @@
 #define DDATASPEC_H
 
 #include <string>
+#include <common.h>
 
 namespace boost {
 namespace program_options {
@@ -12,8 +13,12 @@ namespace po = boost::program_options;
 
 
 class DDataSpec {
+private:
+    void registerParams(po::options_description &desc);
+    std::vector<int> _input_dims;
 public:
     int input_dim, output_dim;
+    DDim4 input_4d;
     bool xappendone, yonehot;
     std::string train_data, train_label, test_data, test_label;
     float scaling;
@@ -21,7 +26,7 @@ public:
     int train_data_skip, train_label_skip, test_data_skip, test_label_skip;
 
     DDataSpec(); 
-    void registerParams(po::options_description &desc);
+    void parse(std::string data_spec_path);
 };
 
 #endif //DDATASPEC_H
