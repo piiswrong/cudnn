@@ -18,7 +18,7 @@ DDataSpec::DDataSpec() {
 
 void DDataSpec::registerParams(po::options_description &desc) {
     desc.add_options() 
-        ("input-dim", po::value<std::vector<int> >(&_input_dims)->required(), "Set data set parameter")
+        ("input-dim", po::value<std::vector<int> >(&_input_dims)->multitoken()->required(), "Set data set parameter")
         ("output-dim", po::value<int>(&output_dim)->required(), "Set data set parameter")
         ("xappendone", po::value<bool>(&xappendone)->default_value(xappendone), "Set data set parameter")
         ("yonehot", po::value<bool>(&yonehot)->default_value(yonehot), "Set data set parameter")

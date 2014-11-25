@@ -27,19 +27,19 @@ public:
 
         _input_dim = input_dim;
         DDim4 &id = _input_dim;
-        cudnnCreateTensor4dDescriptor(&_input_desc);
-        cudnnSetTensor4dDescriptorEx(_input_desc, dtype(), id.n, id.c, id.h, id.w, id.c*id.h*id.w+1, id.h*id.w, id.w, 1);
+        CUDNN_CALL(cudnnCreateTensor4dDescriptor(&_input_desc));
+        CUDNN_CALL(cudnnSetTensor4dDescriptorEx(_input_desc, dtype(), id.n, id.c, id.h, id.w, id.c*id.h*id.w+1, id.h*id.w, id.w, 1));
 
-        cudnnCreatePoolingDescriptor(&_pool_desc);
-        cudnnSetPoolingDescriptor(_pool_desc, CUDNN_POOLING_MAX, kernel_size, kernel_size, stride, stride);
+        CUDNN_CALL(cudnnCreatePoolingDescriptor(&_pool_desc));
+        CUDNN_CALL(cudnnSetPoolingDescriptor(_pool_desc, CUDNN_POOLING_MAX, kernel_size, kernel_size, stride, stride));
 
         DDim4 &od = _output_dim;
         od = _input_dim;
         od.w = (od.w - kernel_size)/stride + 1;
         od.h = (od.h - kernel_size)/stride + 1;
 
-        cudnnCreateTensor4dDescriptor(&_output_desc);
-        cudnnSetTensor4dDescriptorEx(_output_desc, dtype(), od.n, od.c, od.h, od.w, od.c*od.h*od.w+1, od.h*od.w, od.w, 1);
+        CUDNN_CALL(cudnnCreateTensor4dDescriptor(&_output_desc));
+        CUDNN_CALL(cudnnSetTensor4dDescriptorEx(_output_desc, dtype(), od.n, od.c, od.h, od.w, od.c*od.h*od.w+1, od.h*od.w, od.w, 1));
 
         _act = new DMatrix<T>(od.c*od.h*od.w+1, od.n, _handle);
         _act->init(DMatrix<T>::One);
@@ -56,11 +56,12 @@ public:
 
     
     virtual void fprop(DMatrix<T>* dev_data, bool drop_out, float drop_rate) {
-        cudnnPoolingForward(_cudnn_handle, _pool_desc, _input_desc, dev_data->dev_data(), _output_desc, _act->dev_data());
+        CUDNN_CALL(cudnnPoolingForward(_cudnn_handle, _pool_desc, _input_desc, dev_data->dev_data(), _output_desc, _act->dev_data()));
+        _act->samplePrint("pool");
     }
 
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, float rate, float mom, bool drop_out, bool decay, float decay_rate, bool rectify_weight, bool rectify_bias) {
-        if (delta) cudnnPoolingBackward(_cudnn_handle, _pool_desc, _output_desc, _act->dev_data(), _output_desc, _delta->dev_data(), _input_desc, pre_act->dev_data(), _input_desc, delta->dev_data());
+        if (delta) CUDNN_CALL(cudnnPoolingBackward(_cudnn_handle, _pool_desc, _output_desc, _act->dev_data(), _output_desc, _delta->dev_data(), _input_desc, pre_act->dev_data(), _input_desc, delta->dev_data()));
     }
 };
 

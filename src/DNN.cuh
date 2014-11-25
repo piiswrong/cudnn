@@ -70,7 +70,7 @@ public:
         data_dim.n = bp_hyper_params->batch_size;
 
         cudnnHandle_t cudnn_handle;
-        cudnnCreate(&cudnn_handle);
+        CUDNN_CALL(cudnnCreate(&cudnn_handle));
 
         std::vector<std::string> list = split(spec, " ");
         _num_layers = list.size();
@@ -79,10 +79,11 @@ public:
         _layers = new DLayer<T>*[_num_layers];
         DDim4 input_dim = data_dim;
         for (int i = 0; i < _num_layers; i++) {
+            printf("%d: %d %d %d %d\n", i, input_dim.n, input_dim.c, input_dim.h, input_dim.w);
             std::string s = list[i];
             std::vector<std::string> params = split(s.substr(1), ",");
             std::vector<int> iparams;
-            for (i = 0; i < params.size(); i++) iparams.push_back(atoi(params[i].c_str()));
+            for (int j = 0; j < params.size(); j++) iparams.push_back(atoi(params[j].c_str()));
             switch (s[0]) {
             case 'F':
                 _layers[i] = new DFullLayer<T>(_layer_dims[i], iparams[0], i, DNeuron<T>::MakeNeuron(neuron, _handle), _pt_hyper_params, _bp_hyper_params, _handle);

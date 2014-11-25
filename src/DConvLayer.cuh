@@ -24,7 +24,7 @@ protected:
     }
 
     void initFilter() {
-        _filter->init(DMatrix<T>::Normal, 0.0, 0.1);
+        _filter->init(DMatrix<T>::Normal, 0.0, 0.01);
     }
 
 public:
@@ -44,35 +44,37 @@ public:
 
         _input_dim = input_dim;
         DDim4 &id = _input_dim;
-        cudnnCreateTensor4dDescriptor(&_input_desc);
-        cudnnSetTensor4dDescriptorEx(_input_desc, dtype(), id.n, id.c, id.h, id.w, id.c*id.h*id.w+1, id.h*id.w, id.w, 1);
+        CUDNN_CALL(cudnnCreateTensor4dDescriptor(&_input_desc));
+        CUDNN_CALL(cudnnSetTensor4dDescriptorEx(_input_desc, dtype(), id.n, id.c, id.h, id.w, id.c*id.h*id.w+1, id.h*id.w, id.w, 1));
         
         DDim4 &fd = _filter_dim;
         fd.n = num_output;
         fd.c = input_dim.c;
         fd.h = fd.w = kernel_size;
-        cudnnCreateFilterDescriptor(&_filter_desc);
-        cudnnSetFilterDescriptor(_filter_desc, dtype(), fd.n, fd.c, fd.h, fd.w);
+        CUDNN_CALL(cudnnCreateFilterDescriptor(&_filter_desc));
+        CUDNN_CALL(cudnnSetFilterDescriptor(_filter_desc, dtype(), fd.n, fd.c, fd.h, fd.w));
         _filter = new DMatrix<T>(fd.c*fd.h*fd.w, fd.n, _handle);
         initFilter();
         _mom_filter = new DMatrix<T>(fd.c*fd.h*fd.w, fd.n, _handle);
         _mom_filter->init(DMatrix<T>::Zero);
+        _grad_filter = new DMatrix<T>(fd.c*fd.h*fd.w, fd.n, _handle);
 
-        cudnnCreateTensor4dDescriptor(&_bias_desc);
-        cudnnSetTensor4dDescriptor(_bias_desc, CUDNN_TENSOR_NCHW, dtype(), 1, num_output, 1, 1);
+        CUDNN_CALL(cudnnCreateTensor4dDescriptor(&_bias_desc));
+        CUDNN_CALL(cudnnSetTensor4dDescriptor(_bias_desc, CUDNN_TENSOR_NCHW, dtype(), 1, num_output, 1, 1));
         _bias = new DMatrix<T>(num_output, 1, _handle);
         _bias->init(DMatrix<T>::Zero);
         _mom_bias = new DMatrix<T>(num_output, 1, _handle);
         _mom_bias->init(DMatrix<T>::Zero);
+        _grad_bias = new DMatrix<T>(num_output, 1, _handle);
 
-        cudnnCreateConvolutionDescriptor(&_conv_desc);
-        cudnnSetConvolutionDescriptor(_conv_desc, _input_desc, _filter_desc, 0, 0, stride, stride, 1, 1, CUDNN_CONVOLUTION);
+        CUDNN_CALL(cudnnCreateConvolutionDescriptor(&_conv_desc));
+        CUDNN_CALL(cudnnSetConvolutionDescriptor(_conv_desc, _input_desc, _filter_desc, 0, 0, stride, stride, 1, 1, CUDNN_CONVOLUTION));
 
         DDim4 &od = _output_dim;
-        cudnnGetOutputTensor4dDim(_conv_desc, CUDNN_CONVOLUTION_FWD, &od.n, &od.c, &od.h, &od.w);
+        CUDNN_CALL(cudnnGetOutputTensor4dDim(_conv_desc, CUDNN_CONVOLUTION_FWD, &od.n, &od.c, &od.h, &od.w));
 
-        cudnnCreateTensor4dDescriptor(&_output_desc);
-        cudnnSetTensor4dDescriptorEx(_output_desc, dtype(), od.n, od.c, od.h, od.w, od.c*od.h*od.w+1, od.h*od.w, od.w, 1);
+        CUDNN_CALL(cudnnCreateTensor4dDescriptor(&_output_desc));
+        CUDNN_CALL(cudnnSetTensor4dDescriptorEx(_output_desc, dtype(), od.n, od.c, od.h, od.w, od.c*od.h*od.w+1, od.h*od.w, od.w, 1));
 
         _act = new DMatrix<T>(od.c*od.h*od.w+1, od.n, _handle);
         _act->init(DMatrix<T>::One);
@@ -97,20 +99,21 @@ public:
     
     virtual void fprop(DMatrix<T>* dev_data, bool drop_out, float drop_rate) {
         const T alpha = 1.0; 
-        cudnnConvolutionForward(_cudnn_handle, _input_desc, dev_data->dev_data(), _filter_desc, _filter->dev_data(), _conv_desc, _output_desc, _drv->dev_data(), CUDNN_RESULT_NO_ACCUMULATE);
-        cudnnAddTensor4d(_cudnn_handle, CUDNN_ADD_SAME_C, &alpha, _bias_desc, _bias->dev_data(), _output_desc, _drv->dev_data());
+        CUDNN_CALL(cudnnConvolutionForward(_cudnn_handle, _input_desc, dev_data->dev_data(), _filter_desc, _filter->dev_data(), _conv_desc, _output_desc, _drv->dev_data(), CUDNN_RESULT_NO_ACCUMULATE));
+        CUDNN_CALL(cudnnAddTensor4d(_cudnn_handle, CUDNN_ADD_SAME_C, &alpha, _bias_desc, _bias->dev_data(), _output_desc, _drv->dev_data()));
         _neuron->fprop(_act, _drv);
+        _act->samplePrint("conv");
     }
 
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, float rate, float mom, bool drop_out, bool decay, float decay_rate, bool rectify_weight, bool rectify_bias) {
         _neuron->bprop(_delta, _drv, _act);        
         if (delta) 
-            cudnnConvolutionBackwardData(_cudnn_handle, _filter_desc, _filter->dev_data(), _output_desc, _delta->dev_data(), _conv_desc, _input_desc, delta->dev_data(), CUDNN_RESULT_NO_ACCUMULATE);
-        cudnnConvolutionBackwardBias(_cudnn_handle, _output_desc, _delta->dev_data(), _bias_desc, _grad_bias->dev_data(), CUDNN_RESULT_NO_ACCUMULATE);
-        _mom_bias->applyBinary(OpMom(mom, -(1.0-mom)*rate/delta->nrows()), _grad_bias, _grad_bias->nrows(), _grad_bias->ncols());
+            CUDNN_CALL(cudnnConvolutionBackwardData(_cudnn_handle, _filter_desc, _filter->dev_data(), _output_desc, _delta->dev_data(), _conv_desc, _input_desc, delta->dev_data(), CUDNN_RESULT_NO_ACCUMULATE));
+        CUDNN_CALL(cudnnConvolutionBackwardBias(_cudnn_handle, _output_desc, _delta->dev_data(), _bias_desc, _grad_bias->dev_data(), CUDNN_RESULT_NO_ACCUMULATE));
+        _mom_bias->applyBinary(OpMom(mom, -(1.0-mom)*rate/_delta->nrows()), _grad_bias, _grad_bias->nrows(), _grad_bias->ncols());
         _bias->add(_mom_bias, 1.0);
-        cudnnConvolutionBackwardFilter(_cudnn_handle, _input_desc, pre_act->dev_data(), _output_desc, _delta->dev_data(), _conv_desc, _filter_desc, _grad_filter->dev_data(), CUDNN_RESULT_NO_ACCUMULATE);
-        _mom_filter->applyBinary(OpMom(mom, -(1.0-mom)*rate/delta->nrows()), _grad_filter, _grad_filter->nrows(), _grad_filter->ncols() - 1);
+        CUDNN_CALL(cudnnConvolutionBackwardFilter(_cudnn_handle, _input_desc, pre_act->dev_data(), _output_desc, _delta->dev_data(), _conv_desc, _filter_desc, _grad_filter->dev_data(), CUDNN_RESULT_NO_ACCUMULATE));
+        _mom_filter->applyBinary(OpMom(mom, -(1.0-mom)*rate/_delta->nrows()), _grad_filter, _grad_filter->nrows(), _grad_filter->ncols() - 1);
         _filter->add(_mom_filter, 1.0);
     }
 };

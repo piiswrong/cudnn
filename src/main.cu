@@ -44,6 +44,7 @@ int main(int argc, char **argv) {
     opt.num_layers = 2;
     opt.hidden_dim = 1023;
     opt.input_dim = 10, opt.output_dim = 255;
+    opt.net_spec = "C96,7,3 P3,2 C256,4,2 P3,2 F2047 F255";
     opt.neuron = "ReLU";
     opt.pt_epochs = 0.0;
     opt.bp_epochs = 20;

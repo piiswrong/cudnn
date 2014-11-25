@@ -14,21 +14,25 @@ const int BLOCK_SIZE = 256;
 const int TILE_DIM = 16;
 const int BLOCK_ROWS = 8;
 
-#define CUDA_CALL(statment) do {   cudaError_t macroErrorCode = statment; \
-                            if((macroErrorCode) != cudaSuccess) { \
-                            printf("Cuda Error at %s:%d with code %d(!=%d): %s\n",__FILE__,__LINE__, macroErrorCode, cudaSuccess, cudaGetErrorString(macroErrorCode));\
+#ifdef NDEBUG
+#define DSAFE_CALL(statment,success) do {   int macroErrorCode = (int)statment; \
+                            if(macroErrorCode != (int)success) { \
+                            printf("Cuda Error at %s:%d with code %d(!=%d): %s\n",__FILE__,__LINE__, macroErrorCode, cudaSuccess, cudaGetErrorString((cudaError_t)macroErrorCode));\
                             assert(false);\
                             exit(EXIT_FAILURE);}} while(0)
-#define CUBLAS_CALL(statment) do { int macroErrorCode = statment; \
-                            if((macroErrorCode) != CUBLAS_STATUS_SUCCESS) { \
-                            printf("Cublas Error at %s:%d with code %d(!=%d): %s\n",__FILE__,__LINE__, macroErrorCode, CUBLAS_STATUS_SUCCESS, cudaGetErrorString((cudaError_t)macroErrorCode));\
+#else
+#define DSAFE_CALL(statment,success) do {   int macroErrorCode = (int)statment; \
+                            int syncErr = (int)cudaDeviceSynchronize(); \
+                            int peekErr = (int)cudaPeekAtLastError(); \
+                            if(macroErrorCode != (int)success || syncErr != (int)cudaSuccess || peekErr != (int)cudaSuccess) { \
+                            printf("Cuda Error at %s:%d with code %d(!=%d): %s\n",__FILE__,__LINE__, macroErrorCode, cudaSuccess, cudaGetErrorString((cudaError_t)macroErrorCode));\
                             assert(false);\
                             exit(EXIT_FAILURE);}} while(0)
-#define CURAND_CALL(statment) do { int macroErrorCode = statment; \
-                            if((macroErrorCode) != CURAND_STATUS_SUCCESS) { \
-                            printf("Curand Error at %s:%d with code %d(!=%d)\n",__FILE__,__LINE__, macroErrorCode, CURAND_STATUS_SUCCESS);\
-                            assert(false);\
-                            exit(EXIT_FAILURE);}} while(0)
+#endif
+#define CUDA_CALL(statment) DSAFE_CALL(statment, cudaSuccess)
+#define CUBLAS_CALL(statment) DSAFE_CALL(statment, CUBLAS_STATUS_SUCCESS)
+#define CURAND_CALL(statment) DSAFE_CALL(statment, CURAND_STATUS_SUCCESS)
+#define CUDNN_CALL(statment) DSAFE_CALL(statment, CUDNN_STATUS_SUCCESS)
 #ifdef NDEBUG
 #define CUDA_KERNEL_CHECK() do {  \
                             CUDA_CALL(cudaPeekAtLastError()); \
