@@ -57,7 +57,6 @@ public:
     
     virtual void fprop(DMatrix<T>* dev_data, bool drop_out, float drop_rate) {
         CUDNN_CALL(cudnnPoolingForward(_cudnn_handle, _pool_desc, _input_desc, dev_data->dev_data(), _output_desc, _act->dev_data()));
-        _act->samplePrint("pool");
     }
 
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, float rate, float mom, bool drop_out, bool decay, float decay_rate, bool rectify_weight, bool rectify_bias) {

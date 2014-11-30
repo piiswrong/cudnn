@@ -86,7 +86,7 @@ public:
             for (int j = 0; j < params.size(); j++) iparams.push_back(atoi(params[j].c_str()));
             switch (s[0]) {
             case 'F':
-                _layers[i] = new DFullLayer<T>(_layer_dims[i], iparams[0], i, DNeuron<T>::MakeNeuron(neuron, _handle), _pt_hyper_params, _bp_hyper_params, _handle);
+                _layers[i] = new DFullLayer<T>(_layer_dims[i], iparams[0], i, i==_num_layers-1?loss_neuron:DNeuron<T>::MakeNeuron(neuron, _handle), _pt_hyper_params, _bp_hyper_params, _handle);
                 break;
             case 'C':
                 _layers[i] = new DConvLayer<T>(input_dim, iparams[0], iparams[1], iparams[2], i==_num_layers-1?loss_neuron:DNeuron<T>::MakeNeuron(neuron, _handle), _handle, cudnn_handle);
@@ -366,17 +366,9 @@ public:
     }*/
 
     T fineTune(DData<T>* data, int startingEpoch, int endingEpoch) {
-        printf("%f\n", (float)_bp_hyper_params->learning_rate);
         scaleWeight(false);
-#ifdef DOWN_POUR_SGD
-        if (mpi_world_rank >= sgd_num_param_server)
-#endif  
-            data->stop(), data->set_testing(false), data->start();
+        data->stop(), data->set_testing(false), data->start();
         int iperEpoch = data->instancesPerEpoch();
-#ifdef DOWN_POUR_SGD
-        if (mpi_world_rank < sgd_num_param_server)
-           iperEpoch = data->totalInstancesPerEpoch(); 
-#endif
         DMatrix<T> *x, *y;
         int nEpoch = startingEpoch;
         int nInstance = startingEpoch*iperEpoch;
@@ -390,14 +382,12 @@ public:
         _bp_hyper_params->current_momentum = _bp_hyper_params->momentum+_bp_hyper_params->step_momentum*nEpoch;
         if (_bp_hyper_params->current_momentum > _bp_hyper_params->max_momentum)
             _bp_hyper_params->current_momentum = _bp_hyper_params->max_momentum;
+        printf("Starting with learning rate %f\n", (float)_bp_hyper_params->current_learning_rate);
 
         CUDA_CALL(cudaThreadSynchronize());
         LOG(VERBOSE_NORMAL, fprintf(flog, "Fine Tuning\n"));
         while ( nEpoch < endingEpoch) {
-#ifdef DOWN_POUR_SGD
-            if (mpi_world_rank >= sgd_num_param_server)
-#endif  
-                data->getData(x, y, _bp_hyper_params->batch_size);
+            data->getData(x, y, _bp_hyper_params->batch_size);
             error += trainOnBatch(x, y);
             CUDA_CALL(cudaThreadSynchronize());
             nInstance += _bp_hyper_params->batch_size;
@@ -419,27 +409,15 @@ public:
                 y->samplePrint("y");
                 //x->samplePrint("x");
                 //_layers[0]->weight()->samplePrint("weight");
-#ifdef ADMM
-                printf("\nNode%d\tEpoch: %d\tInstance: %d\tError: %f\n", mpi_world_rank, nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
-#elif defined(DOWN_POUR_SGD)
-                if (mpi_world_rank == 0) {
-                    printf("\nEpoch: %d\tInstance: %d\tError: %f\n", nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
-                    LOG(VERBOSE_MINIMAL, fprintf(flog, "%f %d\n", (float)(error/lastCheck), time(0)-starting));
-                }
-#else
                 printf("\nEpoch: %d\tInstance: %d\tError: %f\n", nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
                 LOG(VERBOSE_MINIMAL, fprintf(flog, "%f %d\n", (float)(error/lastCheck), nInstance));
-#endif
                 printf("rate:%lf\n", _bp_hyper_params->current_learning_rate);
                 checked = true;
                 lastError = error/lastCheck;
                 lastCheck = 0;
                 error = 0.0;
             }
-#ifdef DOWN_POUR_SGD
-	    if (mpi_world_rank >= sgd_num_param_server)
-#endif
-		delete x, y;
+            delete x, y;
         }
         if (checked) {
             return lastError;
@@ -473,7 +451,7 @@ public:
             DMatrix<T> *dx = dX[i];
             for (int j = 0; j < x->nrows(); j++) {
                 for (int k = 0; k < x->ncols(); k++) {
-                    double epsilon = g_epsilon;//max(1e-5, abs(x->getElem(j, k))) * g_epsilon;
+                    double epsilon = g_epsilon;//max(1e-4, abs(x->getElem(j, k))) * g_epsilon;
                     fprop(input, num_layers, layers, hyper, NULL);
                     double fl = last_layer->neuron()->objective(last_layer->delta(), last_layer->act(), output);
                     
@@ -520,6 +498,7 @@ public:
         DMatrix<T> *input, *output;
         data->start();
         data->getData(input, output, _bp_hyper_params->batch_size);
+        input->samplePrint("input");
         std::vector<DMatrix<T>*> X, dX;
         for (int i = 0; i < _num_layers; i++) _layers[i]->regParams(X, dX);
         return gradCheck(_bp_hyper_params, input, output, _layers, _num_layers, X, dX);

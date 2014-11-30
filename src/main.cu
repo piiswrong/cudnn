@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
     opt.num_layers = 2;
     opt.hidden_dim = 1023;
     opt.input_dim = 10, opt.output_dim = 255;
-    opt.net_spec = "C96,7,3 P3,2 C256,4,2 P3,2 F2047 F255";
+    opt.net_spec = "C96,7,3 P3,2 C256,5,2 P3,2 F255";
     opt.neuron = "ReLU";
     opt.pt_epochs = 0.0;
     opt.bp_epochs = 20;
@@ -177,7 +177,8 @@ int main(int argc, char **argv) {
     //neurons[num_layers-1] = new DTanhNeuron<float>(handle);
     //neurons[num_layers-1] = new DGMMNeuron<float>(&opt.bp_hyper_params, 256, output_dim, 0.1, handle);
     //DvMFNeuron<float> *last_neuron = new DvMFNeuron<float>(&opt.bp_hyper_params, 32, output_dim, 0.2, handle);
-    DClusterNeuron2<float> *last_neuron = new DClusterNeuron2<float>(&opt.bp_hyper_params, 255, opt.output_dim, 0.8, 10.0, handle);
+    DClusterNeuron2<float> *last_neuron = new DClusterNeuron2<float>(&opt.bp_hyper_params, 255, opt.output_dim, 0.8, 50.0, handle);
+    //DNeuron<float> *last_neuron = new DNeuron<float>(handle);
     neurons[opt.num_layers-1] =  last_neuron;
     //last_neuron->init(data);
     //neurons[num_layers-1] = last_neuron;
@@ -194,7 +195,7 @@ int main(int argc, char **argv) {
 
     DKmeans<float> *kmeans = new DKmeans<float>(dnn, data, opt.bp_hyper_params.batch_size, last_neuron->centers(), last_neuron->mask(), last_neuron->min_dist(), handle);
 
-    //kmeans->cluster();
+   // kmeans->cluster();
 
     
     if (opt.resuming == -1 && opt.pt_epochs > 0) {

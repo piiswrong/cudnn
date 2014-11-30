@@ -48,6 +48,8 @@ public:
         delta->applyTenary(BackwardOp(), drv, act, delta->nrows(), delta->ncols() - 1);
     }
     virtual void initDelta(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
+        act->samplePrint("act");
+        y->samplePrint("y");
         delta->applyTenary(DeltaOp(), act, y, y->nrows(), delta->ncols() - 1);
     }
     virtual void computeLoss(DMatrix<T> *delta, DMatrix<T> *act, DMatrix<T> *y) {
