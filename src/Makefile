@@ -5,7 +5,7 @@ FLAGS += -DBOOST_NOINLINE='__attribute__ ((noinline))'
 #FLAGS =  -g -DDISABLE_GPU #-DADMM
 #SUFIX = cpp 
 #CC = gcc -pthread -std=c++0x
-CC = nvcc --compiler-options="-pthread" 
+CC = nvcc -arch compute_35 --compiler-options="-pthread" 
 #FLAGS += -DNVML
 LIBS += -lnvidia-ml
 LIBS += -lcudart -lcublas 

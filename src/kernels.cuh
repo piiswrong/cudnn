@@ -406,5 +406,22 @@ __global__ void kComputeDistanceKernel(Dist dist, T *x, T *y, T *z, int ldx, int
     if (i < m && j < n) z[i+j*ldz] = c;
 }
 
+template<class T>
+__global__ void kLRNForward(T *x, T *y, int n, int c, int h, int w, int kernel_size, int ld) {
+    int i = blockDim.x*blockIdx.x + threadIdx.x;
+    int j = blockDim.y*blockIdx.y + threadIdx.y;
+    if ( i < w && j < h) {
+        int offset = i + j*w + blockIdx.z*ld;
+        int step = h*w;
+        int head = 0;
+        int pre_pad = (size-1)/2;
+        int post_pad = size - pre_pad - 1;
+        T acc = 0.0;
+        while (head < post_pad) { 
+            acc += 
+        }
+    }
+}
+
 #endif //DISABLE_GPU
 #endif //KERNELS_CUH

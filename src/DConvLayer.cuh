@@ -37,7 +37,7 @@ public:
         }
     };
 
-    DConvLayer(DDim4 input_dim, int num_output, int kernel_size, int stride, DNeuron<T> *neuron, cublasHandle_t handle, cudnnHandle_t cudnn_handle) {
+    DConvLayer(DDim4 input_dim, int num_output, int kernel_size, int stride, int pad, DNeuron<T> *neuron, cublasHandle_t handle, cudnnHandle_t cudnn_handle) {
         _neuron = neuron;
         _handle = handle;
         _cudnn_handle = cudnn_handle;
@@ -68,7 +68,7 @@ public:
         _grad_bias = new DMatrix<T>(num_output, 1, _handle);
 
         CUDNN_CALL(cudnnCreateConvolutionDescriptor(&_conv_desc));
-        CUDNN_CALL(cudnnSetConvolutionDescriptor(_conv_desc, _input_desc, _filter_desc, 0, 0, stride, stride, 1, 1, CUDNN_CONVOLUTION));
+        CUDNN_CALL(cudnnSetConvolutionDescriptor(_conv_desc, _input_desc, _filter_desc, pad, pad, stride, stride, 1, 1, CUDNN_CONVOLUTION));
 
         DDim4 &od = _output_dim;
         CUDNN_CALL(cudnnGetOutputTensor4dDim(_conv_desc, CUDNN_CONVOLUTION_FWD, &od.n, &od.c, &od.h, &od.w));
