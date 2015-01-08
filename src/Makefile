@@ -1,11 +1,11 @@
-#FLAGS = -O3 -DNDEBUG --use_fast_math 
-FLAGS = -g -G
+FLAGS = -O3 -DNDEBUG --use_fast_math 
+#FLAGS = -g -G
 FLAGS += -DBOOST_NOINLINE='__attribute__ ((noinline))'
 #FLAGS = -O3 -DNDEBUG -DDISABLE_GPU -DWITH_GMTK
 #FLAGS =  -g -DDISABLE_GPU #-DADMM
 #SUFIX = cpp 
 #CC = gcc -pthread -std=c++0x
-CC = nvcc --compiler-options="-pthread" 
+CC = nvcc -arch compute_35 --compiler-options="-pthread" 
 #FLAGS += -DNVML
 LIBS += -lnvidia-ml
 LIBS += -lcudart -lcublas 

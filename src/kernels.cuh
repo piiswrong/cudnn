@@ -406,5 +406,84 @@ __global__ void kComputeDistanceKernel(Dist dist, T *x, T *y, T *z, int ldx, int
     if (i < m && j < n) z[i+j*ldz] = c;
 }
 
+template<class T>
+__global__ void kLRNForward(T *x, T *y, T *scale, T alpha_over_size, T negtive_beta, int n, int c, int h, int w, int kernel_size, int ld) {
+    int i = blockDim.x*blockIdx.x + threadIdx.x;
+    int j = blockDim.y*blockIdx.y + threadIdx.y;
+    if ( i < w && j < h) {
+        int offset = i + j*w + blockIdx.z*ld;
+        x += offset;
+        y += offset;
+        scale += offset;
+        int step = h*w;
+        int head = 0;
+        int pre_pad = (kernel_size-1)/2;
+        int post_pad = kernel_size - pre_pad - 1;
+        T acc = 0.0;
+        while (head < post_pad) { 
+            acc += x[head*step]*x[head*step];
+            ++head;
+        }
+        while (head < kernel_size) {
+            acc += x[head*step]*x[head*step];
+            scale[(head-post_pad)*step] = 1.0 + acc*alpha_over_size;
+            y[(head-post_pad)*step] = x[(head-post_pad)*step]*pow(scale[(head-post_pad)*step], negtive_beta);
+            ++head;
+        }
+        while (head < c) {
+            acc += x[head*step]*x[head*step];
+            acc -= x[(head-kernel_size)*step]*x[(head-kernel_size)*step];
+            scale[(head-post_pad)*step] = 1.0 + acc*alpha_over_size;
+            y[(head-post_pad)*step] = x[(head-post_pad)*step]*pow(scale[(head-post_pad)*step], negtive_beta);
+            ++head;
+        }
+        while (head < c + post_pad) {
+            acc -= x[(head-kernel_size)*step]*x[(head-kernel_size)*step];
+            scale[(head-post_pad)*step] = 1.0 + acc*alpha_over_size;
+            y[(head-post_pad)*step] = x[(head-post_pad)*step]*pow(scale[(head-post_pad)*step], negtive_beta);
+            ++head;
+        }
+    }
+}
+
+template<class T>
+__global__ void kLRNBackward(T *prev_delta, T *x, T *y, T *scale, T *delta, T alpha_over_size, T negtive_beta, T cache_ratio, int n, int c, int h, int w, int kernel_size, int ld) {
+    int i = blockDim.x*blockIdx.x + threadIdx.x;
+    int j = blockDim.y*blockIdx.y + threadIdx.y;
+    if ( i < w && j < h) {
+        int offset = i + j*w + blockIdx.z*ld;
+        prev_delta += offset;
+        x += offset;
+        y += offset;
+        scale += offset;
+        delta += offset;
+        int step = h*w;
+        int head = 0;
+        int pre_pad = (kernel_size-1)/2;
+        int post_pad = kernel_size - pre_pad - 1;
+        T acc = 0.0;
+        while (head < post_pad) { 
+            acc += delta[head*step]*y[head*step]/scale[head*step];
+            ++head;
+        }
+        while (head < kernel_size) {
+            acc += delta[head*step]*y[head*step]/scale[head*step];
+            prev_delta[(head-post_pad)*step] = delta[(head-post_pad)*step] * pow(scale[(head-post_pad)*step], negtive_beta) - cache_ratio * x[(head-post_pad)*step] * acc;
+            ++head;
+        }
+        while (head < c) {
+            acc += delta[head*step]*y[head*step]/scale[head*step];
+            acc -= delta[(head-kernel_size)*step]*y[(head-kernel_size)*step]/scale[(head-kernel_size)*step];
+            prev_delta[(head-post_pad)*step] = delta[(head-post_pad)*step] * pow(scale[(head-post_pad)*step], negtive_beta) - cache_ratio * x[(head-post_pad)*step] * acc;
+            ++head;
+        }
+        while (head < c + post_pad) {
+            acc -= delta[(head-kernel_size)*step]*y[(head-kernel_size)*step]/scale[(head-kernel_size)*step];
+            prev_delta[(head-post_pad)*step] = delta[(head-post_pad)*step] * pow(scale[(head-post_pad)*step], negtive_beta) - cache_ratio * x[(head-post_pad)*step] * acc;
+            ++head;
+        }
+    }
+}
+
 #endif //DISABLE_GPU
 #endif //KERNELS_CUH

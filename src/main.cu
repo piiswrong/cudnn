@@ -43,11 +43,13 @@ int main(int argc, char **argv) {
     DOption opt;
     opt.num_layers = 2;
     opt.hidden_dim = 1023;
-    opt.input_dim = 10, opt.output_dim = 255;
-    opt.net_spec = "C96,7,3 P3,2 C256,4,2 P3,2 F2047 F255";
+    opt.input_dim = 10, opt.output_dim = 2;
+    //opt.net_spec = "C96,7,3 P3,2 C256,5,2 P3,2 F255";
+    opt.net_spec = "C96,11,4,0 P3,2 L C256,5,2,2 P3,2 L C384,3,1,1 C384,3,1,1 C256,3,1,1 P3,2 F4096 F4096 F2";
+    opt.data_spec_path = "../data/imagenet";
     opt.neuron = "ReLU";
     opt.pt_epochs = 0.0;
-    opt.bp_epochs = 20;
+    opt.bp_epochs = 1;
     opt.pt_hyper_params.idrop_out = false;
     opt.pt_hyper_params.idrop_rate = 0.2;
     opt.pt_hyper_params.hdrop_out = false;
@@ -56,7 +58,7 @@ int main(int argc, char **argv) {
     opt.pt_hyper_params.momentum = 0.90;
     opt.pt_hyper_params.learning_rate = 0.01;
 
-    opt.bp_hyper_params.check_interval = 500;
+    opt.bp_hyper_params.check_interval = 128;
     opt.bp_hyper_params.learning_rate = 0.1;
     opt.bp_hyper_params.learning_rate_decay = 0.00000;
     opt.bp_hyper_params.idrop_out = false;
@@ -148,7 +150,6 @@ int main(int argc, char **argv) {
     for (int i = 0; i < opt.num_layers-1; i++) {
         neurons[i] = DNeuron<float>::MakeNeuron(opt.neuron, handle);
     }
-    neurons[opt.num_layers-1] = new DSoftmaxNeuron<float>(opt.bp_hyper_params.batch_size, handle);
 #ifdef ADMM
     DParallelMnistData<float> *data = new DParallelMnistData<float>("../data", mpi_world_size, mpi_world_rank, opt.bp_hyper_params.batch_size, dnn->handle());
     data->set_devId(opt.devId);
@@ -165,7 +166,7 @@ int main(int argc, char **argv) {
     //DData<float> *data = new DPatchData<float>("/projects/grail/jxie/paris/", input_dim, 10000, false, handle);
     DData<float> *data;
     if (opt.count("data")) {
-        data = new DGeneralData<float,float,int>(opt.data_spec, opt.bp_hyper_params.batch_size*100, false, false, handle);
+        data = new DGeneralData<float,float,int>(opt.data_spec, opt.bp_hyper_params.batch_size*10, false, false, handle);
     }else {
         data = new DPatchData<float>("../data/", opt.input_dim, 2000, false, handle);
         //data = new DRankData<float>("../data/", input_dim, 64, false, handle);
@@ -177,7 +178,9 @@ int main(int argc, char **argv) {
     //neurons[num_layers-1] = new DTanhNeuron<float>(handle);
     //neurons[num_layers-1] = new DGMMNeuron<float>(&opt.bp_hyper_params, 256, output_dim, 0.1, handle);
     //DvMFNeuron<float> *last_neuron = new DvMFNeuron<float>(&opt.bp_hyper_params, 32, output_dim, 0.2, handle);
-    DClusterNeuron2<float> *last_neuron = new DClusterNeuron2<float>(&opt.bp_hyper_params, 255, opt.output_dim, 0.8, 100.0, handle);
+    //DClusterNeuron2<float> *last_neuron = new DClusterNeuron2<float>(&opt.bp_hyper_params, 255, opt.output_dim, 0.8, 50.0, handle);
+    //DNeuron<float> *last_neuron = new DNeuron<float>(handle);
+    DNeuron<float> *last_neuron = new DSoftmaxNeuron<float>(opt.bp_hyper_params.batch_size, handle);
     neurons[opt.num_layers-1] =  last_neuron;
     //last_neuron->init(data);
     //neurons[num_layers-1] = last_neuron;
@@ -192,9 +195,9 @@ int main(int argc, char **argv) {
         return !dnn->createGradCheck(data);
     }
 
-    DKmeans<float> *kmeans = new DKmeans<float>(dnn, data, opt.bp_hyper_params.batch_size, last_neuron->centers(), last_neuron->mask(), last_neuron->min_dist(), handle);
+    //DKmeans<float> *kmeans = new DKmeans<float>(dnn, data, opt.bp_hyper_params.batch_size, last_neuron->centers(), last_neuron->mask(), last_neuron->min_dist(), handle);
 
-    //kmeans->cluster();
+   // kmeans->cluster();
 
     
     if (opt.resuming == -1 && opt.pt_epochs > 0) {

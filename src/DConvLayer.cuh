@@ -37,7 +37,7 @@ public:
         }
     };
 
-    DConvLayer(DDim4 input_dim, int num_output, int kernel_size, int stride, DNeuron<T> *neuron, cublasHandle_t handle, cudnnHandle_t cudnn_handle) {
+    DConvLayer(DDim4 input_dim, int num_output, int kernel_size, int stride, int pad, DNeuron<T> *neuron, cublasHandle_t handle, cudnnHandle_t cudnn_handle) {
         _neuron = neuron;
         _handle = handle;
         _cudnn_handle = cudnn_handle;
@@ -68,7 +68,7 @@ public:
         _grad_bias = new DMatrix<T>(num_output, 1, _handle);
 
         CUDNN_CALL(cudnnCreateConvolutionDescriptor(&_conv_desc));
-        CUDNN_CALL(cudnnSetConvolutionDescriptor(_conv_desc, _input_desc, _filter_desc, 0, 0, stride, stride, 1, 1, CUDNN_CONVOLUTION));
+        CUDNN_CALL(cudnnSetConvolutionDescriptor(_conv_desc, _input_desc, _filter_desc, pad, pad, stride, stride, 1, 1, CUDNN_CONVOLUTION));
 
         DDim4 &od = _output_dim;
         CUDNN_CALL(cudnnGetOutputTensor4dDim(_conv_desc, CUDNN_CONVOLUTION_FWD, &od.n, &od.c, &od.h, &od.w));
@@ -92,17 +92,26 @@ public:
     virtual DMatrix<T> *delta() { return _delta; }
     virtual DNeuron<T> *neuron() { return _neuron; }
 
+    virtual void samplePrint(const char *cap) { _filter->samplePrint(cap); }
+
     virtual void clearMomentum() {
         _mom_bias->init(DMatrix<T>::Zero);
         _mom_filter->init(DMatrix<T>::Zero);
     }
-    
+
+    virtual void regParams(std::vector<DMatrix<T>*> &X, std::vector<DMatrix<T>*> &dX) {
+        X.push_back(_bias);
+        X.push_back(_filter);
+        dX.push_back(_mom_bias);
+        dX.push_back(_mom_filter);
+        _neuron->regParams(X, dX);
+    }
+
     virtual void fprop(DMatrix<T>* dev_data, bool drop_out, float drop_rate) {
         const T alpha = 1.0; 
         CUDNN_CALL(cudnnConvolutionForward(_cudnn_handle, _input_desc, dev_data->dev_data(), _filter_desc, _filter->dev_data(), _conv_desc, _output_desc, _drv->dev_data(), CUDNN_RESULT_NO_ACCUMULATE));
         CUDNN_CALL(cudnnAddTensor4d(_cudnn_handle, CUDNN_ADD_SAME_C, &alpha, _bias_desc, _bias->dev_data(), _output_desc, _drv->dev_data()));
         _neuron->fprop(_act, _drv);
-        _act->samplePrint("conv");
     }
 
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, float rate, float mom, bool drop_out, bool decay, float decay_rate, bool rectify_weight, bool rectify_bias) {
