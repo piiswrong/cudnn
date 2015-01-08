@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     opt.hidden_dim = 1023;
     opt.input_dim = 10, opt.output_dim = 2;
     //opt.net_spec = "C96,7,3 P3,2 C256,5,2 P3,2 F255";
-    opt.net_spec = "C96,11,4,0 P3,2 C256,5,2,2 P3,2 C384,3,1,1 C384,3,1,1 C256,3,1,1 P3,2 F4096 F4096 F2";
+    opt.net_spec = "C96,11,4,0 P3,2 L C256,5,2,2 P3,2 L C384,3,1,1 C384,3,1,1 C256,3,1,1 P3,2 F4096 F4096 F2";
     opt.data_spec_path = "../data/imagenet";
     opt.neuron = "ReLU";
     opt.pt_epochs = 0.0;
@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
     opt.pt_hyper_params.momentum = 0.90;
     opt.pt_hyper_params.learning_rate = 0.01;
 
-    opt.bp_hyper_params.check_interval = 1000;
+    opt.bp_hyper_params.check_interval = 128;
     opt.bp_hyper_params.learning_rate = 0.1;
     opt.bp_hyper_params.learning_rate_decay = 0.00000;
     opt.bp_hyper_params.idrop_out = false;

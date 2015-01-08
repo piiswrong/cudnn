@@ -92,6 +92,8 @@ public:
     virtual DMatrix<T> *delta() { return _delta; }
     virtual DNeuron<T> *neuron() { return _neuron; }
 
+    virtual void samplePrint(const char *cap) { _filter->samplePrint(cap); }
+
     virtual void clearMomentum() {
         _mom_bias->init(DMatrix<T>::Zero);
         _mom_filter->init(DMatrix<T>::Zero);

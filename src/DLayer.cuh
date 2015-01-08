@@ -25,6 +25,7 @@ public:
     virtual void fprop(DMatrix<T>* dev_data, bool drop_out, float drop_rate) = 0; 
     virtual void bprop(DMatrix<T>* delta, DMatrix<T>* pre_act, float rate, float mom, bool drop_out, bool decay, float decay_rate, bool rectify_weight, bool rectify_bias) = 0; 
 
+    virtual void samplePrint(const char *cap) {}
     virtual void scaleWeight(float scale) {}
     virtual void regParams(std::vector<DMatrix<T>*> &X, std::vector<DMatrix<T>*> &dX) {}
     void save(FILE *fout) {}

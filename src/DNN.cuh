@@ -8,6 +8,7 @@
 #include <DFullLayer.cuh>
 #include <DConvLayer.cuh>
 #include <DPoolLayer.cuh>
+#include <DLRNLayer.cuh>
 #include <DOperators.cuh>
 #include <DHyperParams.h>
 
@@ -93,6 +94,9 @@ public:
                 break;
             case 'P':
                 _layers[i] = new DPoolLayer<T>(input_dim, iparams[0], iparams[1], _handle, cudnn_handle); 
+                break;
+            case 'L':
+                _layers[i] = new DLRNLayer<T>(input_dim, 1.0, 5.0, 5, _handle);
                 break;
             default:
                 std::cout << "Invalid layer type " << s[0] << std::endl;
@@ -346,7 +350,8 @@ public:
                 //_layers[_num_layers-1]->act()->samplePrint("top act");
                 y->samplePrint("y");
                 //x->samplePrint("x");
-                //_layers[0]->weight()->samplePrint("weight");
+                _layers[_num_layers-1]->samplePrint("top weight");
+                _layers[0]->samplePrint("bottom weight");
                 printf("\nEpoch: %d\tInstance: %d\tError: %f\n", nEpoch, nInstance%iperEpoch, (float)(error/lastCheck));
                 LOG(VERBOSE_MINIMAL, fprintf(flog, "%f %d\n", (float)(error/lastCheck), nInstance));
                 printf("rate:%lf\n", _bp_hyper_params->current_learning_rate);
