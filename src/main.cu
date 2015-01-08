@@ -177,7 +177,7 @@ int main(int argc, char **argv) {
     //neurons[num_layers-1] = new DTanhNeuron<float>(handle);
     //neurons[num_layers-1] = new DGMMNeuron<float>(&opt.bp_hyper_params, 256, output_dim, 0.1, handle);
     //DvMFNeuron<float> *last_neuron = new DvMFNeuron<float>(&opt.bp_hyper_params, 32, output_dim, 0.2, handle);
-    DClusterNeuron2<float> *last_neuron = new DClusterNeuron2<float>(&opt.bp_hyper_params, 255, opt.output_dim, 0.8, 10.0, handle);
+    DClusterNeuron2<float> *last_neuron = new DClusterNeuron2<float>(&opt.bp_hyper_params, 255, opt.output_dim, 0.8, 100.0, handle);
     neurons[opt.num_layers-1] =  last_neuron;
     //last_neuron->init(data);
     //neurons[num_layers-1] = last_neuron;
